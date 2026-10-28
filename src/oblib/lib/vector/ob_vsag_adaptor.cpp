@@ -581,8 +581,9 @@ static int ob_cuvs_deserialize_v3(void *key, int expected_dim, std::istream &in)
         ent->built_n_ = n;
         ent->ids_ = ent->buf_ids_;
         ob_cuvs_install(key, ent);
+        const uint64_t graph_bytes = graph.size() * sizeof(unsigned);
         LOG_INFO("[OBVSAG][cuVS] deserialized GPU CAGRA snapshot", KP(key), K(n64), K(dim32),
-                 K(degree32), "cost_us", ObTimeUtility::current_time() - start_us);
+                 K(degree32), K(graph_bytes), "cost_us", ObTimeUtility::current_time() - start_us);
       }
     }
   }
