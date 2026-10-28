@@ -78,6 +78,23 @@ loads in 0.58 s and serves the same recall. 256-d end to end: NYTimes 21.3 s,
 0.9966/0.9837; `spec250` 18.6 s, 0.9794/0.9470. Filtered queries, inserted and
 deleted rows still fall back correctly, and `lib=vsag` indexes are unchanged.
 
+## Measurements on AMD (Radeon Cloud, Radeon PRO W7900-class gfx1100, ROCm 7.2.4, /opt/hipvs)
+
+Bridge compiled with `hipcc` exactly as `tools/hipvs_bridge/build.sh` does.
+This shared instance is slower than the official evaluation host, so only the
+ratios are meaningful.
+
+| Bridge-level, 250K | Baseline build | New build | Speed-up | Baseline R@10/R@100 | New R@10/R@100 |
+| --- | ---: | ---: | ---: | --- | --- |
+| SIFT 128-d | 42.6 s | 24.2 s | 1.76x | 1.000/1.000 | 1.000/1.000 |
+| NYTimes 256-d | 44.1 s | 25.4 s | 1.74x | 0.9960/0.9834 | 0.9970/0.9848 |
+
+End to end with this branch's seekdb and the hipcc bridge (SIFT250K, nq=4096):
+`CREATE VECTOR INDEX` + first query 30.1 s (graph build 24.3 s; the 3.7 s
+warm-up finished before the build needed the GPU), Top-10 144 QPS / recall
+1.000, Top-100 137 QPS / recall 1.000, no bad rows. After an observer restart
+the `OBCUVS03` snapshot loaded in 0.31 s with the same recall.
+
 ## Reproducing
 
 ```bash
