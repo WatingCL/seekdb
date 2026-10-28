@@ -16,7 +16,21 @@ int main(int argc, char **argv)
     }
   }
   void *index = nullptr;
-  if (std::strcmp(argv[1], "write") == 0) {
+  if (std::strcmp(argv[1], "graph") == 0) {
+    // OBCUVS03 path: copy the graph out of a built index, rebuild from host data + graph.
+    if (seekdb_cuvs_warmup(dimension) != 0) return 8;
+    void *built = seekdb_cuvs_build(vectors.data(), count, dimension);
+    const long degree = built ? seekdb_cuvs_graph_degree(built) : -1;
+    if (degree <= 0) return 9;
+    std::vector<unsigned int> graph(count * degree);
+    if (seekdb_cuvs_copy_graph(built, graph.data()) != 0) return 10;
+    seekdb_cuvs_free(built);
+    for (unsigned int edge : graph) {
+      if (edge >= static_cast<unsigned int>(count)) return 11;
+    }
+    index = seekdb_cuvs_from_graph(vectors.data(), count, dimension, graph.data(), degree);
+    if (!index) return 12;
+  } else if (std::strcmp(argv[1], "write") == 0) {
     index = seekdb_cuvs_build(vectors.data(), count, dimension);
     if (!index || seekdb_cuvs_serialize(index, argv[2]) != 0) return 3;
   } else {

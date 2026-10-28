@@ -3549,6 +3549,9 @@ int ObVectorIndexUtil::check_index_param(
           ret = OB_NOT_SUPPORTED;
           LOG_WARN("lib=cuvs only supports distance=l2", K(ret), K(distance_name));
           LOG_USER_ERROR(OB_NOT_SUPPORTED, "lib=cuvs only supports distance=l2");
+        } else if (lib_is_set && lib_name == "CUVS") {
+          // Start GPU runtime start-up now so it overlaps the rest of the DDL.
+          oceanbase::common::obvsag::prewarm_cuvs(vector_dim);
         }
         if (OB_FAIL(ret)) {
         } else if (ef_construction_value <= m_value) {

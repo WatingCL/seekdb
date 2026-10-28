@@ -25,6 +25,22 @@ int   seekdb_cuvs_search(void* handle, const float* query, long nq, long topk,
 void  seekdb_cuvs_free(void* handle);
 int seekdb_cuvs_serialize(void* handle, const char* filename);
 void* seekdb_cuvs_deserialize(const char* filename, long n, long dim);
+
+/* Graph-only persistence: the caller already stores the vectors, so a snapshot
+ * only needs the CAGRA graph (n x degree uint32 row offsets).
+ *  - seekdb_cuvs_graph_degree: graph degree of a built handle, or -1.
+ *  - seekdb_cuvs_copy_graph: copies the graph to host memory out_graph[n*degree].
+ *  - seekdb_cuvs_from_graph: rebuilds a searchable handle from host vectors and
+ *    a graph produced by seekdb_cuvs_copy_graph; both inputs may be freed after
+ *    it returns. */
+long  seekdb_cuvs_graph_degree(void* handle);
+int   seekdb_cuvs_copy_graph(void* handle, unsigned int* out_graph);
+void* seekdb_cuvs_from_graph(const float* base, long n, long dim,
+                             const unsigned int* graph, long degree);
+
+/* Initialises the GPU runtime and loads the CAGRA build/search kernels for
+ * `dim`-wide data on a tiny synthetic set. Returns 0 on success. */
+int   seekdb_cuvs_warmup(long dim);
 #ifdef __cplusplus
 }
 #endif
