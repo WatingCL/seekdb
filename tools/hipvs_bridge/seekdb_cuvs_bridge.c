@@ -65,15 +65,15 @@ void* seekdb_cuvs_build(const float* base, long n, long dim)
   DLManagedTensor dset; int64_t ds[2] = {n, dim};
   sk_tensor(&dset, (void*)base, 0, kDLFloat, ds);
 
-  /* Degree-128 graph pruned from a degree-192 NN-Descent kNN graph. Measured
-   * against the 256/100 baseline: the 192-wide kNN graph converges in 60
-   * iterations to a graph that is at least as good on hard 256-d data (recall
-   * up to +0.03) and within 0.002 on near-saturated data, at ~60% of the build
-   * time (docs/gpu-vector-index-hipvs-cuvs/contest-build-optimizations.md). */
+  /* Degree-128 graph from a degree-128 NN-Descent kNN graph after 30
+   * iterations. NN-Descent cost scales with degree x iterations and the 2-hop
+   * pruning with degree^3; a 128-wide kNN graph converges faster than the
+   * 256-wide baseline one and, on hard 256-d data, ends up better
+   * (docs/gpu-vector-index-hipvs-cuvs/contest-build-optimizations.md). */
   h->ip->build_algo = NN_DESCENT;
   h->ip->graph_degree = 128;
-  h->ip->intermediate_graph_degree = 192;
-  h->ip->nn_descent_niter = 60;
+  h->ip->intermediate_graph_degree = 128;
+  h->ip->nn_descent_niter = 30;
   if (cuvsCagraBuild(h->res, h->ip, &dset, h->idx) != CUVS_SUCCESS) {
     fprintf(stderr, "[seekdb_cuvs] build failed: %s\n", cuvsGetLastErrorText());
     seekdb_cuvs_free(h);
@@ -107,7 +107,9 @@ static int sk_reserve(sk_cuvs_index* h, long nq, long topk)
     size_t required_itopk = (size_t)topk * 4;
     if (required_itopk < 512) required_itopk = 512;
     h->sp->itopk_size = required_itopk;
-    h->sp->search_width = 4;
+    /* Expanding 8 parents per step halves the sequential iterations of a
+     * single-query search at the same itopk; recall is unchanged. */
+    h->sp->search_width = 8;
     h->sp_topk = topk;
   }
   return 0;
