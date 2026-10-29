@@ -2,6 +2,7 @@
 #include "seekdb_cuvs_bridge.h"
 #include <cuvs/core/c_api.h>
 #include <cuvs/neighbors/cagra.h>
+#include <cuvs/neighbors/nn_descent.h>
 #include <dlpack/dlpack.h>
 #ifdef __HIP_PLATFORM_AMD__
 #include <cuvs/cuda_runtime.h>
@@ -9,6 +10,7 @@
 #include <cuda_runtime.h>
 #endif
 #include <pthread.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,7 +28,16 @@ typedef struct {
   unsigned* n_dev;  float* d_dev;  size_t r_cap;
   cuvsCagraSearchParams_t sp;
   long sp_topk;
+  /* Device dataset and graph a device-built index refers to (not owned by cuVS). */
+  float*    data_dev;
+  unsigned* graph_dev;
 } sk_cuvs_index;
+
+/* seekdb_cuvs_graph.cu */
+int seekdb_cuvs_optimize_graph(void* stream, const float* d_data, long n, long dim,
+                               unsigned int* d_knn, long k_deg, unsigned int* d_out, long out_deg);
+
+enum { SK_GRAPH_DEGREE = 128, SK_KNN_DEGREE = 128, SK_NND_ITERS = 30 };
 
 static void sk_tensor(DLManagedTensor* t, void* data, int on_device, uint8_t code,
                       int64_t* shape)
@@ -58,10 +69,65 @@ static sk_cuvs_index* sk_alloc(void)
   return h;
 }
 
+/* NN-Descent kNN graph, then the CAGRA graph optimisation on the device
+ * (seekdb_cuvs_graph.cu), then an index over the device dataset and graph.
+ * Same graph construction as cuvsCagraBuild(NN_DESCENT) without its host round
+ * trips and O(d^3) detour counting. Returns 0 on success. */
+static int sk_build_device(sk_cuvs_index* h, const float* base, long n, long dim)
+{
+  cudaStream_t st;
+  if (cuvsStreamGet(h->res, &st) != CUVS_SUCCESS) return 1;
+  cuvsNNDescentIndexParams_t np = NULL;
+  cuvsNNDescentIndex_t ni = NULL;
+  unsigned* knn_dev = NULL;
+  int rc = 0;
+  DLManagedTensor dset; int64_t ds[2] = {n, dim};
+  sk_tensor(&dset, (void*)base, 0, kDLFloat, ds);
+  if (cuvsNNDescentIndexParamsCreate(&np) != CUVS_SUCCESS) { np = NULL; rc = 2; goto out; }
+  np->metric = L2Expanded;
+  np->graph_degree = SK_KNN_DEGREE;
+  np->intermediate_graph_degree = SK_KNN_DEGREE * 3 / 2;  /* what cuvsCagraBuild passes */
+  np->max_iterations = SK_NND_ITERS;
+  np->return_distances = false;
+  if (cuvsNNDescentIndexCreate(&ni) != CUVS_SUCCESS) { ni = NULL; rc = 3; goto out; }
+  if (cuvsNNDescentBuild(h->res, np, &dset, NULL, ni) != CUVS_SUCCESS) { rc = 4; goto out; }
+  if (cudaMalloc((void**)&h->data_dev, sizeof(float) * n * dim) != cudaSuccess) { h->data_dev = NULL; rc = 5; goto out; }
+  if (cudaMalloc((void**)&knn_dev, sizeof(unsigned) * n * SK_KNN_DEGREE) != cudaSuccess) { knn_dev = NULL; rc = 6; goto out; }
+  if (cudaMalloc((void**)&h->graph_dev, sizeof(unsigned) * n * SK_GRAPH_DEGREE) != cudaSuccess) { h->graph_dev = NULL; rc = 7; goto out; }
+  if (cudaMemcpyAsync(h->data_dev, base, sizeof(float) * n * dim, cudaMemcpyDefault, st) != cudaSuccess) { rc = 8; goto out; }
+  {
+    DLManagedTensor kt; int64_t ks[2] = {n, SK_KNN_DEGREE};
+    sk_tensor(&kt, knn_dev, 1, kDLUInt, ks);
+    if (cuvsNNDescentIndexGetGraph(h->res, ni, &kt) != CUVS_SUCCESS) { rc = 9; goto out; }
+  }
+  cuvsNNDescentIndexDestroy(ni); ni = NULL;
+  if ((rc = seekdb_cuvs_optimize_graph((void*)st, h->data_dev, n, dim, knn_dev, SK_KNN_DEGREE,
+                                       h->graph_dev, SK_GRAPH_DEGREE)) != 0) { rc += 10; goto out; }
+  cudaFree(knn_dev); knn_dev = NULL;
+  {
+    DLManagedTensor dt, gt; int64_t gs[2] = {n, SK_GRAPH_DEGREE};
+    sk_tensor(&dt, h->data_dev, 1, kDLFloat, ds);
+    sk_tensor(&gt, h->graph_dev, 1, kDLUInt, gs);
+    if (cuvsCagraIndexFromArgs(h->res, L2Expanded, &gt, &dt, h->idx) != CUVS_SUCCESS ||
+        cuvsStreamSync(h->res) != CUVS_SUCCESS) { rc = 30; goto out; }
+  }
+out:
+  if (rc) fprintf(stderr, "[seekdb_cuvs] device graph build rc=%d: %s\n", rc, cuvsGetLastErrorText());
+  if (ni) cuvsNNDescentIndexDestroy(ni);
+  if (np) cuvsNNDescentIndexParamsDestroy(np);
+  if (knn_dev) cudaFree(knn_dev);
+  return rc;
+}
+
 void* seekdb_cuvs_build(const float* base, long n, long dim)
 {
   sk_cuvs_index* h = sk_alloc();
   if (!h) return NULL;
+  if (n >= 4 * SK_KNN_DEGREE && !getenv("SEEKDB_CUVS_LIBRARY_BUILD")) {
+    if (sk_build_device(h, base, n, dim) == 0) { h->n = n; h->dim = dim; return h; }
+    seekdb_cuvs_free(h);  /* fall back to the library build on a fresh handle */
+    if (!(h = sk_alloc())) return NULL;
+  }
   DLManagedTensor dset; int64_t ds[2] = {n, dim};
   sk_tensor(&dset, (void*)base, 0, kDLFloat, ds);
 
@@ -71,9 +137,9 @@ void* seekdb_cuvs_build(const float* base, long n, long dim)
    * 256-wide baseline one and, on hard 256-d data, ends up better
    * (docs/gpu-vector-index-hipvs-cuvs/contest-build-optimizations.md). */
   h->ip->build_algo = NN_DESCENT;
-  h->ip->graph_degree = 128;
-  h->ip->intermediate_graph_degree = 128;
-  h->ip->nn_descent_niter = 30;
+  h->ip->graph_degree = SK_GRAPH_DEGREE;
+  h->ip->intermediate_graph_degree = SK_KNN_DEGREE;
+  h->ip->nn_descent_niter = SK_NND_ITERS;
   if (cuvsCagraBuild(h->res, h->ip, &dset, h->idx) != CUVS_SUCCESS) {
     fprintf(stderr, "[seekdb_cuvs] build failed: %s\n", cuvsGetLastErrorText());
     seekdb_cuvs_free(h);
@@ -148,6 +214,8 @@ void seekdb_cuvs_free(void* handle)
   if (h->d_dev) cuvsRMMFree(h->res, h->d_dev, sizeof(float) * h->r_cap);
   if (h->sp) cuvsCagraSearchParamsDestroy(h->sp);
   cuvsCagraIndexDestroy(h->idx);
+  if (h->graph_dev) cudaFree(h->graph_dev);
+  if (h->data_dev) cudaFree(h->data_dev);
   cuvsCagraIndexParamsDestroy(h->ip);
   cuvsResourcesDestroy(h->res);
   pthread_mutex_destroy(&h->mu);
