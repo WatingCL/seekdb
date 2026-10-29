@@ -39,6 +39,12 @@
 #include "lib/file/ob_string_util.h"
 #include "share/object/ob_array_cast.h"
 #include "sql/engine/expr/ob_expr_ai/ob_ai_func_utils.h"
+#include "share/ob_server_struct.h"
+#include "common/mysqlclient/ob_mysql_proxy.h"
+#include "share/ob_lob_access_utils.h"
+#include "lib/vector/ob_vsag_adaptor.h"
+#include <algorithm>
+#include <vector>
 
 namespace oceanbase
 {
@@ -2693,6 +2699,66 @@ int ObVectorIndexUtil::get_vector_index_tid_with_index_prefix(
   return ret;
 }
 
+// lib=cuvs on a populated table: read the indexed vectors now and start the GPU
+// graph build in the background, so it overlaps the auxiliary-table builds of the
+// DDL. The vector index build adopts it only if it is fed the very same vectors
+// (see prebuild_cuvs); otherwise it builds as usual. Failures here only cost the
+// overlap, never the DDL.
+static void cuvs_prebuild_from_table(const ObTableSchema &tbl_schema, const ObString &col_name,
+                                     const ObString &index_params, const int64_t dim,
+                                     sql::ObSQLSessionInfo *session_info)
+{
+  int ret = OB_SUCCESS;
+  std::string params(index_params.ptr(), index_params.length());
+  params.erase(std::remove(params.begin(), params.end(), ' '), params.end());
+  if (dim <= 0 || OB_ISNULL(session_info) || OB_ISNULL(GCTX.sql_proxy_) ||
+      params.find("LIB=CUVS") == std::string::npos) {
+    return;
+  }
+  const ObString db = session_info->get_database_name();
+  const ObString tbl = tbl_schema.get_table_name_str();
+  if (db.empty() || tbl.empty() || col_name.empty()) { return; }
+  const int64_t start_us = ObTimeUtility::current_time();
+  const size_t row_bytes = sizeof(float) * static_cast<size_t>(dim);
+  std::vector<float> vecs;
+  int64_t n = 0;
+  ObArenaAllocator tmp_alloc;
+  SMART_VAR(ObMySQLProxy::MySQLResult, res) {
+    ObSqlString sql;
+    sqlclient::ObMySQLResult *result = nullptr;
+    if (OB_FAIL(sql.assign_fmt("SELECT `%.*s` FROM `%.*s`.`%.*s`", col_name.length(), col_name.ptr(),
+                               db.length(), db.ptr(), tbl.length(), tbl.ptr()))) {
+    } else if (OB_FAIL(GCTX.sql_proxy_->read(res, sql.ptr()))) {
+    } else if (OB_ISNULL(result = res.get_result())) {
+      ret = OB_ERR_UNEXPECTED;
+    } else {
+      while (OB_SUCC(ret) && OB_SUCC(result->next())) {
+        ObObj obj;
+        ObString vs;
+        if (OB_FAIL(result->get_obj(static_cast<int64_t>(0), obj))) {
+        } else if (obj.is_null()) {
+          ret = OB_ERR_NULL_VALUE;
+        } else if (FALSE_IT(vs = obj.get_string())) {
+        } else if (obj.has_lob_header() && OB_FAIL(lob_helper::read_real_string_data(&tmp_alloc, obj, vs, NULL))) {
+        } else if (static_cast<size_t>(vs.length()) != row_bytes) {
+          ret = OB_INVALID_DATA;
+        } else {
+          const float *f = reinterpret_cast<const float *>(vs.ptr());
+          vecs.insert(vecs.end(), f, f + dim);
+          ++n;
+        }
+        tmp_alloc.reuse();
+      }
+      if (OB_ITER_END == ret) { ret = OB_SUCCESS; }
+    }
+  }
+  const int64_t read_us = ObTimeUtility::current_time() - start_us;
+  if (OB_SUCC(ret) && n > 0) {
+    obvsag::prebuild_cuvs(vecs, n, dim);
+  }
+  LOG_INFO("[OBVSAG][cuVS] early GPU build requested", K(ret), K(n), K(dim), K(read_us));
+}
+
 int ObVectorIndexUtil::check_vec_index_param(const ParseNode *option_node,
     common::ObIAllocator &allocator, const ObTableSchema &tbl_schema,
     ObString &index_params, ObString &vec_column_name, ObIndexType &vec_index_type, sql::ObSQLSessionInfo *session_info)
@@ -2755,6 +2821,8 @@ int ObVectorIndexUtil::check_vec_index_param(const ParseNode *option_node,
         }
       } else if (share::schema::is_vec_spiv_index(vec_index_type)) {
         // do nothing
+      } else if (!is_text_col && !is_sparse_vec_col) {
+        cuvs_prebuild_from_table(tbl_schema, vec_column_name, index_params, vector_dim, session_info);
       }
     }
   }

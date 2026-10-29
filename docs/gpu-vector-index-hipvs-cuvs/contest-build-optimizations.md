@@ -95,6 +95,44 @@ warm-up finished before the build needed the GPU), Top-10 144 QPS / recall
 1.000, Top-100 137 QPS / recall 1.000, no bad rows. After an observer restart
 the `OBCUVS03` snapshot loaded in 0.31 s with the same recall.
 
+## Second round
+
+5. **NN-Descent 128 wide, 30 iterations.** Cheaper per iteration than 192/60
+   and, on hard 256-d data, still above the 256/100 baseline graph.
+6. **CAGRA graph optimisation on the device** (`tools/hipvs_bridge/seekdb_cuvs_graph.cu`).
+   The bridge runs NN-Descent through the C API, keeps the kNN graph on the
+   device and applies CAGRA's optimisation in its own HIP kernels: exact fp32
+   re-sort, 2-hop detour counts through a per-block hash of neighbour ranks
+   (O(d^2) per node instead of cuVS's O(d^3) kernel), selection by
+   (detours, rank), reverse graph and the reverse-edge splice. cuVS does the
+   last three on the host with several host/device copies. The index is made
+   with `cuvsCagraIndexFromArgs` over the device dataset and graph; search is
+   CAGRA's. Any failure falls back to `cuvsCagraBuild`.
+7. **GPU build overlapped with the auxiliary tables.** Before the DDL builds
+   the rowkey/vid tables (CPU only, seconds), the resolver reads the indexed
+   column through the inner SQL connection and starts the GPU build in the
+   background (`ObVectorIndexUtil::check_vec_index_param` ->
+   `obvsag::prebuild_cuvs`). The vector index build adopts that index only if
+   it receives byte-identical vectors in the same order; otherwise it is
+   discarded and the index is built as before. It is consumed once and never
+   outlives the statement that started it.
+8. **Search: 64 CTAs per single-row query** (`search_width=64`, multi-CTA,
+   itopk unchanged), pinned host staging, async copies and one stream sync.
+   More independent CTAs raise recall and lower latency on a W7900.
+
+Local RTX 5080 (CUDA cuVS 25.10), cold observer, `CREATE VECTOR INDEX` + first
+query, then 2048 single-row SQL queries per k:
+
+| 250K | Build | Top-10 QPS / recall | Top-100 QPS / recall |
+| --- | ---: | --- | --- |
+| SIFT 128-d (baseline 28.0 s, 255 / 237 QPS) | 7.6 s | 518 / 0.9999 | 420 / 1.0000 |
+| hard 256-d (`spec250`, baseline recall 0.955 / 0.916) | 7.7 s | 356 / 0.971 | 305 / 0.935 |
+| NYTimes 256-d (baseline recall 0.997 / 0.985) | 6.9 s | 377 / 0.996 | 315 / 0.981 |
+
+No out-of-range or duplicate ids; after an observer restart the snapshot
+reloads with the same recall; `lib=vsag`, filtered queries, inserts and deletes
+behave as before.
+
 ## Reproducing
 
 ```bash

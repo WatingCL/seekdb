@@ -194,6 +194,89 @@ static void ob_cuvs_wait_prewarm() {
              K(g_ob_cuvs_warm_us), "waited_us", ObTimeUtility::current_time() - start_us);
   }
 }
+// CREATE VECTOR INDEX on a populated table first builds the rowkey/vid auxiliary
+// tables on the CPU and only then feeds the vectors to the index build. The DDL
+// resolver reads the vectors up front (prebuild_cuvs) so the GPU graph build runs
+// during that phase. The index build adopts the result only when it receives the
+// very same vectors in the same order (byte comparison), so the index content is
+// what the regular build would produce; it is used at most once.
+struct ObCuvsPrebuild {
+  std::vector<float> vecs_;
+  long n_ = 0;
+  long dim_ = 0;
+  void *handle_ = nullptr;
+  bool running_ = false;
+  int64_t build_us_ = 0;
+};
+static std::mutex g_ob_cuvs_pre_mu;
+static std::condition_variable g_ob_cuvs_pre_cv;
+static ObCuvsPrebuild *g_ob_cuvs_pre = nullptr;
+static void *ob_cuvs_prebuild_job(void *arg) {
+  ObCuvsPrebuild *p = static_cast<ObCuvsPrebuild *>(arg);
+  ob_cuvs_wait_prewarm();
+  const int64_t start_us = ObTimeUtility::current_time();
+  void *h = seekdb_cuvs_build(p->vecs_.data(), p->n_, p->dim_);
+  {
+    std::lock_guard<std::mutex> guard(g_ob_cuvs_pre_mu);
+    p->handle_ = h;
+    p->build_us_ = ObTimeUtility::current_time() - start_us;
+    p->running_ = false;
+  }
+  g_ob_cuvs_pre_cv.notify_all();
+  return nullptr;
+}
+static void ob_cuvs_prebuild_async(std::vector<float> &vectors, long n, long dim) {
+  if (!ob_cuvs_enabled() || n <= 0 || dim <= 0 ||
+      vectors.size() != static_cast<size_t>(n) * static_cast<size_t>(dim)) { return; }
+  ob_cuvs_prewarm_async(dim);
+  ObCuvsPrebuild *stale = nullptr;
+  {
+    std::lock_guard<std::mutex> guard(g_ob_cuvs_pre_mu);
+    if (g_ob_cuvs_pre != nullptr && g_ob_cuvs_pre->running_) { return; }  // one at a time
+    stale = g_ob_cuvs_pre;
+    ObCuvsPrebuild *p = new ObCuvsPrebuild();
+    p->vecs_.swap(vectors);
+    p->n_ = n;
+    p->dim_ = dim;
+    p->running_ = true;
+    pthread_t tid; pthread_attr_t attr; pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, 32UL * 1024 * 1024);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    if (pthread_create(&tid, &attr, ob_cuvs_prebuild_job, p) == 0) {
+      g_ob_cuvs_pre = p;
+    } else {
+      vectors.swap(p->vecs_);
+      delete p;
+      g_ob_cuvs_pre = nullptr;
+    }
+    pthread_attr_destroy(&attr);
+  }
+  if (stale != nullptr) {
+    if (stale->handle_ != nullptr) { seekdb_cuvs_free(stale->handle_); }
+    delete stale;
+  }
+}
+// Returns the prebuilt handle when it was built over exactly base[n x dim], else
+// nullptr. The pending prebuild is consumed either way.
+static void *ob_cuvs_take_prebuilt(const float *base, long n, long dim) {
+  ObCuvsPrebuild *p = nullptr;
+  const int64_t start_us = ObTimeUtility::current_time();
+  {
+    std::unique_lock<std::mutex> lock(g_ob_cuvs_pre_mu);
+    p = g_ob_cuvs_pre;
+    if (p == nullptr || p->n_ != n || p->dim_ != dim) { return nullptr; }
+    g_ob_cuvs_pre_cv.wait(lock, [p] { return !p->running_; });
+    g_ob_cuvs_pre = nullptr;
+  }
+  void *h = p->handle_;
+  const bool same = (h != nullptr) &&
+      0 == memcmp(p->vecs_.data(), base, sizeof(float) * static_cast<size_t>(n) * dim);
+  LOG_INFO("[OBVSAG][cuVS] early GPU build", K(n), K(dim), K(same), "built", h != nullptr,
+           "build_us", p->build_us_, "waited_us", ObTimeUtility::current_time() - start_us);
+  if (!same && h != nullptr) { seekdb_cuvs_free(h); h = nullptr; }
+  delete p;
+  return h;
+}
 struct ObCuvsBuildJob {
   const float *base; long n; long dim; void *out;
 };
@@ -204,6 +287,7 @@ static void *ob_cuvs_build_job(void *arg) {
 }
 // cuVS overflows the small OB worker/DDL stack, so builds run on a 32MB pthread.
 static std::shared_ptr<void> ob_cuvs_build_big_stack(const float *base, long n, long dim) {
+  if (void *pre = ob_cuvs_take_prebuilt(base, n, dim)) { return ob_cuvs_wrap(pre); }
   ob_cuvs_wait_prewarm();
   ObCuvsBuildJob job{base, n, dim, nullptr};
   pthread_t tid; pthread_attr_t attr; pthread_attr_init(&attr);
@@ -2292,6 +2376,10 @@ void unmark_cuvs_index(void *key) {
   (void)key;
 #endif
 }
+void prebuild_cuvs(std::vector<float> &vectors, int64_t n, int64_t dim) {
+  ob_cuvs_prebuild_async(vectors, static_cast<long>(n), static_cast<long>(dim));
+}
+
 void prewarm_cuvs(int64_t dim) {
 #ifdef OB_BUILD_CUVS
   ob_cuvs_prewarm_async(static_cast<long>(dim));

@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <float.h>
 #include <string>
+#include <vector>
 
 namespace oceanbase {
 namespace common {
@@ -186,6 +187,11 @@ void unmark_cuvs_index(void *key);
 // Starts GPU runtime/kernel warm-up for dim-wide lib=cuvs indexes in the
 // background (once per process). No-op without OB_BUILD_CUVS.
 void prewarm_cuvs(int64_t dim);
+// Starts a GPU CAGRA build over the n x dim row-major `vectors` in the
+// background (takes their storage). The next lib=cuvs build that receives
+// exactly the same vectors in the same order adopts that index instead of
+// building again; any other build discards it. No-op without OB_BUILD_CUVS.
+void prebuild_cuvs(std::vector<float> &vectors, int64_t n, int64_t dim);
 
 } // namesapce obvsag
 } // namespace common
