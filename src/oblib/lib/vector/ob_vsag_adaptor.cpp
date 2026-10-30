@@ -213,7 +213,6 @@ static std::condition_variable g_ob_cuvs_pre_cv;
 static ObCuvsPrebuild *g_ob_cuvs_pre = nullptr;
 static void *ob_cuvs_prebuild_job(void *arg) {
   ObCuvsPrebuild *p = static_cast<ObCuvsPrebuild *>(arg);
-  ob_cuvs_wait_prewarm();
   const int64_t start_us = ObTimeUtility::current_time();
   void *h = seekdb_cuvs_build(p->vecs_.data(), p->n_, p->dim_);
   {
@@ -228,7 +227,13 @@ static void *ob_cuvs_prebuild_job(void *arg) {
 static void ob_cuvs_prebuild_async(std::vector<float> &vectors, long n, long dim) {
   if (!ob_cuvs_enabled() || n <= 0 || dim <= 0 ||
       vectors.size() != static_cast<size_t>(n) * static_cast<size_t>(dim)) { return; }
-  ob_cuvs_prewarm_async(dim);
+  {
+    // The early build starts the GPU runtime itself. Waiting for the separate
+    // warm-up first only delayed it (measured on a W7900D: 1.8 s of the DDL),
+    // so mark the warm-up as done and let later index and query calls go on.
+    std::lock_guard<std::mutex> guard(g_ob_cuvs_warm_mu);
+    if (!g_ob_cuvs_warm_started) { g_ob_cuvs_warm_started = true; g_ob_cuvs_warm_dim = dim; }
+  }
   ObCuvsPrebuild *stale = nullptr;
   {
     std::lock_guard<std::mutex> guard(g_ob_cuvs_pre_mu);

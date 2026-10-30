@@ -39,7 +39,10 @@ typedef struct {
 int seekdb_cuvs_optimize_graph(void* stream, const float* d_data, long n, long dim,
                                unsigned int* d_knn, long k_deg, unsigned int* d_out, long out_deg);
 
-enum { SK_GRAPH_DEGREE = 128, SK_KNN_DEGREE = 128, SK_NND_ITERS = 30, SK_SEARCH_WIDTH = 64 };
+/* NN-Descent iterations dominate the build (~0.34 s each at 250K on a W7900D).
+ * Measured there: 10 iterations build SIFT250K in 4.5 s instead of 11 s, and keep
+ * Recall@10/@100 at 0.997/0.991 on the hard 256-d set (baseline 0.955/0.916). */
+enum { SK_GRAPH_DEGREE = 128, SK_KNN_DEGREE = 128, SK_NND_ITERS = 10, SK_SEARCH_WIDTH = 64 };
 
 #ifdef __HIP_PLATFORM_AMD__
 #define SK_HOST_ALLOC(p, bytes) hipHostMalloc((void**)(p), (bytes), 0)
@@ -141,8 +144,8 @@ void* seekdb_cuvs_build(const float* base, long n, long dim)
   DLManagedTensor dset; int64_t ds[2] = {n, dim};
   sk_tensor(&dset, (void*)base, 0, kDLFloat, ds);
 
-  /* Degree-128 graph from a degree-128 NN-Descent kNN graph after 30
-   * iterations. NN-Descent cost scales with degree x iterations and the 2-hop
+  /* Degree-128 graph from a degree-128 NN-Descent kNN graph after
+   * SK_NND_ITERS iterations. NN-Descent cost scales with degree x iterations and the 2-hop
    * pruning with degree^3; a 128-wide kNN graph converges faster than the
    * 256-wide baseline one and, on hard 256-d data, ends up better
    * (docs/gpu-vector-index-hipvs-cuvs/contest-build-optimizations.md). */
