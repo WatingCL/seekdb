@@ -192,8 +192,11 @@ static int sk_reserve(sk_cuvs_index* h, long nq, long topk)
      * busy, finish sooner than 16 and return a higher recall. */
     h->sp_topk = topk;
   }
-  /* Large batches use the single-CTA kernel, whose buffers scale with the
-   * width; keep the baseline width there. */
+  /* Name the algorithm: left at its default, a single row runs the single-CTA
+   * kernel, whose shared memory at width 64 exceeds the 64 KB a W7900 block
+   * gets, so every search failed there. Large batches keep cuVS's own choice
+   * and the baseline width. */
+  h->sp->algo = nq <= 16 ? MULTI_CTA : AUTO;
   h->sp->search_width = nq <= 16 ? SK_SEARCH_WIDTH : 4;
   return 0;
 }
