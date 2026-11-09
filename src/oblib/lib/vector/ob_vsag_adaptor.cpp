@@ -176,6 +176,25 @@ static void ob_cuvs_add(void *key, const float *vectors, const int64_t *ids,
   if (slot == nullptr) { slot = new ObCuvsEntry(); slot->dim_ = dim; }
   if (slot->dim_ == 0) { slot->dim_ = dim; }
   if (slot->dim_ != dim) { return; }
+  // [AMD contest] Reserve in large blocks so a full-table offline build does
+  // not repeatedly realloc/copy a >100MB host buffer (std::vector growth is
+  // geometric but still copies ~2x the final size; block-rounded reserve keeps
+  // the number of big copies minimal). Semantics unchanged.
+  const size_t add_floats = static_cast<size_t>(dim) * static_cast<size_t>(size);
+  const size_t need_vecs = slot->buf_vecs_.size() + add_floats;
+  if (need_vecs > slot->buf_vecs_.capacity()) {
+    size_t cap = slot->buf_vecs_.capacity() * 2;
+    if (cap < need_vecs) { cap = need_vecs; }
+    const size_t kVecStep = 32UL * 1024UL * 1024UL / sizeof(float);  // 32 MiB
+    cap = ((cap + kVecStep - 1) / kVecStep) * kVecStep;
+    slot->buf_vecs_.reserve(cap);
+  }
+  const size_t need_ids = slot->buf_ids_.size() + static_cast<size_t>(size);
+  if (need_ids > slot->buf_ids_.capacity()) {
+    size_t cap = slot->buf_ids_.capacity() * 2;
+    if (cap < need_ids) { cap = need_ids; }
+    slot->buf_ids_.reserve(cap);
+  }
   slot->buf_vecs_.insert(slot->buf_vecs_.end(), vectors,
                          vectors + static_cast<size_t>(dim) * size);
   slot->buf_ids_.insert(slot->buf_ids_.end(), ids, ids + size);
@@ -280,8 +299,14 @@ static bool ob_cuvs_try_search(void *key, vsag::Allocator *alloc,
   const size_t n = ent->buf_ids_.size();
   const bool need_build =
       (n >= OB_CUVS_MIN_PTS && (ent->bridge_ == nullptr || n >= ent->built_n_ * 2));
-  std::vector<unsigned> off(topk);
-  std::vector<float> dst(topk);
+  // [AMD contest] Per-query result scratch is reused across calls instead of
+  // allocating two small vectors per query. thread_local keeps it correct for
+  // concurrent query threads; the buffers are only read before this frame
+  // returns (results are copied into the caller's allocator below).
+  thread_local std::vector<unsigned> off;
+  thread_local std::vector<float> dst;
+  off.resize(static_cast<size_t>(topk));
+  dst.resize(static_cast<size_t>(topk));
   ObCuvsJob job{ent, query, topk, static_cast<int>(ent->dim_), n, need_build, &off, &dst, -1, false};
   pthread_t tid; pthread_attr_t attr; pthread_attr_init(&attr);
   pthread_attr_setstacksize(&attr, 32UL * 1024 * 1024);
@@ -407,6 +432,7 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
   }
   ObCuvsSnapshotFile graph;
   ObCuvsSnapshotJob job{graph.path_, ent->bridge_.get(), static_cast<long>(n), ent->dim_, false, -1};
+  const int64_t build_end_us = ObTimeUtility::current_time();
   if (graph.file_ == nullptr || !ob_cuvs_snapshot_big_stack(job) ||
       ::fseeko(graph.file_, 0, SEEK_END) != 0 || ::ftello(graph.file_) <= 0) {
     ret = OB_ERR_VSAG_RETURN_ERROR;
@@ -414,7 +440,8 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
   }
   const uint64_t graph_bytes = static_cast<uint64_t>(::ftello(graph.file_));
   ::rewind(graph.file_);
-  const int64_t build_us = ObTimeUtility::current_time() - start_us;
+  const int64_t build_us = build_end_us - start_us;
+  const int64_t graph_us = ObTimeUtility::current_time() - build_end_us;
   const int32_t dim32 = ent->dim_;
   const int32_t reserved = 0;
   const int64_t n64 = static_cast<int64_t>(n);
@@ -429,7 +456,10 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
     LOG_WARN("[OBVSAG][cuVS] failed to write snapshot stream", K(ret), KP(key), K(n));
     return true;
   }
-  std::vector<char> chunk(65536);
+  // [AMD contest] 1 MiB streaming chunks (was 64 KiB): the graph blob is
+  // >100 MB for the 250K evaluation datasets; larger chunks cut the
+  // read/stream round trips materially without changing the snapshot format.
+  std::vector<char> chunk(1024 * 1024);
   uint64_t remaining = graph_bytes;
   while (remaining > 0) {
     const size_t bytes = std::min<uint64_t>(remaining, chunk.size());
@@ -439,8 +469,9 @@ static bool ob_cuvs_serialize(void *key, std::ostream &out, int &ret) {
     }
     remaining -= bytes;
   }
+  const int64_t stream_us = ObTimeUtility::current_time() - build_end_us - graph_us;
   LOG_INFO("[OBVSAG][cuVS] serialized GPU CAGRA snapshot", KP(key), K(n), K(dim32),
-           K(built), K(build_us), K(graph_bytes));
+           K(built), K(build_us), K(graph_us), K(stream_us), K(graph_bytes));
   return true;
 }
 
@@ -475,7 +506,9 @@ static int ob_cuvs_deserialize(void *key, int expected_dim, std::istream &in) {
       LOG_WARN("[OBVSAG][cuVS] truncated snapshot payload", K(ret), KP(key), K(n64));
     } else {
       ObCuvsSnapshotFile graph;
-      std::vector<char> chunk(65536);
+      // [AMD contest] 1 MiB streaming chunks (was 64 KiB), matching the
+      // serialize side; snapshot format unchanged.
+      std::vector<char> chunk(1024 * 1024);
       uint64_t remaining = graph_bytes;
       while (graph.file_ != nullptr && remaining > 0) {
         const size_t bytes = std::min<uint64_t>(remaining, chunk.size());
