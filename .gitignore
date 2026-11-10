@@ -183,10 +183,6 @@ src/share/inner_table/ob_inner_table_schema.lob.cpp
 src/share/inner_table/ob_inner_table_schema_misc.ipp
 src/share/inner_table/ob_inner_table_schema.*.cpp
 src/share/inner_table/table_id_to_name
-src/observer/virtual_table/ob_all_virtual_sqlite_tables.cpp
-src/observer/virtual_table/ob_all_virtual_sqlite_tables.h
-src/share/parameter/standalone_default_parameter.json
-src/share/parameter/shared_storage_default_parameter.json
 src/share/system_variable/standalone_default_system_variable.json
 src/share/system_variable/shared_storage_default_system_variable.json
 
@@ -391,6 +387,7 @@ src/oblib/grpc/*.pb.cpp
 !src/oblib/grpc/standbyservice.grpc.pb.h
 !src/oblib/grpc/standbyservice.grpc.pb.cc
 deps/3rd
+deps/ios/
 deps/3rd_party
 deps/usr
 win_deps_archives/
@@ -408,3 +405,8 @@ test/var
 CLAUDE.md
 .omo/
 seekdb_data/
+
+# Local Python bytecode for the iOS build helpers.
+deps/ios-build/__pycache__/
+/protocol-results/
+/protocol_check/__pycache__/

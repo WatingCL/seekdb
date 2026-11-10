@@ -1,0 +1,6 @@
+minivectordb
+minivectordb.exe
+*.o
+tmpdata/
+protocol-results/
+!Makefile

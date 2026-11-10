@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Static analysis for the Rust transport crate: clippy as a hard gate and a
-# RustSec advisory audit of the locked dependency tree. Unit tests run in
-# buildbase alongside the C++ build; this job exists to give rust-only PRs a
-# fast signal without a full server build.
+# Fast checks for every Rust workspace member without a full server build.
 name: rust-checks
 
 on:
@@ -42,19 +39,21 @@ jobs:
 
       - name: clippy (deny warnings)
         working-directory: rust
-        run: cargo clippy --locked -p sql-nio --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-      # No Windows runner: a cross `cargo check` is the cheapest signal that
-      # the cfg(windows) transport code still compiles. It would have caught
-      # every break the TCP-only cut left behind. windows-gnu, not msvc:
-      # ring's build script compiles C, and mingw is the only Windows C
-      # toolchain this runner can provide (the cc crate auto-detects the
-      # x86_64-w64-mingw32- prefix).
+      - name: Rust workspace tests
+        working-directory: rust
+        run: cargo test --workspace
+
+      - name: generated sources are committed
+        run: git diff --exit-code -- rust
+
+      # Compile Windows code on Linux; this does not run Windows tests.
       - name: check windows target
         working-directory: rust
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64
-          cargo check --locked -p sql-nio --target x86_64-pc-windows-gnu
+          sudo apt-get update -qq && sudo apt-get install -y -qq gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
+          cargo check --workspace --target x86_64-pc-windows-gnu
 
       - name: cargo audit
         working-directory: rust
