@@ -20,6 +20,7 @@
 #include "sql/engine/ob_operator.h"
 #include "sql/engine/basic/ob_chunk_datum_store.h"
 #include "lib/charset/ob_charset.h"
+#include "sql/engine/basic/file_sql/file_reader.h"
 
 namespace oceanbase
 {
@@ -32,11 +33,13 @@ class ObFunctionTableSpec : public ObOpSpec
 OB_UNIS_VERSION_V(1);
 public:
   ObFunctionTableSpec(common::ObIAllocator &alloc, const ObPhyOperatorType type)
-    : ObOpSpec(alloc, type), value_expr_(nullptr), column_exprs_(alloc), has_correlated_expr_(false)
+    : ObOpSpec(alloc, type), value_expr_(nullptr), column_exprs_(alloc), has_correlated_expr_(false), file_scan_(false), file_column_ids_(alloc)
   {}
   ObExpr *value_expr_;
   common::ObFixedArray<ObExpr*, common::ObIAllocator> column_exprs_;
   bool has_correlated_expr_;
+  bool file_scan_;
+  common::ObFixedArray<int64_t, common::ObIAllocator> file_column_ids_;
 };
 
 class ObFunctionTableOp : public ObOperator
@@ -44,11 +47,13 @@ class ObFunctionTableOp : public ObOperator
 public:
   ObFunctionTableOp(ObExecContext &exec_ctx, const ObOpSpec &spec, ObOpInput *input)
     : ObOperator(exec_ctx, spec, input),
+    file_reader_(nullptr),
+    file_row_allocator_("FileSqlRow"),
     node_idx_(0),
     already_calc_(false),
     row_count_(0),
     col_count_(0),
-    value_table_(NULL) 
+    value_table_(NULL)
   {}
 
   virtual int inner_open() override;
@@ -57,7 +62,10 @@ public:
   //virtual int inner_get_next_batch(int64_t max_row_cnt) override;
   virtual int inner_close() override;
   virtual void destroy() override;
-private:
+protected:
+  int inner_get_next_row_file();
+  file_sql::Reader *file_reader_;
+  common::ObArenaAllocator file_row_allocator_;
   int inner_get_next_row_udf();
   int inner_get_next_row_sys_func();
   int get_current_result(common::ObObj &result);
@@ -68,6 +76,22 @@ private:
   common::ObObj value_;
   pl::ObPLCollection *value_table_;
   int (ObFunctionTableOp::*next_row_func_)();
+};
+
+// Keep file scans vectorized without changing PL/UDF collection execution.
+class FileScanSpec : public ObFunctionTableSpec
+{
+  OB_UNIS_VERSION_V(1);
+public:
+  FileScanSpec(common::ObIAllocator &alloc, const ObPhyOperatorType type)
+    : ObFunctionTableSpec(alloc, type) {}
+};
+class FileScanOp : public ObFunctionTableOp
+{
+public:
+  FileScanOp(ObExecContext &ctx, const ObOpSpec &spec, ObOpInput *input)
+    : ObFunctionTableOp(ctx, spec, input) {}
+  virtual int inner_get_next_batch(int64_t maximum) override;
 };
 
 } // end namespace sql

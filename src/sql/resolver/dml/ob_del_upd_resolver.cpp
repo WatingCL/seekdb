@@ -70,6 +70,30 @@ ObDelUpdResolver::~ObDelUpdResolver()
   // TODO Auto-generated destructor stub
 }
 
+int ObDelUpdResolver::check_ai_column_assignment(const ObColumnRefRawExpr *expr)
+{
+  int ret = OB_SUCCESS;
+  if (session_info_ != nullptr && session_info_->is_user_session()) {
+    const ColumnItem *item = nullptr;
+    const TableItem *table = nullptr;
+    const ObColumnSchemaV2 *schema = nullptr;
+    if (expr == nullptr || get_stmt() == nullptr ||
+        (item = get_stmt()->get_column_item_by_id(expr->get_table_id(), expr->get_column_id())) == nullptr ||
+        (table = get_stmt()->get_table_item_by_id(expr->get_table_id())) == nullptr) {
+      ret = OB_ERR_UNEXPECTED;
+    } else {
+      const uint64_t table_id = item->base_tid_ != OB_INVALID_ID ? item->base_tid_ : table->get_base_table_item().ref_id_;
+      const uint64_t column_id = item->base_cid_ != OB_INVALID_ID ? item->base_cid_ : expr->get_column_id();
+      if (OB_FAIL(schema_checker_->get_column_schema(table_id, column_id, schema))) {
+      } else if (schema != nullptr && schema->is_ai_column()) {
+        ret = OB_NOT_SUPPORTED;
+        LOG_USER_ERROR(OB_NOT_SUPPORTED, "direct assignment to an AI result column");
+      }
+    }
+  }
+  return ret;
+}
+
 int ObDelUpdResolver::resolve_assignments(const ParseNode &parse_node,
                                           ObIArray<ObTableAssignment> &table_assigns,
                                           ObStmtScope scope)
@@ -121,6 +145,8 @@ int ObDelUpdResolver::resolve_assignments(const ParseNode &parse_node,
             }
           }
         }
+      }
+      if (OB_SUCC(ret) && OB_FAIL(check_ai_column_assignment(ref_expr))) {
       }
       if (OB_SUCC(ret) && T_INSERT_SCOPE == scope) {
         if (OB_FAIL(mock_values_column_ref(ref_expr))) {
@@ -2321,6 +2347,7 @@ int ObDelUpdResolver::resolve_insert_columns(const ParseNode *node,
       } else if (!session_info_->get_ddl_info().is_ddl() && OB_HIDDEN_SESS_CREATE_TIME_COLUMN_ID == column_expr->get_column_id()) {
         ret = OB_NOT_SUPPORTED;
         LOG_USER_ERROR(OB_NOT_SUPPORTED, "specify __sess_create_time value");
+      } else if (OB_FAIL(check_ai_column_assignment(column_expr))) {
       } else if (OB_FAIL(mock_values_column_ref(column_expr))) {
       }
     }//end for

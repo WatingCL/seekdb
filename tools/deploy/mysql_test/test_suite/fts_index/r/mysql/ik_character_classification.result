@@ -1,0 +1,28 @@
+SET NAMES utf8mb4;
+SELECT tokenize('ABC abc XYZ xyz 0123456789', 'ik') AS tokens;
+tokens
+["0123456789", "abc", "xyz"]
+SELECT tokenize('ＡＢＣ ａｂｃ ＸＹＺ ｘｙｚ ０１２３４５６７８９', 'ik') AS tokens;
+tokens
+["ａｂｃ", "０１２３４５６７８９", "ｘｙｚ"]
+SELECT tokenize('数据库 全文索引 中文 一二三 四五六 七八九 十百千万', 'ik') AS tokens;
+tokens
+["七八九", "一二三", "十百千万", "四五六", "数据库", "中文", "全文索引"]
+SELECT tokenize('日本語 ひらがな カタカナ 한국어', 'ik') AS tokens;
+tokens
+["ら", "ひ", "な", "タ", "국", "ナ", "한", "カ", "어", "語", "が", "日本"]
+SELECT tokenize('a-b@example.com 123.45 1,234 １２３．４５ ａ－ｂ＠ｅｘａｍｐｌｅ．ｃｏｍ', 'ik') AS tokens;
+tokens
+["1,234", "４５", "ａ", "ｂ", "ｃｏｍ", "a-b@example.com", "１２３", "123.45", "ｅｘａｍｐｌｅ"]
+SELECT tokenize('OceanBase 数据库 ＡＢＣ１２３ 日本語 한국어 😀 𠀀', 'ik') AS tokens;
+tokens
+["ａｂｃ１２３", "국", "oceanbase", "한", "어", "語", "数据库", "日本"]
+SELECT tokenize('!@#$%^&*() []{} <>，。！？；：　\t\r\n', 'ik') AS tokens;
+tokens
+[]
+SELECT tokenize('数据库 database 数据库 DATABASE ＤＡＴＡＢＡＳＥ', 'ik', '[{"output":"all"}]') AS details;
+details
+{"tokens": [{"ｄａｔａｂａｓｅ": 1}, {"database": 2}, {"数据库": 2}], "doc_len": 5}
+SELECT tokenize('', 'ik') AS tokens;
+tokens
+[]

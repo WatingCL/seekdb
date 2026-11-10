@@ -339,6 +339,7 @@ private:
   int execute();
   int open_plan();
   int open_cmd();
+  int check_ai_column_reads(const ObPhysicalPlan &plan);
   int open_result();
   int do_open_plan(ObExecContext &ctx);
   int do_close_plan(int errcode, ObExecContext &ctx);

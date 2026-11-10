@@ -525,6 +525,12 @@ private:
   std::atomic<bool> can_set_feedback_info_;
   bool need_switch_to_table_lock_worker_; // for table lock switch worker thread
   bool data_complement_gen_doc_id_;
+public:
+  common::ObIArray<uint64_t> &get_ai_column_read_refs() { return ai_column_read_refs_; }
+  const common::ObIArray<uint64_t> &get_ai_column_read_refs() const { return ai_column_read_refs_; }
+private:
+  // Alternating base-table and column IDs, retained across plan-cache reuse.
+  common::ObSEArray<uint64_t, 16> ai_column_read_refs_;
 private:
   bool insertup_can_do_gts_opt_;
   int64_t px_worker_share_plan_enabled_;

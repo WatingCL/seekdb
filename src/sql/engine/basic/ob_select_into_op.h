@@ -23,6 +23,7 @@
 #include "sql/engine/basic/ob_select_into_basic.h"
 #include "sql/engine/basic/ob_external_file_writer.h"
 #include "sql/resolver/dml/ob_select_stmt.h"
+#include "sql/engine/basic/file_sql/csv_writer.h"
 
 namespace oceanbase
 {
@@ -126,10 +127,14 @@ public:
       external_properties_(),
       format_type_(ObExternalFileFormat::FormatType::CSV_FORMAT),
       block_id_(0),
-      need_commit_(true)
+      need_commit_(true),
+      file_copy_config_(nullptr),
+      file_copy_done_(false)
   {
   }
 
+  int execute_file_copy(bool batch);
+  int write_file_copy_row(file_sql::CsvWriter &writer);
   // cs_type of ObString in ObEscapeInfo should be dst_cs_type
   struct ObEscapePrinter
   {
@@ -293,6 +298,9 @@ private:
   uint32_t block_id_;
   bool need_commit_;
   static const int64_t SHARED_BUFFER_SIZE = 2LL * 1024 * 1024;
+
+  file_sql::Reader *file_copy_config_;
+  bool file_copy_done_;
 
 };
 

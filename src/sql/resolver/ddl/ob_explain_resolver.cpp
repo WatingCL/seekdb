@@ -17,6 +17,9 @@
 #define USING_LOG_PREFIX SQL_RESV
 #include "sql/resolver/ddl/ob_explain_resolver.h"
 #include "sql/resolver/ob_resolver.h"
+#include "sql/resolver/dml/ob_select_resolver.h"
+#include "sql/parser/ob_parser.h"
+#include "sql/engine/basic/file_sql/file_reader.h"
 
 using namespace oceanbase;
 using namespace sql;
@@ -26,8 +29,60 @@ const static int64_t EXPLAIN_DISPLAY_OPTION = 1;
 const static int64_t EXPLAIN_INTO_TABLE = 2;
 const static int64_t EXPLAIN_STMT_ID = 3;
 const static int64_t EXPLAIN_CHILD_STMT = 4;
+int ObExplainResolver::resolve_file_describe(const ParseNode &tree)
+{
+  int ret = OB_SUCCESS;
+  ObSelectResolver source(params_);
+  if (tree.children_[EXPLAIN_CHILD_STMT] == nullptr || tree.children_[EXPLAIN_CHILD_STMT]->type_ != T_SELECT) return OB_NOT_SUPPORTED;
+  if (OB_FAIL(source.resolve(*tree.children_[EXPLAIN_CHILD_STMT]))) return ret;
+  ObSelectStmt *stmt = source.get_select_stmt();
+  ObSqlString sql;
+  auto literal = [](const std::string &text) {
+    static const char hex[] = "0123456789abcdef";
+    std::string result="CONVERT(X'";
+    for (unsigned char c : text) { result.push_back(hex[c>>4]); result.push_back(hex[c&15]); }
+    return result + "' USING utf8mb4)";
+  };
+  for (int64_t i=0; OB_SUCC(ret) && i<stmt->get_select_item_size(); ++i) {
+    const SelectItem &item=stmt->get_select_item(i);
+    const ObObjType type=item.expr_->get_data_type();
+    const char *name=type==ObIntType?"BIGINT":type==ObDoubleType?"DOUBLE":type==ObTinyIntType?"BOOLEAN":type==ObDateType?"DATE":type==ObDateTimeType?"DATETIME":type==ObNullType?"NULL":"VARCHAR";
+    bool nullable=true;
+    if (item.expr_->is_column_ref_expr()) {
+      const ObColumnRefRawExpr *column=static_cast<const ObColumnRefRawExpr *>(item.expr_);
+      const TableItem *table=stmt->get_table_item_by_id(column->get_table_id());
+      if (table!=nullptr && table->is_function_table() && table->function_table_expr_->is_const_raw_expr()) {
+        const ObObj &obj=static_cast<ObConstRawExpr *>(table->function_table_expr_)->get_value();
+        file_sql::Reader reader;
+        ObString payload=obj.get_string();
+        if (file_sql::decode(std::string(payload.ptr(),payload.length()),reader)) {
+          const int64_t idx=column->get_column_id()-OB_APP_MIN_COLUMN_ID;
+          if (idx>=0 && idx<reader.columns.size()) {
+            nullable=reader.columns[idx].nullable;
+            if (reader.columns[idx].type==file_sql::Type::NIL) name="NULL";
+          }
+        }
+      }
+    }
+    ObString alias=item.alias_name_;
+    const std::string field=literal(std::string(alias.ptr(),alias.length()));
+    if (i>0) ret=sql.append(" UNION ALL ");
+    if (OB_SUCC(ret)) ret=sql.append_fmt("SELECT %s AS column_name, '%s' AS column_type, '%s' AS `null`, NULL AS `key`, NULL AS `default`, NULL AS extra",field.c_str(),name,nullable?"YES":"NO");
+  }
+  if (OB_SUCC(ret)) {
+    ParseResult parsed;
+    ObParser parser(*params_.allocator_,session_info_->get_sql_mode());
+    ObSelectResolver metadata(params_);
+    if (OB_FAIL(parser.parse(sql.string(),parsed))) {
+    } else if (OB_FAIL(metadata.resolve(*parsed.result_tree_->children_[0]))) {
+    } else set_basic_stmt(metadata.get_basic_stmt());
+  }
+  return ret;
+}
+
 int ObExplainResolver::resolve(const ParseNode &parse_tree)
 {
+  if (parse_tree.value_ == 0x46494c45) return resolve_file_describe(parse_tree);
   int ret = OB_SUCCESS;
   ObExplainStmt *explain_stmt = NULL;
   if (!(T_EXPLAIN == parse_tree.type_  && 5 == parse_tree.num_child_)) {

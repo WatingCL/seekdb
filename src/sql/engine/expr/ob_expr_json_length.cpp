@@ -166,12 +166,26 @@ int ObExprJsonLength::eval_json_length(const ObExpr &expr, ObEvalCtx &ctx, ObDat
   return ret;
 }
 
+int ObExprJsonLength::eval_json_length_batch(const ObExpr &expr, ObEvalCtx &ctx,
+                                            const ObBitVector &skip, const int64_t batch_size)
+{
+  int ret = OB_SUCCESS;
+  // Preserve child batching for JSON_LENGTH(AI_EMBED(...)), while respecting
+  // the caller's skip mask. The optional-path form keeps its scalar ordering.
+  if (expr.arg_cnt_ == 1 && OB_FAIL(expr.args_[0]->eval_batch(ctx, skip, batch_size))) {
+  } else {
+    ret = expr_default_eval_batch_func(expr, ctx, skip, batch_size);
+  }
+  return ret;
+}
+
 int ObExprJsonLength::cg_expr(ObExprCGCtx &expr_cg_ctx, const ObRawExpr &raw_expr,
                               ObExpr &rt_expr) const
 {
   UNUSED(expr_cg_ctx);
   UNUSED(raw_expr);
   rt_expr.eval_func_ = eval_json_length;
+  rt_expr.eval_batch_func_ = eval_json_length_batch;
   return OB_SUCCESS;
 }
 

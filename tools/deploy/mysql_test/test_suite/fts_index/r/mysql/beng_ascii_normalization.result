@@ -1,0 +1,19 @@
+SET NAMES utf8mb4;
+SELECT tokenize('database performance audit', 'beng') AS tokens;
+tokens
+["audit", "database", "performance"]
+SELECT tokenize('Database PERFORMANCE AuDiT database', 'beng', '[{"output":"all"}]') AS details;
+details
+{"tokens": [{"audit": 1}, {"database": 2}, {"performance": 1}], "doc_len": 4}
+SELECT tokenize('...database!!! a-b@example.com 123.45 don\'t end.', 'beng') AS tokens;
+tokens
+["123", "example", "end", "database", "don"]
+SELECT tokenize('ÀÉÖ àéö İstanbul İSTANBUL Ελληνικά ΕΛΛΗΝΙΚΑ ＡＢＣ 中文', 'beng') AS tokens;
+tokens
+["àéö", "中文", "ελληνικα", "ａｂｃ", "istanbul"]
+SELECT tokenize('database DATABASE database', 'beng', '[{"output":"all"}]') AS details;
+details
+{"tokens": [{"database": 3}], "doc_len": 3}
+SELECT tokenize('database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE database DATABASE ', 'beng', '[{"output":"all"}]') AS details;
+details
+{"tokens": [{"database": 200}], "doc_len": 200}

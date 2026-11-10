@@ -1,0 +1,13 @@
+# owner: competition
+# description: preserve IK character classes, full-width precedence and token frequencies
+connection default;
+SET NAMES utf8mb4;
+SELECT tokenize('ABC abc XYZ xyz 0123456789', 'ik') AS tokens;
+SELECT tokenize('ＡＢＣ ａｂｃ ＸＹＺ ｘｙｚ ０１２３４５６７８９', 'ik') AS tokens;
+SELECT tokenize('数据库 全文索引 中文 一二三 四五六 七八九 十百千万', 'ik') AS tokens;
+SELECT tokenize('日本語 ひらがな カタカナ 한국어', 'ik') AS tokens;
+SELECT tokenize('a-b@example.com 123.45 1,234 １２３．４５ ａ－ｂ＠ｅｘａｍｐｌｅ．ｃｏｍ', 'ik') AS tokens;
+SELECT tokenize('OceanBase 数据库 ＡＢＣ１２３ 日本語 한국어 😀 𠀀', 'ik') AS tokens;
+SELECT tokenize('!@#$%^&*() []{} <>，。！？；：　\t\r\n', 'ik') AS tokens;
+SELECT tokenize('数据库 database 数据库 DATABASE ＤＡＴＡＢＡＳＥ', 'ik', '[{"output":"all"}]') AS details;
+SELECT tokenize('', 'ik') AS tokens;

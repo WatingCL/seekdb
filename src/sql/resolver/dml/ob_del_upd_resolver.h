@@ -56,6 +56,8 @@ public:
   inline bool is_resolve_insert_update() { return is_resolve_insert_update_;}
 protected:
 
+  int check_ai_column_assignment(const ObColumnRefRawExpr *column);
+
   int resolve_assignments(const ParseNode &parse_node,
                           common::ObIArray<ObTableAssignment> &table_assigns,
                           ObStmtScope scope);

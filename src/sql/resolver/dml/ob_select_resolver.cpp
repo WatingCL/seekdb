@@ -16,6 +16,7 @@
 
 #define USING_LOG_PREFIX SQL_RESV
 #include "sql/resolver/dml/ob_select_resolver.h"
+#include "sql/engine/basic/file_sql/file_reader.h"
 #include "sql/resolver/dml/ob_del_upd_resolver.h"
 #include "share/ob_time_utility2.h"
 #include "sql/resolver/dml/ob_aggr_expr_push_up_analyzer.h"
@@ -3254,6 +3255,47 @@ int ObSelectResolver::resolve_into_outfile_without_format(const ParseNode *node,
   return ret;
 }
 
+int ObSelectResolver::resolve_file_sql_copy(const ParseNode &node, ObSelectIntoItem &into)
+{
+  int ret = OB_SUCCESS;
+  bool enabled=false;
+  file_sql::Reader config;
+  config.options.format="copy";
+  config.options.header=false;
+  const ParseNode *path=node.children_[0];
+  if (OB_FAIL(session_info_->get_sys_variable(share::SYS_VAR_ENABLE_FILE_SQL,enabled))) {
+  } else if (!enabled) {ret=OB_NOT_SUPPORTED;LOG_USER_ERROR(OB_NOT_SUPPORTED,"COPY requires enable_file_sql=ON");}
+  else if (path==nullptr||path->str_value_==nullptr) ret=OB_INVALID_ARGUMENT;
+  else {
+    config.options.path.assign(path->str_value_,path->str_len_);
+    const ParseNode *opts=node.children_[1];std::set<std::string> seen;
+    for(int64_t i=0;OB_SUCC(ret)&&opts!=nullptr&&i<opts->num_child_;++i){
+      const ParseNode *option=opts->children_[i];
+      const ParseNode *key_node=option->children_[0],*value_node=option->children_[1];
+      std::string key=file_sql::lower(std::string(key_node->str_value_,key_node->str_len_)),value;
+      if(value_node->type_==T_BOOL||value_node->type_==T_INT)value=std::to_string(value_node->value_);
+      else if(value_node->str_value_!=nullptr)value.assign(value_node->str_value_,value_node->str_len_);
+      else ret=OB_INVALID_ARGUMENT;
+      if(!seen.insert(key).second)ret=OB_INVALID_ARGUMENT;
+      else if(key=="format"){if(file_sql::lower(value)!="csv")ret=OB_NOT_SUPPORTED;}
+      else if(key=="header"){if(value!="0"&&value!="1")ret=OB_INVALID_ARGUMENT;else config.options.header=value=="1";}
+      else if(key=="nullstr")config.options.nullstr=value;
+      else if(key=="delimiter"||key=="delim"||key=="sep"||key=="quote"||key=="escape"){
+        if(value.size()!=1||value[0]=='\n'||value[0]=='\r'||value[0]==0)ret=OB_INVALID_ARGUMENT;
+        else if(key=="quote")config.options.quote=value[0];else if(key=="escape")config.options.escape=value[0];else config.options.delimiter=value[0];
+      }else ret=OB_INVALID_ARGUMENT;
+    }
+    if(OB_SUCC(ret)){
+      const ObSelectStmt *stmt=get_select_stmt();
+      for(int64_t i=0;i<stmt->get_select_item_size();++i){const ObString &name=stmt->get_select_item(i).alias_name_;config.columns.push_back({std::string(name.ptr(),name.length()),file_sql::Type::VARCHAR,false});}
+      const std::string encoded=file_sql::encode(config);ObString saved;
+      if(OB_FAIL(ob_write_string(*allocator_,ObString(encoded.size(),encoded.data()),saved))){}
+      else {into.outfile_name_.set_varchar(saved);into.outfile_name_.set_collation_type(CS_TYPE_BINARY);}
+    }
+  }
+  return ret;
+}
+
 int ObSelectResolver::resolve_into_clause(const ParseNode *node)
 {
   int ret = OB_SUCCESS;
@@ -3283,7 +3325,9 @@ int ObSelectResolver::resolve_into_clause(const ParseNode *node)
     } else {
       new(into_item) ObSelectIntoItem();
       into_item->into_type_ = node->type_;
-      if (T_INTO_OUTFILE == node->type_) { // into outfile
+      if (node->type_ == T_INTO_OUTFILE && node->value_ == 0x46434f50) {
+        ret = resolve_file_sql_copy(*node, *into_item);
+      } else if (T_INTO_OUTFILE == node->type_) { // into outfile
         if (is_in_set_query()) {
           ret = OB_INAPPROPRIATE_INTO;
           LOG_WARN("select into outfile can not in set query", K(ret));

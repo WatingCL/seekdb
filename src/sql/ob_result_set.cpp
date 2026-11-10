@@ -16,6 +16,9 @@
 
 #define USING_LOG_PREFIX SQL
 #include "ob_result_set.h"
+#include "query/session/ob_inner_sql_connection_access.h"
+#include "sql/session/ob_inner_sql_connection.h"
+#include "sql/ob_sql_utils.h"
 #include "data_plane/transaction/ob_tx_desc_access.h"
 #include "share/rc/ob_server_runtime.h"
 #include "sql/resolver/dml/ob_del_upd_stmt.h"
@@ -219,12 +222,104 @@ int ObResultSet::execute()
   return ret;
 }
 
+int ObResultSet::check_ai_column_reads(const ObPhysicalPlan &plan)
+{
+  int ret = OB_SUCCESS;
+  bool strict = false;
+  const auto &refs = plan.get_ai_column_read_refs();
+  if (refs.empty() || !my_session_.is_user_session()) {
+    return ret;
+  } else if (OB_FAIL(my_session_.get_sys_variable(share::SYS_VAR_AI_COLUMN_STRICT_READ, strict))) {
+    return ret;
+  } else if (!strict) {
+    return ret;
+  }
+  ObExecContext &ctx = get_exec_context();
+  ObSchemaGetterGuard *guard = ctx.get_sql_ctx() == nullptr ? nullptr : ctx.get_sql_ctx()->schema_guard_;
+  common::sqlclient::ObISQLConnectionGuard connection_guard;
+  common::sqlclient::ObISQLConnection *connection = my_session_.get_inner_conn();
+  const bool owns_connection = connection == nullptr;
+  if (guard == nullptr || (refs.count() & 1) != 0) {
+    return OB_ERR_UNEXPECTED;
+  } else if (owns_connection) {
+    if (OB_FAIL(query::ObInnerSQLConnectionAccess::create_connection_with_external_session(
+                    &my_session_, connection_guard))) {
+      return ret;
+    }
+    connection = connection_guard.get_ptr();
+    my_session_.set_inner_conn(connection);
+  }
+  ObIInnerSQLConnection *inner = as_inner_sql_connection(connection);
+  ObSQLSessionInfo::StmtSavedValue saved_session;
+  ObIInnerSQLConnection::SavedValue saved_connection;
+  bool nested = false;
+  if (inner == nullptr) {
+    ret = OB_ERR_UNEXPECTED;
+  } else if (OB_FAIL(inner->begin_nested_session(saved_session, saved_connection, true))) {
+  } else {
+    nested = true;
+    ObArenaAllocator allocator("AiStrictRead");
+    for (int64_t i = 0; OB_SUCC(ret) && i + 1 < refs.count(); i += 2) {
+      const ObTableSchema *table = nullptr;
+      const ObDatabaseSchema *database = nullptr;
+      const ObColumnSchemaV2 *column = nullptr;
+      const ObColumnSchemaV2 *state = nullptr;
+      if (OB_FAIL(guard->get_table_schema(refs.at(i), table))) {
+      } else if (table == nullptr || (column = table->get_column_schema(refs.at(i+1))) == nullptr ||
+                 !column->is_ai_column() ||
+                 (state = table->get_column_schema(column->get_ai_column_state_column_id())) == nullptr) {
+        ret = OB_SCHEMA_ERROR;
+      } else if (OB_FAIL(guard->get_database_schema(table->get_database_id(), database))) {
+      } else if (database == nullptr) {
+        ret = OB_SCHEMA_ERROR;
+      } else {
+        ObString db_name, table_name, state_name;
+        ObSqlString sql;
+        if (OB_FAIL(ObSQLUtils::generate_new_name_with_escape_character(allocator,
+                    database->get_database_name_str(), db_name))) {
+        } else if (OB_FAIL(ObSQLUtils::generate_new_name_with_escape_character(allocator,
+                    table->get_table_name_str(), table_name))) {
+        } else if (OB_FAIL(ObSQLUtils::generate_new_name_with_escape_character(allocator,
+                    state->get_column_name_str(), state_name))) {
+        } else if (OB_FAIL(sql.append_fmt(
+            "SELECT 1 FROM `%.*s`.`%.*s` WHERE `%.*s` IS NULL OR `%.*s` <> 2 LIMIT 1",
+            db_name.length(), db_name.ptr(), table_name.length(), table_name.ptr(),
+            state_name.length(), state_name.ptr(), state_name.length(), state_name.ptr()))) {
+        } else {
+          ObMySQLProxy::MySQLResult result;
+          if (OB_FAIL(connection->execute_read(sql.string(), result))) {
+          } else if (result.get_result() == nullptr) {
+            ret = OB_ERR_UNEXPECTED;
+          } else {
+            const int next_ret = result.get_result()->next();
+            if (next_ret == OB_SUCCESS) {
+              ret = OB_AI_COLUMN_NOT_READY;
+              LOG_USER_ERROR(OB_AI_COLUMN_NOT_READY, refs.at(i), refs.at(i+1));
+            } else if (next_ret != OB_ITER_END) {
+              ret = next_ret;
+            }
+            const int close_ret = result.get_result()->close();
+            if (OB_SUCC(ret)) { ret = close_ret; }
+          }
+        }
+      }
+    }
+  }
+  if (nested) {
+    const int end_ret = inner->end_nested_session(saved_session, saved_connection);
+    if (OB_SUCC(ret)) { ret = end_ret; }
+  }
+  if (owns_connection) { my_session_.set_inner_conn(nullptr); }
+  return ret;
+}
+
 int ObResultSet::open_result()
 {
   int ret = OB_SUCCESS;
   ObPhysicalPlan* physical_plan_ = static_cast<ObPhysicalPlan*>(cache_obj_guard_.get_cache_obj());
   if (NULL != physical_plan_) {
-    if (OB_ISNULL(exec_result_)) {
+    if (OB_FAIL(check_ai_column_reads(*physical_plan_))) {
+    } else if (OB_ISNULL(exec_result_)) {
       ret = OB_ERR_UNEXPECTED;
       LOG_WARN("exec result is null", K(ret));
     } else if (OB_FAIL(exec_result_->open(get_exec_context()))) {

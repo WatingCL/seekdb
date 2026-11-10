@@ -582,6 +582,7 @@ _SHARE_SEMANTIC_HEADER_TARGETS = {
     "schema_persistence": struct(
         hdrs = [
             "schema/ob_ai_model_sql_service.h",
+            "ai_service/ai_column_task.h",
             "schema/ob_database_sql_service.h",
             "schema/ob_ddl_sql_service.h",
             "schema/ob_outline_sql_service.h",
