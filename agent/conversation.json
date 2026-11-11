@@ -1,8 +1,8 @@
 {
   "meta": {
     "schema_note": "MiniVectorDB 2026-competition-round2 learning material; evaluation rule agent-learning-evidence-v3-unbounded",
-    "updated": "2026-11-10",
-    "stage": "P0 protocol skeleton + P1 SQL + P2 persistence + P3 transactions + P4 streaming storage / crash recovery",
+    "updated": "2026-11-11",
+    "stage": "P0 protocol skeleton + P1 SQL + P2 persistence + P3 transactions + P4 streaming storage / crash recovery + Linux (ubuntu-24.04, g++ 13) CI verification",
     "commit_scope": "source + Dockerfile + this file are in the same commit on branch 2026-competition-round2"
   },
   "scope_note": "本文件记录 MiniVectorDB 参赛版本真实的学生-Agent 协作过程。role=student 为学生本人发言（user_prompts 中标 verbatim:true 的为学生原话，逐字保留，未加工）；role=agent 为 Agent 回复；experiments 中的 command 与 output 均为实际执行的命令与真实输出，由构建脚本直接从运行产物文件读回，未手工转录。student_interpretation 字段一律留空，等待学生本人填写——按赛题 4.4，只有学生自己的解释与判断计分，Agent 不得代写。无合成材料（synthetic 材料为零）。脱敏说明：不含任何密钥、令牌或个人隐私信息；本机路径按原样保留，因为它们是可复现证据的一部分。",
@@ -48,6 +48,62 @@
       "verbatim": false,
       "content": "决定：数据库核心用 C++17；自测环境用我的 Linux 机器/云主机（本机 Windows 无 Docker/WSL）；立即开始 P0（仓库分支 + 协议骨架）。",
       "note": "P0 阶段（前一会话）记录的要点摘要，非逐字原文。保留它是为了让 P0 的实验 e1 有对应的决策上下文；标注 verbatim:false 以示区分。"
+    },
+    {
+      "id": "u6",
+      "time": "2026-11-10",
+      "verbatim": true,
+      "content": "给我做完所有我开了vpn了",
+      "time_note": "时间取自 git reflog：本地提交 1fe4bee 于 2026-11-10 22:43:57 创建，推送发生在此之前。"
+    },
+    {
+      "id": "u7",
+      "time": "2026-11-10",
+      "verbatim": true,
+      "kind": "学生随后中断了这条",
+      "content": "把 token 给我，我来配凭据管理器推"
+    },
+    {
+      "id": "u8",
+      "time": "2026-11-10",
+      "verbatim": true,
+      "content": "我在谷歌浏览器打开github了，你直接帮我全部完成"
+    },
+    {
+      "id": "u9",
+      "time": "2026-11-11",
+      "verbatim": true,
+      "kind": "设备码授权确认",
+      "content": "已经授权"
+    },
+    {
+      "id": "u10",
+      "time": "2026-11-11",
+      "verbatim": true,
+      "content": "你快帮我完成，给我可以提交的commit"
+    },
+    {
+      "id": "u11",
+      "time": "2026-11-11",
+      "verbatim": true,
+      "kind": "选项回答（Agent 提问「浅克隆推不上去，两条路选哪条」）",
+      "content": "接到你仓库现有历史，秒推",
+      "consequence": "Agent 用 git commit-tree 把同一棵树（tree 13d40f7…）接到 fork 已有分支 competition/tasks-1-4 的尖端 930460d 之后重做提交，得到 9e7db19 并推送；原浅历史提交 1fe4bee 只保留在本地 refs/backup/p4-official-ancestry，未推送。"
+    },
+    {
+      "id": "u12",
+      "time": "2026-11-11",
+      "verbatim": true,
+      "kind": "平台返回的提测结果，学生原样粘贴",
+      "content": "mysql未完成；此项为准入条件，不计排名分，评测执行失败或未完成，无有效性能成绩；请联系评测方排查。评测执行失败或未完成，无有效Prompt成绩；请联系评测方排查。"
+    },
+    {
+      "id": "u13",
+      "time": "2026-11-11",
+      "verbatim": true,
+      "kind": "选项回答（Agent 提问「本机只有 MinGW，怎么在真 Linux g++13 上验证构建」）",
+      "content": "GitHub Actions 跑真 Docker（推荐）",
+      "consequence": "Agent 不向第三方服务上传源码，改为向 fork 推一个临时分支 ci/linux-verify 上的 workflow，在 ubuntu-24.04 runner 上跑真实构建与官方 protocol_check；验证完删除该 workflow 与临时分支。"
     }
   ],
   "conversations": [
@@ -131,6 +187,50 @@
       "id": "c15",
       "role": "agent",
       "content": "按赛题 4.1/4.2/4.3/4.4 收尾：补齐崩溃套件（新增恢复中反复被杀、COMMIT 竞争两个赛题点名的场景）、写 minivectordb/README.md（4.2 运行说明，含从空数据目录开始的真实端到端示例）与 minivectordb/DESIGN.md（4.3 设计与验证记录），并重写本文件。源码、Dockerfile 与本文件在同一次 commit 内。README 第 7 节的示例输出是真实运行捕获的（/experiments/10/output），不是手写演示。"
+    },
+    {
+      "id": "c16",
+      "role": "student",
+      "ref": "u6",
+      "content": "给我做完所有我开了vpn了"
+    },
+    {
+      "id": "c17",
+      "role": "agent",
+      "content": "推送分三段卡住，每段原因不同。①凭据：origin 用 https，Git 报「Password authentication is not supported」，凭据 helper 是 manager（来自 D:/Git/etc/gitconfig），gh 未安装；只能强制 GCM 走设备码交互流（GCM_PROVIDER=github GCM_GITHUB_AUTHMODES=device），代码 8980-5A70 由学生在浏览器授权。这里 Agent 犯过一个错：第一次把交互式 push 用管道接给 tail，输出被缓冲住看不到提示，去掉管道重试才可用。②网络：上传 7 MiB 过程中 Recv failure: Connection was reset，重试通过。③历史：push 被 remote 拒——remote: fatal: did not receive expected object 9f6df2ba…、unpack failed。根因是本地仓库对官方分支是浅克隆（tip f4d4e26 的父提交就是 9f6df2ba），而 WatingCL/seekdb 的 fork=false、parent=None，两边历史无关，打包时无法补全缺失对象，不是网络问题。"
+    },
+    {
+      "id": "c18",
+      "role": "student",
+      "ref": "u11",
+      "content": "（两个选项：等完整历史保留官方血缘 vs 接到现有历史秒推）选择：接到你仓库现有历史，秒推。"
+    },
+    {
+      "id": "c19",
+      "role": "agent",
+      "content": "按秒推方案执行：用 git commit-tree 把与本地 1fe4bee 完全相同的树（tree 13d40f73d6ff917898635c7e85c41dda1ff1ea36）重新接到 fork 已有分支 competition/tasks-1-4 的尖端 930460d 之下，得到 9e7db19 并推送，远端 2026-competition-round2 与本地 HEAD 一致；GitHub API 对 Dockerfile、agent/conversation.json、minivectordb/src/engine.cpp、minivectordb/README.md 均返回 200。代价是这一支不再带官方 round2 分支的 f4d4e26 血缘；原浅历史提交保留在本地 refs/backup/p4-official-ancestry。副作用如实记录：为拿到父提交而用的 git fetch --depth 1 --filter=blob:none 由 git 自己写进了配置（remote.origin.promisor=true、remote.origin.partialclonefilter=blob:none），Agent 未改 git 配置，把两条 --unset 命令交给学生处理。"
+    },
+    {
+      "id": "c20",
+      "role": "student",
+      "ref": "u12",
+      "content": "mysql未完成；此项为准入条件，不计排名分，评测执行失败或未完成，无有效性能成绩；请联系评测方排查。评测执行失败或未完成，无有效Prompt成绩；请联系评测方排查。"
+    },
+    {
+      "id": "c21",
+      "role": "agent",
+      "content": "先定性：这条信息说的是「执行失败或未完成」，不是分数低；而且 MySQL 准入和 Prompt 两项同时失效，更像整场评测在早期阶段就崩了，而不是隐藏用例判负。按能证伪的顺序排查，列出四类候选原因：①代码从来没在任何 Linux 编译器上编译过——本机只有 MinGW g++ 8.1，而 libstdc++ 8.1 会传递包含别人不包的头文件，「本机零警告」不等于「容器里 g++ 13 能过」；②提测表单里的 commit SHA 是否指向一个真能被平台取到的提交；③构建阶段是否依赖网络（Dockerfile 里 apt-get 装 g++/make）；④docker build 的上下文是整个 clone，含 .git。①立刻可以做静态审计：逐文件比对实际用到的 C/C++ 库符号与显式 #include，结果 json.cpp 用了 snprintf 但没有 <cstdio>、parser.cpp 用了 errno/ERANGE 但没有 <cerrno>，engine.cpp / storage.cpp / parser.cpp 用 std::move 但没有 <utility>——这些都是 MinGW 靠传递包含掩盖掉的真实移植性缺陷。"
+    },
+    {
+      "id": "c22",
+      "role": "student",
+      "ref": "u13",
+      "content": "（两个选项：GitHub Actions 跑真 Docker vs 上传源码到 Compiler Explorer 的远程 g++13）选择：GitHub Actions 跑真 Docker。"
+    },
+    {
+      "id": "c23",
+      "role": "agent",
+      "content": "补上缺的显式头文件后（构建零警告，Windows 侧回归 20/20 与 12/12 见 /experiments/13/output），在 fork 的临时分支 ci/linux-verify 上加一个 workflow，runner 用 ubuntu-24.04（g++ 13），一次跑五项：裸 g++ 源码编译、docker build、官方 protocol_check 驱动镜像（--read-only/--cap-drop=ALL/--network=none/--memory=2g/--cpus=2/--pids-limit=128）、官方 protocol_check 驱动裸二进制、崩溃与恢复套件。结果五项全部 completed success，整轮 58 秒（/experiments/12/output）。这条推翻了「g++ 13 编译不过」这个头号嫌疑——修完头文件之后的代码在真实 Linux + 真实判题参数下是能跑通的；同时也说明失败原因大概率在构建之外。顺带量化了两个新事实：提交树只有 105 个文件、0.4 MiB，但 docker build 的上下文默认是整个 clone（本机 .git 就有 52 MiB），已补 .dockerignore 只保留 minivectordb/；另一个仍未排除的候选是提测表单填的 SHA——本地曾有一个内容完全相同但从未推送的提交 1fe4bee（2026-11-10 22:43:57 创建），若填的是它，平台取不到 commit，MySQL 准入与 Prompt 会同时记为执行失败。"
     }
   ],
   "experiments": [
@@ -401,6 +501,124 @@
       "output": "bash 看到的 /tmp/mvdb-demo/：只有 txn.log（0 字节）\nD:/tmp/mvdb-demo/：docs.log 195, meta.json 253, txn.log 25\n用 D:/tmp/mvdb-demo 重启：{\"type\":\"ready\"} / {\"id\":1,\"ok\":true,\"columns\":[\"id\",\"title\"],\"rows\":[[1,\"alpha\"],[2,\"beta\"],[3,\"gamma\"]]} / {\"id\":2,\"ok\":true}",
       "result": "预测错误，不是产品 bug，是工具链假象：Git Bash 会把参数里的 /tmp/... 翻译成 Windows 临时目录，而 Python subprocess 直接把 \"/tmp/mvdb-demo\" 传给 CreateProcess，Windows 按当前盘根解析成 D:\\tmp\\mvdb-demo。两次跑的根本不是同一个目录，第二次是在一个空目录上重建。教训：跨 shell 的路径证据必须用显式绝对路径复核，否则会误判成数据丢失。",
       "student_interpretation": ""
+    },
+    {
+      "id": "e13",
+      "time": "2026-11-11",
+      "kind": "linux_ci_verification",
+      "stage": "失败排查",
+      "question": "平台报「评测执行失败或未完成」。代码只在 MinGW g++ 8.1 上编译过，真实判题环境（Linux x86_64 + ubuntu 容器 + 官方 protocol_check + 只读根文件系统）能否构建并通过公开用例？",
+      "prediction": "Agent 预测：过不去。理由是 libstdc++ 8.1 会传递包含标准库头文件，掩盖了显式 #include 的缺失，静态审计确实找到 json.cpp 用 snprintf 无 <cstdio>、parser.cpp 用 errno 无 <cerrno>。",
+      "command": "临时分支 workflow（.github/workflows/mvdb-linux-verify.yml, runner ubuntu-24.04）内的五个阶段：\n  g++ -std=c++17 -O2 -Wall -Wextra -pthread minivectordb/src/*.cpp -o /tmp/mvdb-native\n  docker build -t vectordb-ci .\n  sudo python3 protocol_check/run.py --image vectordb-ci --output /tmp/ci-image\n  python3 protocol_check/run.py --command '[\"/tmp/mvdb-native\",\"--data-dir\",\"{data_dir}\"]' --output protocol-results/ci-native\n  python3 minivectordb/tools/crash_check.py --exe /tmp/mvdb-native --output protocol-results/ci-crash\n本地读取结果（匿名 API）：\n  curl -s https://api.github.com/repos/WatingCL/seekdb/actions/runs/42965293402/jobs\n  curl -s https://api.github.com/repos/WatingCL/seekdb/actions/runs/42965580664/jobs",
+      "output": "# run 42965293402  head_sha 7e7b722  completed success  58.0s\n# https://github.com/WatingCL/seekdb/actions/runs/42965293402\njob=verify  status=completed  conclusion=success  started=2026-11-11T05:22:07Z  completed=2026-11-11T05:23:01Z\n   1 Set up job                                                 completed  success\n   2 Run actions/checkout@v4                                    completed  success\n   3 Toolchain versions                                         completed  success\n   4 Stage 1 - native g++ build                                 completed  success\n   5 Stage 2 - docker build (the judged path)                   completed  success\n   6 Stage 3 - official protocol_check against the image        completed  success\n   7 Stage 4 - official protocol_check against the native binary completed  success\n   8 Stage 5 - crash and recovery suite                         completed  success\n   9 Dump evidence                                              completed  success\n  10 Upload artifacts                                           completed  success\n  11 Verdict                                                    completed  success\n\n# run 42965580664  head_sha 9dff1f3 (加 .dockerignore 之后)  completed success  57.0s\n# https://github.com/WatingCL/seekdb/actions/runs/42965580664\njob=verify  status=completed  conclusion=success  started=2026-11-11T05:24:43Z  completed=2026-11-11T05:25:36Z\n   1 Set up job                                                 completed  success\n   2 Run actions/checkout@v4                                    completed  success\n   3 Toolchain versions                                         completed  success\n   4 Stage 1 - native g++ build                                 completed  success\n   5 Stage 2 - docker build (the judged path)                   completed  success\n   6 Stage 3 - official protocol_check against the image        completed  success\n   7 Stage 4 - official protocol_check against the native binary completed  success\n   8 Stage 5 - crash and recovery suite                         completed  success\n   9 Dump evidence                                              completed  success\n  10 Upload artifacts                                           completed  success\n  11 Verdict                                                    completed  success",
+      "raw_run": {
+        "run1": {
+          "html_url": "https://github.com/WatingCL/seekdb/actions/runs/42965293402",
+          "head_sha": "7e7b722a8fd584958adef6cc90864474fb15fefa",
+          "status": "completed",
+          "conclusion": "success",
+          "created_at": "2026-11-11T05:22:04Z",
+          "updated_at": "2026-11-11T05:23:02Z"
+        },
+        "run2": {
+          "html_url": "https://github.com/WatingCL/seekdb/actions/runs/42965580664",
+          "head_sha": "9dff1f3",
+          "status": "completed",
+          "conclusion": "success",
+          "duration_s": 57.0
+        }
+      },
+      "result": "预测被部分推翻。补上显式头文件之后，Linux g++ 13 裸编译、docker build、官方 protocol_check 驱动镜像（含 --read-only --cap-drop=ALL --network=none --memory=2g --cpus=2 --pids-limit=128）、驱动裸二进制、崩溃与恢复套件五个阶段全部 completed success，整轮 58 s / 57 s。也就是说「g++ 13 编译不过」在修复后已不成立，平台失败更可能发生在构建之外：提交树只有 105 个文件 0.4 MiB，但 docker build 的上下文默认包含整个 clone（本机 .git 52 MiB），已补 .dockerignore；另外本地存在一个内容相同但从未推送的提交 1fe4bee（2026-11-10 22:43:57），若提测填的是它，平台取不到 commit 会让准入与 Prompt 同时记为执行失败。未定位到唯一根因——平台日志里具体死在哪一步仍然只有评测方知道。",
+      "student_interpretation": ""
+    },
+    {
+      "id": "e14",
+      "time": "2026-11-11",
+      "kind": "regression_after_fix",
+      "stage": "失败排查",
+      "question": "补头文件属于纯移植性修改，Windows 侧 20 个公开用例与 12 项崩溃断言是否仍然全绿。",
+      "command": "g++ -std=c++17 -O2 -Wall -Wextra -pthread minivectordb/src/*.cpp -o minivectordb/minivectordb.exe   # rc=0，无输出\npy -3 minivectordb/tools/local_check.py --command '[\"./minivectordb/minivectordb.exe\",\"--data-dir\",\"{data_dir}\"]' --output protocol-results/local-10\npy -3 minivectordb/tools/crash_check.py --exe minivectordb/minivectordb.exe --output protocol-results/crash-10",
+      "output": "local-10: passed=True cases=20 all_PASS=True\nsql_crud: PASS\nsql_comparisons: PASS\nsql_ordering: PASS\nsql_empty: PASS\nsql_primary_key: PASS\nsql_unicode: PASS\nsql_bigint: PASS\nsql_unsupported: PASS\nstorage_restart: PASS\nvector_euclidean: PASS\ntransaction_commit: PASS\ntransaction_rollback: PASS\nstorage_mutations: PASS\nstorage_multiple_tables: PASS\nvector_ties_and_filter: PASS\nvector_float32: PASS\nvector_index_maintenance: PASS\ntransaction_failed_insert: PASS\ntransaction_autocommit_atomic: PASS\ntransaction_shutdown_rollback: PASS\ncrash-10: checks=12 failed=0 seconds=12.6 recoveries_interrupted=5 racing_commits={\"committed\": 4, \"rolled_back\": 4}\n",
+      "raw_json": {
+        "local_10": {
+          "passed": true,
+          "cases": 20
+        },
+        "crash_10": {
+          "seconds": 12.6,
+          "checks": 12,
+          "failed": 0,
+          "recoveries_interrupted": 5,
+          "racing_commits": {
+            "committed": 4,
+            "rolled_back": 4
+          },
+          "results": [
+            {
+              "name": "A1 in-process state after rollback",
+              "ok": true,
+              "detail": "[(1, 'a'), (3, 'c'), (4, 'd')]"
+            },
+            {
+              "name": "A2 clean restart",
+              "ok": true,
+              "detail": "[(1, 'a'), (3, 'c'), (4, 'd')]"
+            },
+            {
+              "name": "A3 second restart",
+              "ok": true,
+              "detail": "[(1, 'a'), (3, 'c'), (4, 'd')]"
+            },
+            {
+              "name": "B1 open transaction sees its own writes",
+              "ok": true,
+              "detail": "[(1, 'Z'), (2, 'b')]"
+            },
+            {
+              "name": "B2 uncommitted transaction is gone after SIGKILL",
+              "ok": true,
+              "detail": "[(1, 'a'), (2, 'b'), (3, 'c')]"
+            },
+            {
+              "name": "B3 log trimmed back to the committed prefix",
+              "ok": true,
+              "detail": "45880 -> 210 bytes"
+            },
+            {
+              "name": "B4 engine still accepts writes after a crash",
+              "ok": true,
+              "detail": ""
+            },
+            {
+              "name": "B5 restart after post-crash writes",
+              "ok": true,
+              "detail": ""
+            },
+            {
+              "name": "C1 recovery is idempotent under repeated interruption",
+              "ok": true,
+              "detail": "20000 rows expected, 20000 found"
+            },
+            {
+              "name": "C2 interrupted recoveries did not grow the log",
+              "ok": true,
+              "detail": "1627815 -> 1548894 bytes"
+            },
+            {
+              "name": "C3 clean restart after the interrupted recoveries",
+              "ok": true,
+              "detail": ""
+            },
+            {
+              "name": "D every in-flight COMMIT was wholly applied or wholly discarded",
+              "ok": true,
+              "detail": "4 committed, 4 rolled back, 0 partial"
+            }
+          ]
+        }
+      },
+      "result": "构建零警告；公开用例 20/20 PASS，崩溃与恢复 12/12 通过（12.6 s，D 阶段 4 次完整提交 / 4 次完整回滚 / 0 次部分提交）。与修改前的 e3、e10 一致，说明这次改动没有改变行为。",
+      "student_interpretation": ""
     }
   ],
   "retrospective": [
@@ -432,7 +650,12 @@
     {
       "id": "r6",
       "topic": "尚未完成的部分",
-      "content": "本机无 Docker/WSL，所有验证都在 Windows 裸进程上完成，Linux 容器内的复现、page cache 计费口径与资源限额都还没验证；SIMD（AVX2/FMA）与并行扫描尚未实现，这是性能口径下最大的未开采空间；日志没有 compaction，反复更新会让文件单调增长。"
+      "content": "写这条时（2026-11-10）本机无 Docker/WSL，所有验证都在 Windows 裸进程上完成，Linux 容器内的复现、page cache 计费口径与资源限额都还没验证；SIMD（AVX2/FMA）与并行扫描尚未实现，这是性能口径下最大的未开采空间；日志没有 compaction，反复更新会让文件单调增长。其中「Linux 容器内复现」这一项已在 2026-11-11 用 GitHub Actions 的 ubuntu-24.04 runner 补做（见 /experiments/12），其余仍然未做。"
+    },
+    {
+      "id": "r7",
+      "topic": "「本机零警告」不等于「平台能构建」：移植性证据需要第二个工具链",
+      "content": "第一次提测整场评测执行失败，而本地记录里同样的构建是「-Wall -Wextra 零警告、20/20、12/12」。这个矛盾说明本地绿灯的证明范围只到本机工具链：MinGW 8.1 的 libstdc++ 会把 snprintf、errno、std::move 之类通过别的头文件传递进来，Linux 的 g++ 13 不保证。静态审计确实抓到两处真实缺失（json.cpp 用 snprintf 没有 <cstdio>，parser.cpp 用 errno/ERANGE 没有 <cerrno>），补齐后在 ubuntu-24.04 上一次性通过了裸编译、docker build、官方 protocol_check（镜像 + 裸进程两条路）和崩溃套件。但要点是：这些缺失并不足以解释平台失败——因为修复前的代码在 Linux 上是否真的编译不过，没有证据，补完就绿了只是必要条件。真正定位需要平台侧那一步的日志；能自查的都自查完了，剩下的两个候选（构建上下文含 .git、提测 SHA 指向未推送的本地提交）已经分别用 .dockerignore 和「只填远端存在的 40 位 SHA」堵住。教训有二：跨工具链的证据要单独产出，不能靠本机绿推断；以及遇到「执行失败」这种描述时，先区分「判负」和「没跑起来」，两者的排查方向完全相反。"
     }
   ],
   "limitations": [
@@ -442,10 +665,11 @@
     "扫描是单线程标量实现，未使用 AVX2/FMA，未做并行分段扫描；每行仍会物化一个 Value（含 std::vector<float> 与 std::string）。",
     "主键索引用 std::map，119.0 B/行里有相当一部分是红黑树节点开销，换开放寻址哈希表可降到约 24 B/行。",
     "每次提交 2 次 fsync（表日志 + txn.log）。崩溃模型只杀进程不断电时 fsync 是保险而非必需，写入密集负载下可降级，但会牺牲断电语义。",
-    "所有本地验证在 Windows（MinGW g++ 8.1.0 + Python 3.12.2）裸进程上完成，本机无 Docker/WSL，Linux 容器内未复现；存储层用了条件编译（_fseeki64/_chsize_s/_commit 与 fseeko/ftruncate/fsync），Linux 侧实际行为待平台确认。",
+    "性能与资源口径（page cache 计费、10k×128d 基线对比、隐藏用例）仍未在任何环境自测过；Linux 侧已复现的是 ubuntu-24.04 + g++ 13 的构建、公开用例、裸进程协议与崩溃套件（/experiments/12），复现载体是 GitHub Actions，不是评测平台本身。",
+    "第一次正式提测整场「评测执行失败或未完成」的根因尚未定位：本地已排除「Linux 编译不过」这一类的可复现性，剩余候选（平台构建阶段的网络限制、docker 上下文体积、提测 SHA 是否指向可获取的提交）都需要评测方日志才能确认。",
     "本文件中所有 student_interpretation 字段均为空，需由学生本人填写。按赛题 4.4，Agent 产出的计划、代码与修复不能作为学生理解的证据，只有学生自己的解释、判断与复测计分；Agent 未代写任何一条。",
-    "user_prompts 中 id=u0-p0 一条标注 verbatim:false，是 P0 阶段（前一会话）决策的要点摘要而非逐字原文，保留它是为了让 e1 有决策上下文。其余学生发言均为逐字原文。",
-    "本文件不含任何密钥、令牌等敏感信息；无 synthetic 合成材料。"
+    "user_prompts 中 id=u0-p0 一条标注 verbatim:false，是 P0 阶段（前一会话）决策的要点摘要而非逐字原文，保留它是为了让 e1 有决策上下文。其余学生发言均为逐字原文；个别条目的 time 取自 git reflog 而非聊天记录，已在 time_note 里说明。",
+    "本文件不含任何密钥、令牌等敏感信息；无 synthetic 合成材料。GitHub Actions 的 run 编号与 URL 是可核对的外部证据，但按赛题 3.4.3 仅作为补充上下文，评分所需的原文都写在本 JSON 的字符串字段内。"
   ],
-  "student_action_required": "提交前请学生本人做两件事：①逐条填写 /experiments/*/student_interpretation（12 条），写自己看到该输出时的判断——尤其是 e4（预测事务能读到自己的写入，结果 602 行）、e8（recovery 0.00s 为什么不可信）、e12（unknown_table 为什么不是 bug），这三条包含真实的「预测—被推翻—修正」链条，是最能体现理解的证据；②在 Linux 机器或容器内复跑 e3/e10/e9 三套验证，把真实输出追加为新的 experiment，因为当前全部证据来自 Windows 裸进程。这两项都不能由 Agent 代做：按赛题 4.4，编造对话、结果或学生理解会导致材料失效。"
+  "student_action_required": "提交前请学生本人做两件事：①逐条填写 /experiments/*/student_interpretation（14 条），写自己看到该输出时的判断——尤其是 e4（预测事务能读到自己的写入，结果 602 行）、e8（recovery 0.00s 为什么不可信）、e12（unknown_table 为什么不是 bug）、e13（Linux 全绿为什么仍不能算定位到根因），这几条包含真实的「预测—被推翻—修正」链条，是最能体现理解的证据；②向评测方索取该次提测的构建/启动日志，确认死在哪一阶段；同时核对提测表单里的 40 位 SHA 是否为远端真实存在的提交（本地存在一个内容相同但从未推送的 1fe4bee，填错会直接导致取不到 commit）。这两项都不能由 Agent 代做：按赛题 4.4，编造对话、结果或学生理解会导致材料失效。"
 }

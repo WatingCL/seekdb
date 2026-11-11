@@ -57,6 +57,12 @@ g++ -std=c++17 -O2 -Wall -Wextra -pthread minivectordb/src/*.cpp -o minivectordb
 docker build -t minivectordb:latest .
 ```
 
+根目录的 `.dockerignore` 只把 `minivectordb/` 放进构建上下文：提交树本身只有 0.4 MiB，
+但仓库克隆里有 `.git`，不排除会让 `docker build .` 先把整个克隆上传成上下文。
+
+构建与公开用例已在 `ubuntu-24.04` + g++ 13 上用真实判题参数（`--read-only`、`--cap-drop=ALL`、
+`--network=none`、`--cpus=2`、`--memory=2g`、`--pids-limit=128`）复现通过，记录见 `DESIGN.md` 7.4。
+
 ### 3.3 启动
 
 前台启动并保持标准输入打开（评测方式，`-i`，不用 `-d`/`-t`，无端口映射）：

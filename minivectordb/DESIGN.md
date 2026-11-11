@@ -349,6 +349,45 @@ py -3 minivectordb/tools/scale_check.py --rows 200000 --queries 20 \
 内存峰值出现在查询期而不是载入期（23.7 vs 22.7 MiB），因为有界堆会持有 k 行的解码结果；
 k 是 `LIMIT` 值，与表大小无关。
 
+### 7.4 Linux 工具链与容器复现（ubuntu-24.04，g++ 13）
+
+7.1–7.3 全部在 Windows（MinGW g++ 8.1.0）裸进程上完成，而正式评测环境是 Linux x86_64 容器。
+本机无 Docker/WSL，因此用一次 CI 作业把判题路径整体复现：临时 workflow 在 `ubuntu-24.04` runner 上依次执行
+
+```
+g++ -std=c++17 -O2 -Wall -Wextra -pthread minivectordb/src/*.cpp -o /tmp/mvdb-native
+docker build -t vectordb-ci .
+sudo python3 protocol_check/run.py --image vectordb-ci --output /tmp/ci-image
+python3 protocol_check/run.py --command '["/tmp/mvdb-native","--data-dir","{data_dir}"]' --output protocol-results/ci-native
+python3 minivectordb/tools/crash_check.py --exe /tmp/mvdb-native --output protocol-results/ci-crash
+```
+
+镜像阶段走的是官方 `protocol_check/_transport.py`，即 `--read-only`、`--cap-drop=ALL`、
+`--network=none`、`--cpus=2`、`--memory=2g`、`--pids-limit=128`，与赛题 3.1 的资源口径一致。
+
+| 阶段 | 结果 |
+| --- | --- |
+| g++ 13 裸编译（`-Wall -Wextra`） | exit 0，零警告 |
+| `docker build .` | success |
+| 官方 `protocol_check/run.py --image`（20 个公开用例） | exit 0 |
+| 官方 `protocol_check/run.py --command`（裸二进制） | exit 0 |
+| `crash_check.py`（12 项崩溃/恢复断言） | exit 0 |
+| 整轮耗时 | 58 s（run 42965293402）/ 57 s（run 42965580664） |
+
+复现记录：`https://github.com/WatingCL/seekdb/actions/runs/42965293402`、
+`https://github.com/WatingCL/seekdb/actions/runs/42965580664`。
+
+两条与移植性有关的实测结论：
+
+1. 源码此前从未在 Linux 编译器上验证过。MinGW 8.1 的 libstdc++ 会传递包含常用 C 头，
+   掩盖了两处真实缺失——`src/json.cpp` 使用 `snprintf` 但未包含 `<cstdio>`，
+   `src/parser.cpp` 使用 `errno`/`ERANGE` 但未包含 `<cerrno>`；
+   另外 `std::move` 所在的 `<utility>` 在 `engine.cpp`/`storage.cpp`/`parser.cpp` 中补齐。
+   现已全部显式包含。
+2. 提交树只有 105 个文件、0.4 MiB，但 `docker build .` 的构建上下文默认是整个仓库克隆
+   （含 `.git`），因此新增根目录 `.dockerignore`，只保留 `minivectordb/`。
+   上表第二行（57 s 那次）就是加了 `.dockerignore` 之后重跑的，结果不变。
+
 ## 8. 已实现功能与已知限制
 
 ### 8.1 已实现
@@ -387,13 +426,14 @@ k 是 `LIMIT` 值，与表大小无关。
 8. **不支持** `ALTER`/`DROP`/`JOIN`/子查询/聚合/`OR`/`NULL`/`LIMIT offset`（按赛题范围，
    这些一律返回 `unsupported_sql`）。
 9. **单进程单线程**，没有并发控制，也不支持多个进程同时打开同一个数据目录。
-10. **本地验证在 Windows 上完成**，未能在 Linux 容器内复现（本机无 Docker/WSL）。
-    源码用了 `_fseeki64`/`_chsize_s`/`_commit` 与 `fseeko`/`ftruncate`/`fsync` 的条件编译，
-    但 Linux 侧的实际行为、page cache 计费口径和资源限额仍需平台评测确认。
+10. **平台环境仍未验证**。Linux 侧已在 `ubuntu-24.04` + g++ 13 上复现通过（见 7.4：裸编译、
+    `docker build`、官方 `protocol_check` 镜像与裸进程两条路、崩溃套件全绿），
+    但那台 runner 不是评测平台；隐藏用例、page cache 计费口径与平台的构建网络策略仍不可知。
+    规模测试（7.3）目前只有 Windows 数据，Linux 侧待补。
 
 ## 9. 待办（按优先级）
 
-1. Linux 容器内复现全部三套验证（公开用例、崩溃套件、规模测试）。
+1. 在 Linux 上补跑规模测试（7.3），并把 7.4 的复现挪到自己的 Linux 机器/云主机上常态化执行。
 2. AVX2/FMA 的 L2 距离内核 + 直接从记录 body 读 float32，去掉每行的 `Value` 物化。
 3. 并行分段扫描（赛题给 2 核）。
 4. 日志 compaction，回收被更新/删除的记录。
