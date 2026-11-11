@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "sql/ai_column/ai_column_runtime.h"
 #define USING_LOG_PREFIX SQL_RESV
 #include "ob_del_upd_resolver.h"
 #include "sql/resolver/dml/ob_default_value_utils.h"
@@ -73,7 +74,7 @@ ObDelUpdResolver::~ObDelUpdResolver()
 int ObDelUpdResolver::check_ai_column_assignment(const ObColumnRefRawExpr *expr)
 {
   int ret = OB_SUCCESS;
-  if (session_info_ != nullptr && session_info_->is_user_session()) {
+  if (!ai_column_is_internal() && session_info_ != nullptr && session_info_->is_user_session()) {
     const ColumnItem *item = nullptr;
     const TableItem *table = nullptr;
     const ObColumnSchemaV2 *schema = nullptr;

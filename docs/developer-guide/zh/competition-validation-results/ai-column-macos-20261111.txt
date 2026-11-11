@@ -1,0 +1,70 @@
+Task 3 AI COLUMN local validation, 2026-11-11
+macOS arm64; AppleClang 21; 8 GiB RAM
+Disposable instance: cpu_count=2, memory_limit=2G, SQL port 28935
+Source baseline before this patch: d0260b7dad52322e90306c604c9419fc15248846; working tree dirty
+Build: make -C build_release -j3 seekdb -> PASS
+
+Original acceptance command:
+python3 tools/deploy/run_ai_column_tests.py --mysqltest deps/3rd/u01/obclient/bin/mysqltest --port 28935 --logdir /tmp/seekdb-ai-column-final-results
+SQL files, Mock assertions and expected results were not changed.
+Running ai_column_ddl
+ok
+Running ai_column_t1_dml
+ok
+Running ai_column_worker
+ok
+Running ai_column_vector_index
+ok
+Running ai_column_retry_strict
+ok
+AI COLUMN: 5/5 passed (original SQL and expected results)
+
+Native task-store and Schema cache tests (production libraries):
+<jemalloc>: option background_thread currently supports pthread only
+Running main() from googletest/src/gtest_main.cc
+[==========] Running 7 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 6 tests from AiColumnTasks
+[ RUN      ] AiColumnTasks.RequiresBusinessTransaction
+[       OK ] AiColumnTasks.RequiresBusinessTransaction (0 ms)
+[ RUN      ] AiColumnTasks.ValidatesWholeGroupBeforeWriting
+[       OK ] AiColumnTasks.ValidatesWholeGroupBeforeWriting (0 ms)
+[ RUN      ] AiColumnTasks.WriteFailureIsPropagated
+[       OK ] AiColumnTasks.WriteFailureIsPropagated (0 ms)
+[ RUN      ] AiColumnTasks.CompletionIsFencedAndRetriesAreFinite
+[       OK ] AiColumnTasks.CompletionIsFencedAndRetriesAreFinite (0 ms)
+[ RUN      ] AiColumnTasks.NullReadyIsDifferentFromPending
+[       OK ] AiColumnTasks.NullReadyIsDifferentFromPending (0 ms)
+[ RUN      ] AiColumnTasks.DeepCopyOwnsRequestAndInput
+[       OK ] AiColumnTasks.DeepCopyOwnsRequestAndInput (0 ms)
+[----------] 6 tests from AiColumnTasks (0 ms total)
+
+[----------] 1 test from AiColumnSchema
+[ RUN      ] AiColumnSchema.CacheCopyFitsDeclaredBuffer
+[       OK ] AiColumnSchema.CacheCopyFitsDeclaredBuffer (0 ms)
+[----------] 1 test from AiColumnSchema (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 7 tests from 2 test suites ran. (0 ms total)
+[  PASSED  ] 7 tests.
+
+Parser cold-generation/cache test:
+.
+----------------------------------------------------------------------
+Ran 1 test in 8.774s
+
+OK
+
+Additional integration checks:
+durable_running_group
+1
+Committed RUNNING group survived server restart
+Expired claims recovered; READY SQL NULL passes strict reads
+mock_no_requests=ok
+Direct INSERT/UPDATE rejected; NULL input and unrelated update make no HTTP request
+Partial RETRY preserves the other member of an in-flight group
+Additional checks passed; fixtures removed
+Recovery check seeded a committed RUNNING group with a simulated dead owner, restarted the process, verified persistence, then expired its lease for deterministic recovery. It is not a power-loss or long-running fault stress benchmark.
+
+Existing AI function protocol regression:
+PASS: 75 SQL checks plus HTTP batch, mapping, NULL, limit and fault assertions

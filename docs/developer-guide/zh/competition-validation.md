@@ -63,19 +63,31 @@ GTEST_FILTER='FileSql*:FileDescribeParser.*:FileTableColumns.*:ObAIPromptTest.*:
   -R '^(sql|storage|share)_tests_shard_[0-9]+$' --output-on-failure
 ```
 
-## 题目 3 的完成边界
+## 题目 3 的实现与验收
 
-目前只有 AI 列 Schema 字段、持久化任务存储、结果列赋值保护和严格读取检查的部分实现。AI COLUMN DDL、业务 DML 创建任务、后台执行、分组发布及 RETRY 语句尚未形成可运行的完整链路。
+AI COLUMN 已接入内核的 DDL、Schema、业务事务和后台调度。CREATE / ALTER ADD 持久化表达式、依赖、配置及三种隐藏字段；SHOW CREATE TABLE 保留声明。DML 在原事务内比较依赖快照、失效旧结果并创建任务，后台仅领取已提交的任务。结果按行和变更分组，在同一事务内通过原生 UPDATE 写回，维护向量索引，并校验定义版本、请求 ID 和领取租约。有限自动重试、条件 RETRY 和列级严格读取均沿用原生 SQL 执行。
 
-`ai_column/` 下的 mysqltest 文件是后续实现应通过的验收用例，不能把这些文件存在或任务存储单测通过视为题目 3 已完成。此前本地开发目录中的 DDL 补丁也是未完成的开发阶段，不能单独迁入后宣称功能可用。
+在专用实例上创建 `test` 数据库后，可直接运行五个原始验收用例。脚本不改动 SQL、断言或预期结果；各用例使用本机 19121～19124 端口的 Mock 服务。
 
-当前 `ai_model_endpoint_ddl.test` 还包含开发中的 `max_concurrency` 配置及视图列断言；实现尚不支持该参数，该用例在创建 Endpoint 时会失败。不要将其报为已通过，也不能据此认为并发限流已经实现。
+```bash
+python3 tools/deploy/run_ai_column_tests.py \
+  --mysqltest "$PWD/deps/3rd/u01/obclient/bin/mysqltest" \
+  --port 2885 --logdir /tmp/seekdb-ai-column-results
+```
+
+本机五个原始用例全部通过，任务存储及 Schema 原生回归 7/7 通过，原有 AI 函数协议回归 75 项 SQL 检查通过。补充验证了已提交任务跨重启保留、过期租约重领、READY 的 SQL NULL、直接赋值拒绝及组内单列 RETRY；[完整记录](competition-validation-results/ai-column-macos-20261111.txt) 保留了构建基线和验证边界。
+
+本次修复还覆盖 Schema 缓存拷贝时依赖集合重复分配、嵌套 SQL 的事务归属，以及 DROP 与后台发布的锁顺序。新增缓存拷贝回归使用 `get_convert_size()` 声明的精确缓冲区，防止出现“DDL 已写入系统表，但表结构重新加载失败”的问题。
+
+当前 DML 维护使用每页 32 行的主键游标扫描，在事务内锁定并检查目标表，输入复制有大小上限。该实现优先保证正确性；大表并发写入性能、中断恢复压力和跨端点同 URL 限流仍需要专项评测，五个功能用例不能作为性能得分或隐藏测试全部通过的证明。
+
+`ai_model_endpoint_ddl.test` 另有开发中的 `max_concurrency` 参数及视图列断言；该参数尚不支持，不能把这个独立用例报为通过。
 
 ## 题目 4 与 GitHub 验证
 
 全文索引使用 `tools/benchmark/fts_large_bench.sh` 和固定基线评分，运行方式见仓库根目录 `seekdb题目4.md`。保持输入数据、SQL、计时与评分脚本不变。基准会重建 `fts_large_bench` 数据库，只能在专用实例运行。
 
-`.github/workflows/vldb.yml` 在该分支推送时执行，也支持手动触发。它编译并执行相关单测、题目 1/2 的协议测试和完整 FTS 基准，上传日志及报告。它不代表题目 3 的端到端验收，也不能代替组委会的完整隐藏测试。GitHub 托管机器与正式基线硬件不同，性能分数仅供参考；局部分词函数的差分测试和微基准不能代替完整索引构建、TOKENIZE 和 MATCH 的验证。
+`.github/workflows/vldb.yml` 在该分支推送时执行，也支持手动触发。它编译并执行相关单测、题目 1/2 的协议测试和完整 FTS 基准，上传日志及报告。它也运行上述五个 AI COLUMN 原始验收用例，但不能代替组委会的完整隐藏测试。GitHub 托管机器与正式基线硬件不同，性能分数仅供参考；局部分词函数的差分测试和微基准不能代替完整索引构建、TOKENIZE 和 MATCH 的验证。
 
 ## 2026-11-11 本机验证记录
 
@@ -85,7 +97,7 @@ macOS arm64，8 GiB 内存；隔离实例配置 `cpu_count=2`、`memory_limit=2G
 - AI 协议测试：75 项 SQL 检查及 HTTP 批次、乱序恢复、NULL、LIMIT、故障响应断言通过。
 - 文件 SQL 协议测试：28 项检查通过，包括三种格式、JOIN、聚合、DESCRIBE、glob、COPY 和路径安全。
 - mysqltest：`ai_prompt`、`ai_function_enhancement`、`ai_function_enhancement_extra`、`ik_character_classification`、`beng_ascii_normalization` 通过。AI 用例在临时副本中将 Mock 地址统一改为本机隔离端口，期望输出做相同地址替换，其余断言保持原样。
-- `ai_model_endpoint_ddl` 仍在 `max_concurrency` 处失败；AI COLUMN 端到端功能仍未完成。
+- `ai_model_endpoint_ddl` 仍在 `max_concurrency` 处失败；AI COLUMN 的本次实现与验收见上节。
 - 完整 FTS 基准完成，原始报告见 [fts-macos-20261111.txt](competition-validation-results/fts-macos-20261111.txt)，参考评分见 [fts-macos-20261111-score.json](competition-validation-results/fts-macos-20261111-score.json)。报告保留了测试时的 `git_head` 和 `git_dirty=1`，对应本次提交前工作区。该分数比较的是本机与不同硬件上的固定基线，不是同机优化前后对比或正式成绩。
 
 GitHub 首次运行在依赖初始化阶段失败：清单引用的 `obshell-4.5.0.1-52026082614.el8.x86_64.rpm` 返回 HTTP 404。EL8/EL9 x86_64 清单已改为仓库中原有注释列出的、经下载地址确认仍可用的 `4.5.0.0-12026050816` 包；其他社区工具下载地址也已核对。

@@ -10994,7 +10994,7 @@
     "name": "ai_column_strict_read",
     "default_value": "0",
     "base_value": "0",
-    "data_type": "int",
+    "data_type": "bool",
     "min_val": "0",
     "max_val": "1",
     "info": "Reject statements referencing AI columns with any non-ready row",

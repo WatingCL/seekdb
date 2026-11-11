@@ -18,6 +18,8 @@
 #include <string>
 #include <vector>
 #include "share/ai_service/ai_column_task.h"
+#include "share/schema/ob_column_schema.h"
+#include "share/schema/ob_schema_utils.h"
 
 using namespace oceanbase::common;
 using namespace oceanbase::share;
@@ -168,4 +170,25 @@ TEST(AiColumnTasks, DeepCopyOwnsRequestAndInput)
   input[0] = 'Y';
   EXPECT_EQ(ObString("request-1"), copy.request_id_);
   EXPECT_EQ(ObString("original"), copy.model_input_);
+}
+
+TEST(AiColumnSchema, CacheCopyFitsDeclaredBuffer)
+{
+  // Schema cache allocations are bounded by get_convert_size(). Rebuilding
+  // dependencies and then allocating their bitset again used to exhaust it.
+  ObArenaAllocator allocator;
+  oceanbase::share::schema::ObColumnSchemaV2 source(&allocator);
+  ASSERT_EQ(OB_SUCCESS, source.set_column_name("summary"));
+  source.set_column_id(18);
+  source.set_data_type(ObVarcharType);
+  ASSERT_EQ(OB_SUCCESS, source.set_ai_column_expr(ObString("AI_COMPLETE('model', content)")));
+  ASSERT_EQ(OB_SUCCESS, source.set_ai_column_dependency_ids(ObString("17")));
+  std::vector<char> buffer(source.get_convert_size() + sizeof(ObDataBuffer));
+  oceanbase::share::schema::ObColumnSchemaV2 *copy=nullptr;
+  ASSERT_EQ(OB_SUCCESS, oceanbase::share::schema::ObSchemaUtils::deep_copy_schema(buffer.data(),source,copy));
+  ASSERT_NE(nullptr,copy);
+  EXPECT_EQ(source.get_ai_column_expr(),copy->get_ai_column_expr());
+  EXPECT_EQ(source.get_ai_column_dependency_ids(),copy->get_ai_column_dependency_ids());
+  EXPECT_TRUE(copy->has_cascaded_column_id(17));
+  copy->~ObColumnSchemaV2();
 }

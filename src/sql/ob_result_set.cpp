@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "sql/ai_column/ai_column_runtime.h"
 #define USING_LOG_PREFIX SQL
 #include "ob_result_set.h"
 #include "query/session/ob_inner_sql_connection_access.h"
@@ -227,13 +228,14 @@ int ObResultSet::check_ai_column_reads(const ObPhysicalPlan &plan)
   int ret = OB_SUCCESS;
   bool strict = false;
   const auto &refs = plan.get_ai_column_read_refs();
-  if (refs.empty() || !my_session_.is_user_session()) {
+  if (ai_column_is_internal() || refs.empty() || !my_session_.is_user_session()) {
     return ret;
   } else if (OB_FAIL(my_session_.get_sys_variable(share::SYS_VAR_AI_COLUMN_STRICT_READ, strict))) {
     return ret;
   } else if (!strict) {
     return ret;
   }
+  AiColumnInternalGuard internal(&my_session_);
   ObExecContext &ctx = get_exec_context();
   ObSchemaGetterGuard *guard = ctx.get_sql_ctx() == nullptr ? nullptr : ctx.get_sql_ctx()->schema_guard_;
   common::sqlclient::ObISQLConnectionGuard connection_guard;
@@ -242,7 +244,7 @@ int ObResultSet::check_ai_column_reads(const ObPhysicalPlan &plan)
   if (guard == nullptr || (refs.count() & 1) != 0) {
     return OB_ERR_UNEXPECTED;
   } else if (owns_connection) {
-    if (OB_FAIL(query::ObInnerSQLConnectionAccess::create_connection_with_external_session(
+    if (OB_FAIL(query::ObInnerSQLConnectionAccess::create_spi_connection_with_external_session(
                     &my_session_, connection_guard))) {
       return ret;
     }
@@ -313,6 +315,42 @@ int ObResultSet::check_ai_column_reads(const ObPhysicalPlan &plan)
   return ret;
 }
 
+int ObResultSet::maintain_ai_columns(const ObPhysicalPlan &plan)
+{
+  int ret=OB_SUCCESS;
+  if (ai_column_is_internal() || !my_session_.is_user_session() || plan.ai_column_write_tables_.empty()) return ret;
+  AiColumnInternalGuard internal(&my_session_);
+  auto *guard=get_exec_context().get_sql_ctx()->schema_guard_;
+  common::sqlclient::ObISQLConnectionGuard connection_guard;
+  auto *connection=my_session_.get_inner_conn();
+  const bool owns=connection==nullptr;
+  if (owns) {
+    if (OB_FAIL(query::ObInnerSQLConnectionAccess::create_spi_connection_with_external_session(&my_session_,connection_guard))) return ret;
+    connection=connection_guard.get_ptr();my_session_.set_inner_conn(connection);
+  }
+  auto *inner=as_inner_sql_connection(connection);
+  ObSQLSessionInfo::StmtSavedValue saved_session;
+  ObIInnerSQLConnection::SavedValue saved_connection;
+  bool nested=false;
+  if (inner==nullptr) ret=OB_ERR_UNEXPECTED;
+  else if (OB_FAIL(inner->begin_nested_session(saved_session,saved_connection,true))) {}
+  else {
+    nested=true;
+    for (int64_t wi=0;wi<plan.ai_column_write_tables_.count();++wi) {
+      const auto id=plan.ai_column_write_tables_.at(wi);
+      const ObTableSchema *table=nullptr; const ObDatabaseSchema *db=nullptr;
+      if (OB_FAIL(guard->get_table_schema(id,table))) break;
+      if (table==nullptr) {ret=OB_SCHEMA_ERROR;break;}
+      if (OB_FAIL(guard->get_database_schema(table->get_database_id(),db))) break;
+      if (db==nullptr) {ret=OB_SCHEMA_ERROR;break;}
+      if (OB_FAIL(reconcile_ai_column_table(*inner,*table,db->get_database_name_str()))) break;
+    }
+  }
+  if (nested) {int end=inner->end_nested_session(saved_session,saved_connection);if(OB_SUCC(ret)) ret=end;}
+  if (owns) my_session_.set_inner_conn(nullptr);
+  return ret;
+}
+
 int ObResultSet::open_result()
 {
   int ret = OB_SUCCESS;
@@ -327,6 +365,7 @@ int ObResultSet::open_result()
         SQL_LOG(WARN, "fail open main query", K(ret));
       }
     } else if (OB_FAIL(drive_dml_query())) {
+    } else if (OB_FAIL(maintain_ai_columns(*physical_plan_))) {
     }
   }
   if (OB_SUCC(ret)) {

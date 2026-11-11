@@ -17,6 +17,7 @@
 #define USING_LOG_PREFIX SHARE_SCHEMA
 #include "ob_table_sql_service.h"
 #include "lib/literals/ob_literals.h"
+#include "share/ai_service/ai_column_task.h"
 #include "share/ob_global_stat_proxy.h"
 #include "share/schema/ob_constraint.h"
 #include "share/schema/ob_partition_sql_helper.h"
@@ -712,6 +713,11 @@ int ObTableSqlService::drop_table(const ObTableSchema &table_schema,
       sql_client, table_schema, new_schema_version))) {
     LOG_WARN("delete_from_column_history_table failed", K(table_schema), K(ret));
   }
+  if (OB_SUCC(ret)) {
+    for (auto it=table_schema.column_begin(); it!=table_schema.column_end(); ++it) {
+      if ((*it)->is_ai_column()) { ret=delete_ai_column_definitions(sql_client, table_id); break; }
+    }
+  }
   // delete from __all_table and __all_column
   if (OB_SUCC(ret)) {
     if (OB_FAIL(delete_from_all_table(sql_client, table_id))) {
@@ -917,6 +923,8 @@ int ObTableSqlService::insert_single_column(
   int ret = OB_SUCCESS;
   if (OB_FAIL(check_ddl_allowed(new_table_schema))) {
   } else if (OB_FAIL(add_single_column(sql_client, new_column_schema))) {
+  } else if (new_column_schema.is_ai_column()) {
+    ret = sync_ai_column_definitions(sql_client, new_table_schema);
   }
   if (OB_SUCC(ret)) {
     if (new_column_schema.is_autoincrement()) {
@@ -2238,6 +2246,7 @@ int ObTableSqlService::batch_create_table(ObIArray<ObTableSchema> &tables,
     } else if (FALSE_IT(time_guard.click("insert_all_table"))) {
     } else if (OB_FAIL(batch_add_columns_for_create_table(sql_client, tables))) {
     } else if (FALSE_IT(time_guard.click("insert_all_column"))) {
+    } else if (OB_FAIL(([&]() { int r = OB_SUCCESS; for (int64_t i=0; r==OB_SUCCESS && i<tables.count(); ++i) r=sync_ai_column_definitions(sql_client, tables.at(i)); return r; })())) {
     } else if (OB_FAIL(batch_add_constraints_for_create_table(sql_client, tables))) {
     } else if (FALSE_IT(time_guard.click("insert_all_cst"))) {
     } else if (OB_FAIL(batch_add_table_part_info(sql_client, tables))) {

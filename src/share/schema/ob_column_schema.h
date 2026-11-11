@@ -348,6 +348,7 @@ int assign(const ObColumnSchemaV2 &src_schema);
   inline const share::ObLocalSessionVar &get_local_session_var() const { return local_session_vars_; }
   int is_same_collection_column(const ObColumnSchemaV2 &other, bool &is_same) const;
   bool is_ai_column() const { return !ai_column_expr_.empty(); }
+  bool is_ai_column_internal() const { return (column_flags_ & AI_COLUMN_INTERNAL_FLAG) != 0; }
   const common::ObString &get_ai_column_expr() const { return ai_column_expr_; }
   const common::ObString &get_ai_column_dependency_ids() const { return ai_column_dependency_ids_; }
   int64_t get_ai_column_max_retries() const { return ai_column_max_retries_; }

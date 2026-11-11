@@ -3599,8 +3599,41 @@ int ObAlterTableResolver::resolve_add_column(const ParseNode &node, ObColumnName
           }
         }
 
-        //add column
-        if (OB_SUCC(ret)) {
+        // AI result and internal columns are one atomic ALTER action. Rootserver
+        // assigns ADD ids in this same order starting at max_used_column_id.
+        if (OB_SUCC(ret) && alter_column_schema.is_ai_column()) {
+          const uint64_t cid = table_schema_->get_max_used_column_id()
+              + alter_table_stmt->get_alter_table_schema().get_column_count() + 1;
+          alter_column_schema.set_column_id(cid);
+          alter_column_schema.set_ai_column_state_column_id(cid+1);
+          alter_column_schema.set_ai_column_request_column_id(cid+2);
+          alter_column_schema.set_ai_column_result_spec_column_id(cid+3);
+          ObSEArray<uint64_t, 4> deps;
+          ObSqlString ids;
+          if (OB_FAIL(collect_ai_column_dependencies(node.children_[i]->children_[3], *table_schema_, deps))) {
+          }
+          for (int64_t d=0; OB_SUCC(ret) && d<deps.count(); ++d)
+            ret=ids.append_fmt("%s%lu", d ? "," : "", deps.at(d));
+          if (OB_SUCC(ret)) ret=alter_column_schema.set_ai_column_dependency_ids(ids.string());
+          if (OB_SUCC(ret)) ret=alter_table_stmt->add_column(alter_column_schema);
+          for (int kind=0; OB_SUCC(ret) && kind<3; ++kind) {
+            AlterColumnSchema hidden;
+            hidden.alter_type_=OB_DDL_ADD_COLUMN;
+            hidden.set_column_id(cid+1+kind);
+            hidden.set_is_hidden(true);
+            hidden.add_column_flag(AI_COLUMN_INTERNAL_FLAG);
+            hidden.set_nullable(true);
+            hidden.set_data_type(kind==0 ? ObIntType : kind==1 ? ObVarcharType : ObLongTextType);
+            hidden.set_charset_type(kind==0 ? CHARSET_BINARY : CHARSET_UTF8MB4);
+            hidden.set_collation_type(kind==0 ? CS_TYPE_BINARY : CS_TYPE_UTF8MB4_BIN);
+            if (kind==0) {hidden.get_cur_default_value().set_int(int64_t(0));ret=hidden.set_orig_default_value(hidden.get_cur_default_value());}
+            else hidden.set_data_length(kind==1 ? 64 : ObAccuracy::MAX_ACCURACY[ObLongTextType].get_length());
+            ObSqlString name;
+            if (OB_FAIL(name.append_fmt("__ai_%s_%lu", kind==0 ? "state" : kind==1 ? "request" : "spec", cid))) {
+            } else if (OB_FAIL(hidden.set_column_name(name.string()))) {
+            } else ret=alter_table_stmt->add_column(hidden);
+          }
+        } else if (OB_SUCC(ret)) {
           if (OB_FAIL(alter_table_stmt->add_column(alter_column_schema))) {
           } else if (FALSE_IT(alter_table_stmt->set_sql_mode(session_info_->get_sql_mode()))) {
           }
@@ -3692,7 +3725,8 @@ int ObAlterTableResolver::resolve_alter_table_column_definition(AlterColumnSchem
   // }
   if (OB_SUCC(ret)) {
     ParseNode *pos_node = NULL;
-    if (OB_UNLIKELY(GEN_COLUMN_DEFINITION_NUM_CHILD == node->num_child_)) {
+    if (OB_UNLIKELY(GEN_COLUMN_DEFINITION_NUM_CHILD == node->num_child_
+                    || AI_COLUMN_DEFINITION_NUM_CHILD == node->num_child_)) {
     // generated column with pos_column
       pos_node = node->children_[5];
     } else {

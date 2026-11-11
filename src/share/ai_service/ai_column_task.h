@@ -24,6 +24,10 @@ namespace oceanbase
 {
 namespace share
 {
+namespace schema { class ObTableSchema; class ObColumnSchemaV2; }
+const char *ai_column_result_hint(const schema::ObColumnSchemaV2 &column);
+int sync_ai_column_definitions(common::ObISQLClient &client, const schema::ObTableSchema &table);
+int delete_ai_column_definitions(common::ObISQLClient &client, uint64_t table_id);
 
 // Result states are independent of SQL NULL. A READY result may itself be NULL.
 enum class AiColumnState : int64_t { PENDING = 0, RUNNING = 1, READY = 2, FAILED = 3 };

@@ -15,6 +15,7 @@
  */
 
 #define USING_LOG_PREFIX SQL_RESV
+#include "sql/ai_column/ai_column_runtime.h"
 #include "sql/resolver/ob_resolver.h"
 #include "lib/utility/ob_smart_call.h"
 #include "lib/stat/ob_diagnostic_info_guard.h"
@@ -184,7 +185,10 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
         break;
       }
       case T_ALTER_TABLE: {
-        REGISTER_STMT_RESOLVER(AlterTable);
+        const auto *actions=real_parse_tree->children_[1];
+        if(actions!=nullptr && actions->num_child_>0 && actions->children_[0]->type_==T_AI_COLUMN_RETRY) {
+          ret=resolve_ai_column_retry(params_,*real_parse_tree,stmt);
+        } else { REGISTER_STMT_RESOLVER(AlterTable); }
         break;
       }
       case T_CREATE_INDEX: {

@@ -15,6 +15,7 @@
  */
 
 #define USING_LOG_PREFIX SQL_RESV
+#include "sql/ai_column/ai_column_runtime.h"
 #include "sql/engine/basic/file_sql/file_reader.h"
 #include "ob_dml_resolver.h"
 #include "sql/resolver/dml/ob_view_table_resolver.h"
@@ -1955,6 +1956,7 @@ int ObDMLResolver::resolve_basic_column_item(const TableItem &table_item,
         }
       }
     }
+    if (ai_column_is_internal() || !session_info_->is_user_session()) include_hidden = true;
     if (OB_FAIL(ret)) {
       //do nothing
     } else if (OB_FAIL(schema_checker_->get_table_schema( tid, table_schema))) {

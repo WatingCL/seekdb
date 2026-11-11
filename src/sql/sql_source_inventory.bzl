@@ -1661,6 +1661,9 @@ SQL_SIMD_UNITY_GROUPS = [
 ]
 
 SQL_STANDALONE_SOURCES = [
+    struct(path = "src/sql/ai_column/ai_column_retry.cpp", language = "c++", kind = "source"),
+    struct(path = "src/sql/ai_column/ai_column_worker.cpp", language = "c++", kind = "source"),
+    struct(path = "src/sql/ai_column/ai_column_runtime.cpp", language = "c++", kind = "source"),
     struct(path = "src/sql/engine/aggregate/ob_aggregate_processor.cpp", language = "c++", kind = "source"),
     struct(path = "src/sql/engine/expr/ob_expr_add.cpp", language = "c++", kind = "source"),
     struct(path = "src/sql/engine/expr/ob_expr_array_sort.cpp", language = "c++", kind = "source"),

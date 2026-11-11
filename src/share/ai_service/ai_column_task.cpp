@@ -21,6 +21,7 @@
 #include "common/object/ob_object.h"
 #include "lib/allocator/page_arena.h"
 #include <limits>
+#include "share/schema/ob_table_schema.h"
 
 using namespace oceanbase::common;
 
@@ -84,6 +85,63 @@ int copy_task_string(ObIAllocator &allocator, const ObString &source, ObString &
 {
   return ob_write_string(allocator, source, target);
 }
+}
+
+const char *ai_column_result_hint(const schema::ObColumnSchemaV2 &column)
+{
+  if (column.is_json()) return "Return exactly one valid JSON value.";
+  if (ob_is_integer_type(column.get_data_type())) return "Return exactly one base-10 integer.";
+  if (ob_is_numeric_type(column.get_data_type())) return "Return exactly one finite number.";
+  if (column.get_data_type() == ObDateType) return "Return exactly one date in YYYY-MM-DD format.";
+  if (column.get_data_type() == ObDateTimeType) return "Return exactly one datetime in YYYY-MM-DD HH:MM:SS format.";
+  return "Return only the requested text.";
+}
+
+int sync_ai_column_definitions(ObISQLClient &client, const schema::ObTableSchema &table)
+{
+  int ret = OB_SUCCESS;
+  for (auto it = table.column_begin(); OB_SUCC(ret) && it != table.column_end(); ++it) {
+    const schema::ObColumnSchemaV2 &column = **it;
+    if (!column.is_ai_column()) continue;
+    ObDMLSqlSplicer dml;
+    ObSqlString sql, normalized, type;
+    int64_t dimension = 0;
+    if (column.is_collection() && column.get_extended_type_info().count() == 1) {
+      ObString info = column.get_extended_type_info().at(0);
+      info.split_on('(');
+      dimension = std::atoi(info.ptr());
+    }
+    if (OB_FAIL(normalized.append_fmt("%.*s /* %s */", column.get_ai_column_expr().length(),
+                    column.get_ai_column_expr().ptr(), ai_column_result_hint(column)))) {
+    } else if (OB_FAIL(type.append_fmt("%d", static_cast<int>(column.get_data_type())))) {
+    } else if (OB_FAIL(dml.add_pk_column("table_id", table.get_table_id()))
+        || OB_FAIL(dml.add_pk_column("column_id", column.get_column_id()))
+        || OB_FAIL(dml.add_column("definition_version", column.get_schema_version() > 0 ? column.get_schema_version() : table.get_schema_version()))
+        || OB_FAIL(dml.add_column("column_name", ObHexEscapeSqlStr(column.get_column_name_str())))
+        || OB_FAIL(dml.add_column("normalized_expr", ObHexEscapeSqlStr(normalized.string())))
+        || OB_FAIL(dml.add_column("dependency_column_ids", ObHexEscapeSqlStr(column.get_ai_column_dependency_ids().empty() ? ObString::make_string("") : column.get_ai_column_dependency_ids())))
+        || OB_FAIL(dml.add_column("result_type", type.string()))
+        || OB_FAIL(dml.add_column("state_column_id", column.get_ai_column_state_column_id()))
+        || OB_FAIL(dml.add_column("request_column_id", column.get_ai_column_request_column_id()))
+        || OB_FAIL(dml.add_column("result_spec_column_id", column.get_ai_column_result_spec_column_id()))
+        || OB_FAIL(dml.add_column("max_retries", column.get_ai_column_max_retries()))
+        || OB_FAIL(dml.add_column("vector_dimension", dimension))) {
+    } else if (OB_FAIL(dml.splice_insert_update_sql(AI_COLUMN_TABLE, sql))) {
+    } else { int64_t affected = 0; ret = client.write(sql.ptr(), affected); }
+  }
+  return ret;
+}
+
+int delete_ai_column_definitions(ObISQLClient &client, uint64_t table_id)
+{
+  int ret = OB_SUCCESS;
+  int64_t affected = 0;
+  ObSqlString sql;
+  if (OB_FAIL(sql.append_fmt("DELETE FROM %s WHERE table_id=%lu", AI_COLUMN_TASK_TABLE, table_id))) {
+  } else if (OB_FAIL(client.write(sql.ptr(), affected))) {
+  } else if (OB_FAIL(sql.assign_fmt("DELETE FROM %s WHERE table_id=%lu", AI_COLUMN_TABLE, table_id))) {
+  } else { ret = client.write(sql.ptr(), affected); }
+  return ret;
 }
 
 bool AiColumnDefinition::is_valid() const
@@ -336,8 +394,10 @@ int AiColumnTaskStore::record_result(ObMySQLTransaction &trans, const AiColumnTa
       || OB_FAIL(dml.add_pk_column("lease_epoch", claim.lease_epoch_))
       || OB_FAIL(dml.add_column("status", state_name(success ? AiColumnState::READY
                                                           : retry ? AiColumnState::PENDING : AiColumnState::FAILED)))
-      || OB_FAIL(dml.add_column("result", ObHexEscapeSqlStr(success ? result : ObString())))
+      || OB_FAIL(dml.add_column("result", ObHexEscapeSqlStr(success && !result.empty() ? result : ObString::make_string(""))))
       || OB_FAIL(dml.add_column("result_is_null", !success || result_is_null))
+      || OB_FAIL(dml.add_column("state", success ? 2 : 3))
+      || OB_FAIL(dml.add_column("retry_count", claim.attempts_))
       || OB_FAIL(dml.add_column("error_code", error_code))
       || OB_FAIL(dml.add_time_column("eligible_ts", now + retry_delay_us))
       || OB_FAIL(dml.get_extra_condition().append_fmt("lease_expire_ts > %ld", now))) {
@@ -367,7 +427,7 @@ int AiColumnTaskStore::publish_group(ObISQLClient &proxy, const ObString &reques
       "SELECT *, time_to_usec(eligible_ts) AS eligible_us, lease_expire_ts AS lease_expire_us FROM %s WHERE request_id = ",
       AI_COLUMN_TASK_TABLE))) {
   } else if (OB_FAIL(append_hex_literal(sql, request_id))) {
-  } else if (OB_FAIL(sql.append(" ORDER BY column_id FOR UPDATE"))) {
+  } else if (OB_FAIL(sql.append(" ORDER BY column_id"))) {
   } else if (OB_FAIL(trans.read(result, sql.ptr()))) {
   } else if (OB_ISNULL(rows = result.get_result())) {
     ret = OB_ERR_UNEXPECTED;
@@ -383,6 +443,10 @@ int AiColumnTaskStore::publish_group(ObISQLClient &proxy, const ObString &reques
     if (ret == OB_ITER_END) { ret = OB_SUCCESS; }
   }
   result.reset();
+  // Terminal outcomes are immutable. Read them without holding task locks
+  // across native business-table DML: DDL/business writes acquire table/row
+  // locks before cleaning tasks. The final DELETE locks and checks the exact
+  // group size; a concurrent publisher/cancellation rolls this transaction back.
   if (OB_SUCC(ret) && terminal && !group.empty()) {
     if (group.count() != group.at(0).group_size_) { ret = OB_INVALID_DATA; }
     for (int64_t i = 0; OB_SUCC(ret) && i < group.count(); ++i) {
@@ -390,7 +454,7 @@ int AiColumnTaskStore::publish_group(ObISQLClient &proxy, const ObString &reques
       if (task.table_id_ != group.at(0).table_id_ || task.rowkey_predicate_ != group.at(0).rowkey_predicate_
           || task.group_size_ != group.count()) {
         ret = OB_INVALID_DATA;
-      } else if (OB_FAIL(sql.assign_fmt("SELECT definition_version FROM %s WHERE table_id = %lu AND column_id = %lu FOR UPDATE",
+      } else if (OB_FAIL(sql.assign_fmt("SELECT definition_version FROM %s WHERE table_id = %lu AND column_id = %lu",
                                         AI_COLUMN_TABLE, task.table_id_, task.column_id_))) {
       } else if (OB_FAIL(trans.read(result, sql.ptr()))) {
       } else if (OB_ISNULL(rows = result.get_result())) {

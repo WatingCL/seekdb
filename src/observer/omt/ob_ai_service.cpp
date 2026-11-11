@@ -16,6 +16,8 @@
 
 #define USING_LOG_PREFIX SERVER_OMT
 #include "ob_ai_service.h"
+#include "observer/ob_server.h"
+#include "query/ai/ai_column_runtime.h"
 #include "observer/ai_service/ob_ai_service_executor.h"
 #include "sql/privilege_check/ob_ai_model_priv_util.h"
 #include "sql/session/ob_sql_session_info.h"
@@ -60,6 +62,10 @@ int ObAiService::init()
   }
   return ret;
 }
+
+int ObAiService::start() { return query::start_ai_column_worker(OBSERVER.get_mysql_proxy()); }
+void ObAiService::stop() { query::stop_ai_column_worker(); }
+void ObAiService::wait() { query::wait_ai_column_worker(); }
 
 void ObAiService::destroy()
 {

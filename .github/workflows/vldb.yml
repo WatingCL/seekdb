@@ -22,7 +22,7 @@ jobs:
       - name: Install build and SQL client dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake binutils m4 libtool-bin libncurses5 rpm rpm2cpio cpio default-mysql-client
+          sudo apt-get install -y build-essential cmake binutils m4 libtool-bin libncurses5 rpm rpm2cpio cpio mariadb-client mariadb-test
       - name: Initialize and build
         run: |
           ./build.sh release --init
@@ -60,6 +60,10 @@ jobs:
         run: |
           python3 unittest/sql/engine/expr/test_ai_function_protocol.py --client "$(command -v mysql)" --port 2885 --mock-port 18000
           python3 unittest/sql/engine/basic/test_file_sql_protocol.py --client "$(command -v mysql)" --port 2885
+      - name: Run all five original AI COLUMN acceptance cases
+        run: |
+          python3 tools/deploy/run_ai_column_tests.py --port 2885 \
+            --logdir "$RUNNER_TEMP/seekdb-competition/ai-column"
       - name: Run the unchanged full FTS benchmark
         env:
           MYSQL: mysql -h127.0.0.1 -P2885 -uroot -N -s -A --default-character-set=utf8mb4
@@ -91,6 +95,7 @@ jobs:
           path: |
             ${{ runner.temp }}/seekdb-competition/*.out
             ${{ runner.temp }}/seekdb-competition/fts-*
+            ${{ runner.temp }}/seekdb-competition/ai-column/
             ${{ runner.temp }}/seekdb-competition/log/seekdb.log
             build_release/Testing/Temporary/LastTest.log
             src/sql/parser/_gen_parser.error

@@ -2663,6 +2663,8 @@ def_table_schema(
         ('group_size', 'int', 'false'),
         ('status', 'varchar:16', 'false', 'PENDING'),
         ('attempts', 'int', 'false', '0'),
+        ('state', 'int', 'false', '0'),
+        ('retry_count', 'int', 'false', '0'),
         ('max_retries', 'int', 'false', '2'),
         ('eligible_ts', 'timestamp:6', 'false'),
         ('lease_owner', 'varchar:128', 'false', ''),

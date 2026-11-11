@@ -1913,4 +1913,4 @@ DEFINE_ERROR_EXT(OB_ERR_UPDATE_ON_EXPR, -38104, -1, "HY000", "Columns referenced
 DEFINE_ERROR(OB_ERR_UPDATE_TWICE, -30926, -1, "HY000", "unable to get a stable set of rows in the source tables");
 DEFINE_ERROR(OB_ERR_SPECIFIED_ROW_NO_LONGER_EXISTS, -38105, -1, "HY000", "specified row no longer exists");
 
-DEFINE_ERROR_EXT(OB_AI_COLUMN_NOT_READY, -11120, -1, "HY000", "AI column is not ready", "AI column is not ready: table_id=%lu, column_id=%lu");
+DEFINE_ERROR_EXT(OB_AI_COLUMN_NOT_READY, -11120, -1, "HY000", "AI column is not ready", "AI column has unfinished tasks for table_id=%lu, column_id=%lu");

@@ -531,6 +531,8 @@ public:
 private:
   // Alternating base-table and column IDs, retained across plan-cache reuse.
   common::ObSEArray<uint64_t, 16> ai_column_read_refs_;
+public:
+  common::ObSEArray<uint64_t, 8> ai_column_write_tables_;
 private:
   bool insertup_can_do_gts_opt_;
   int64_t px_worker_share_plan_enabled_;

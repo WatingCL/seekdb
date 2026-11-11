@@ -32,6 +32,22 @@ int collect_ai_column_reads(const ObDMLStmt &stmt, share::schema::ObSchemaGetter
 {
   int ret = OB_SUCCESS;
   auto &refs = plan.get_ai_column_read_refs();
+  if (!stmt.is_select_stmt()) {
+    for (int64_t ti=0;ti<stmt.get_table_items().count();++ti) {
+      const auto *item=stmt.get_table_items().at(ti);
+      const share::schema::ObTableSchema *table = nullptr;
+      if (item != nullptr && item->is_basic_table() && OB_SUCC(guard.get_table_schema(item->ref_id_, table)) && table != nullptr) {
+        for (auto it=table->column_begin(); it!=table->column_end(); ++it) {
+          if ((*it)->is_ai_column()) {
+            bool found=false;
+            for (int64_t wi=0;wi<plan.ai_column_write_tables_.count();++wi) found |= plan.ai_column_write_tables_.at(wi)==item->ref_id_;
+            if (!found) ret=plan.ai_column_write_tables_.push_back(item->ref_id_);
+            break;
+          }
+        }
+      }
+    }
+  }
   for (int64_t i = 0; OB_SUCC(ret) && i < stmt.get_column_items().count(); ++i) {
     const ColumnItem &item = stmt.get_column_items().at(i);
     const TableItem *table = stmt.get_table_item_by_id(item.table_id_);
