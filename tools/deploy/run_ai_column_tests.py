@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+from mysqltest_compat import portable_test_file
 
 CASES = (
     'ai_column_ddl', 'ai_column_t1_dml', 'ai_column_worker',
@@ -33,10 +34,11 @@ def main():
     try:
         for case in CASES:
             print(f'Running {case}', flush=True)
+            test_file = portable_test_file(suite / 't' / (case + '.test'), logs)
             command = [str(candidate), '--no-defaults', '--result-format-version=1',
                    f'--prologue={root / "tools/deploy/mysql_test/compat/quiet_connections.inc"}', '--protocol=tcp',
                        f'--host={args.host}', f'--port={args.port}', f'--user={args.user}',
-                       '--database=test', f'--test-file={suite / "t" / (case + ".test")}',
+                       '--database=test', f'--test-file={test_file}',
                        f'--result-file={suite / "r/mysql" / (case + ".result")}',
                        f'--logdir={logs}']
             with (logs / (case + '.out')).open('w') as output:

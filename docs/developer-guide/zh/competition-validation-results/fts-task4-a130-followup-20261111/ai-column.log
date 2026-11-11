@@ -1,0 +1,11 @@
+Running ai_column_ddl
+ok
+Running ai_column_t1_dml
+ok
+Running ai_column_worker
+ok
+Running ai_column_vector_index
+ok
+Running ai_column_retry_strict
+ok
+AI COLUMN: 5/5 passed (original SQL and expected results)

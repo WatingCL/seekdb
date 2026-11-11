@@ -1,0 +1,16 @@
+<jemalloc>: option background_thread currently supports pthread only
+Running main() from googletest/src/gtest_main.cc
+[==========] Running 3 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 3 tests from IkCharacterClassification
+[ RUN      ] IkCharacterClassification.ChainLookupMatchesMap
+[       OK ] IkCharacterClassification.ChainLookupMatchesMap (0 ms)
+[ RUN      ] IkCharacterClassification.ChainLookupOrderedAndDuplicateKeys
+[       OK ] IkCharacterClassification.ChainLookupOrderedAndDuplicateKeys (0 ms)
+[ RUN      ] IkCharacterClassification.ChainLookupAllocationFailureKeepsEntries
+[       OK ] IkCharacterClassification.ChainLookupAllocationFailureKeepsEntries (0 ms)
+[----------] 3 tests from IkCharacterClassification (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 1 test suite ran. (0 ms total)
+[  PASSED  ] 3 tests.

@@ -10,6 +10,7 @@
 #include "share/rc/ob_server_runtime.h"
 #include "share/schema/ob_multi_version_schema_service.h"
 #include "common/mysqlclient/ob_mysql_proxy.h"
+#include <atomic>
 #include <cmath>
 #include <cerrno>
 #include <cstdlib>
@@ -175,9 +176,14 @@ public:
     while (!has_set_stop() && !share::g_server_modules_ready) usleep(10000);
     SERVER_MODULE_SCOPE {
       AiColumnTaskStore store;
+      char owner[96];
+      snprintf(owner,sizeof(owner),"%d-%p-%ld",getpid(),this,static_cast<long>(get_thread_idx()));
       while(!has_set_stop()) {
+        if (!has_ai_definitions()) {
+          usleep(100000);
+          continue;
+        }
         ObArenaAllocator allocator("AiColumnWorker");AiColumnTask task;bool found=false;
-        char owner[96];snprintf(owner,sizeof(owner),"%d-%p-%ld",getpid(),this,static_cast<long>(get_thread_idx()));
         int ret=store.claim_one(proxy_,ObString(owner),ObTimeUtility::current_time(),90000000,allocator,task,found);
         if(OB_SUCC(ret)&&found) {
           ObString output;bool is_null=true;
@@ -196,7 +202,7 @@ public:
         }
         // Recover groups whose last worker died between recording and publishing,
         // including exhausted leases converted to FAILED during claim.
-        if(!found) {
+        if(!found && should_scan_terminal_groups()) {
           ObMySQLProxy::MySQLResult result;
           std::string request;
           if(OB_SUCC(proxy_.read(result,"SELECT request_id FROM oceanbase.__all_ai_column_task GROUP BY request_id HAVING SUM(status IN ('PENDING','RUNNING'))=0 LIMIT 1"))) {
@@ -205,13 +211,39 @@ public:
           }
           result.reset();bool published=false;
           if(!request.empty()) store.publish_group(proxy_,ai_string(request),*this,published);
-          usleep(100000);
         }
+        if (!found) usleep(100000);
       }
     }
   }
 private:
+  bool has_ai_definitions()
+  {
+    const int64_t now = ObTimeUtility::current_time();
+    int64_t next = next_definition_check_.load();
+    if (now >= next && next_definition_check_.compare_exchange_strong(next, now + 100000)) {
+      ObMySQLProxy::MySQLResult result;
+      if (OB_SUCCESS == proxy_.read(result,"SELECT 1 FROM oceanbase.__all_ai_column LIMIT 1")) {
+        if (result.get_result() != nullptr) {
+          const int ret = result.get_result()->next();
+          if (ret == OB_SUCCESS || ret == OB_ITER_END) has_definitions_.store(ret == OB_SUCCESS);
+        }
+      }
+    }
+    return has_definitions_.load();
+  }
+
+  bool should_scan_terminal_groups()
+  {
+    const int64_t now = ObTimeUtility::current_time();
+    int64_t next = next_terminal_check_.load();
+    return now >= next && next_terminal_check_.compare_exchange_strong(next, now + 100000);
+  }
+
   ObMySQLProxy &proxy_;
+  std::atomic<int64_t> next_definition_check_{0};
+  std::atomic<int64_t> next_terminal_check_{0};
+  std::atomic<bool> has_definitions_{false};
 };
 AiColumnWorker *ai_worker=nullptr;
 }
