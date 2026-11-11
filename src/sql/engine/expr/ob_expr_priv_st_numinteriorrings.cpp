@@ -42,7 +42,6 @@ int ObExprPrivSTNumInteriorRings::calc_result_type1(
   if (!ob_is_string_type(obj_type1) && !ob_is_geometry(obj_type1) && !ob_is_null(obj_type1)) {
     ret = OB_ERR_GIS_INVALID_DATA;
     LOG_USER_ERROR(OB_ERR_GIS_INVALID_DATA, N_PRIV_ST_NUMINTERIORRINGS);
-    LOG_WARN("invalid type", K(ret), K(obj_type1));
   } else {
     ObCastMode cast_mode = type_ctx.get_cast_mode();
     cast_mode &= ~CM_WARN_ON_FAIL;      // make cast return error when fail
@@ -62,7 +61,7 @@ int ObExprPrivSTNumInteriorRings::eval_priv_st_numinteriorrings(
   ObExpr *arg1 = expr.args_[0];
   ObObjType type1 = arg1->datum_meta_.type_;
   ObEvalCtx::TempAllocGuard tmp_alloc_g(ctx);
-
+  
   MultimodeAlloctor temp_allocator(tmp_alloc_g.get_allocator());
   uint32_t res_num = 0;
 

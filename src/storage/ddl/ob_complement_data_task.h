@@ -42,7 +42,6 @@ int add_dag_and_get_progress(
   physical_row_count = 0;
   if (OB_ISNULL(dag)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid arguments", K(ret), KP(dag));
   } else if (OB_FAIL(::oceanbase::share::server_service<::oceanbase::share::ObDagScheduler>()->add_dag(dag))) {
     // caution ret = OB_EAGAIN or OB_SIZE_OVERFLOW
     if (OB_EAGAIN == ret
@@ -62,7 +61,7 @@ struct ObComplementDataParam final
 {
 public:
   ObComplementDataParam():
-    is_inited_(false),
+    is_inited_(false), 
     orig_table_id_(common::OB_INVALID_ID),
     dest_table_id_(common::OB_INVALID_ID), orig_tablet_id_(ObTabletID::INVALID_TABLET_ID), dest_tablet_id_(ObTabletID::INVALID_TABLET_ID), 
     row_store_type_(common::ENCODING_ROW_STORE), orig_schema_version_(0), dest_schema_version_(0),

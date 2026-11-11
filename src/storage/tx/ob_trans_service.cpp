@@ -15,6 +15,7 @@
  */
 
 
+#include "config_bridge.h"
 #include "ob_trans_service.h"
 #include "ob_ts_mgr.h"
 #include "share/rc/ob_server_runtime.h"
@@ -72,7 +73,7 @@ int ObTransService::init(const ObAddr &self,
 {
   int ret = OB_SUCCESS;
   set_run_wrapper(share::server_runtime());
-
+  
   const int64_t memory_budget = lib::get_memory_budget();
   static const int64_t ONE_GB = 1024L * 1024L * 1024L;
   const int64_t whole_gb = memory_budget / ONE_GB;
@@ -107,7 +108,7 @@ int ObTransService::init(const ObAddr &self,
   } else if (OB_FAIL(read_only_checker_.init())) {
   } else {
     self_ = self;
-
+    
     trans_id_service_ = trans_id_service;
     schema_service_ = schema_service;
     ts_mgr_ = ts_mgr;
@@ -117,7 +118,7 @@ int ObTransService::init(const ObAddr &self,
   if (OB_SUCC(ret)) {
 #ifdef ENABLE_DEBUG_LOG
     void *p = NULL;
-    if (!GCONF.enable_defensive_check()) {
+    if (!(config::_enable_defensive_check() > 0)) {
       // do nothing
     } else if (NULL == (p = ob_malloc(sizeof(ObDefensiveCheckMgr),
                                       lib::ObMemAttr("ObDefenCheckMgr")))) {

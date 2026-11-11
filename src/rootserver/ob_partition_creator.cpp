@@ -65,7 +65,7 @@ void ObPartitionCreator::destroy()
 {
   stop();
   wait();
-
+  
   bootstrap_ = nullptr;
   table_schemas_ = nullptr;
   task_submitted_ = false;
@@ -77,26 +77,25 @@ void ObPartitionCreator::destroy()
 int ObPartitionCreator::submit_create_partitions_task()
 {
   int ret = OB_SUCCESS;
-
+  
   if (OB_ISNULL(bootstrap_) || OB_ISNULL(table_schemas_)) {
     ret = OB_INVALID_ARGUMENT;
     LOG_WARN("bootstrap or table_schemas is null", K(ret), KP(bootstrap_), KP(table_schemas_));
   } else if (task_submitted_) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("task already submitted", K(ret));
   } else {
     task_submitted_ = true;
     task_completed_ = false;
     task_result_ = OB_SUCCESS;
   }
-
+  
   return ret;
 }
 
 int ObPartitionCreator::wait_task_completion(int& ret)
 {
   int wait_ret = OB_SUCCESS;
-
+  
   if (!task_submitted_) {
     wait_ret = OB_ERR_UNEXPECTED;
     LOG_WARN("no task submitted", K(wait_ret));
@@ -114,7 +113,7 @@ int ObPartitionCreator::wait_task_completion(int& ret)
       LOG_WARN("wait task completion timeout", K(wait_ret));
     }
   }
-
+  
   return wait_ret;
 }
 
@@ -131,7 +130,6 @@ void ObPartitionCreator::run(int64_t idx)
   while (!has_set_stop()) {
     if (task_submitted_ && !task_completed_) {
       if (OB_FAIL(process_create_partitions_task())) {
-        LOG_WARN("failed to process create partitions task", K(ret));
         task_result_ = ret;
       } else {
         LOG_INFO("create partitions task executed successfully");

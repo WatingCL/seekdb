@@ -16,9 +16,8 @@ if [[ "${OS_TYPE}" == "Darwin" ]]; then
   # Use sysctl to detect actual hardware architecture, unaffected by Rosetta
   if sysctl -n hw.optional.arm64 2>/dev/null | grep -q '1'; then
     OS_ARCH="arm64"
-  else
-    OS_ARCH="x86_64"
   fi
+  # Keep uname's result if sysctl is unavailable (for example, in a sandbox).
 fi
 
 # macOS detection
@@ -85,7 +84,7 @@ function get_os_release() {
       return 0
     fi
   fi
-
+  
   if [[ "${OS_ARCH}x" == "x86_64x" ]]; then
     case "$ID" in
       rhel)
@@ -220,6 +219,8 @@ elif [[ "${OS_RELEASE}x" == "macosx" ]]; then
       not_supported && exit 1
     elif [ $MACOS_VERSION -lt 15 ]; then
       OS_TAG="macos13.$OS_ARCH"
+    elif [ $MACOS_VERSION -ge 27 ]; then
+      OS_TAG="macos27.$OS_ARCH"
     else
       OS_TAG="macos15.$OS_ARCH"
     fi
@@ -393,10 +394,10 @@ do
         pkg=${line%%\ *}
         target_name="default"
         temp=$(echo "$line" | grep -Eo "target=(\S*)")
-
+        
         [[ "$temp" != "" ]] && target_name=${temp#*=}
        
-	# Adapt to OB artifact repository download URL
+       	# Adapt to OB artifact repository download URL
         pkg_path=${pkg}
         # 在 targets_sections 中查找对应的 repo
         repo=""

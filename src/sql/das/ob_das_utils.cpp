@@ -56,14 +56,13 @@ int ObDASUtils::check_nested_sql_mutating(ObTableID ref_table_id, ObExecContext 
           && !table_loc->is_fk_check_ ) {
         ObSchemaGetterGuard schema_guard;
         const ObTableSchema *table_schema = NULL;
-
+        
         if (OB_FAIL(GCTX.schema_service_->get_runtime_schema_guard(schema_guard))) {
         } else if (OB_FAIL(schema_guard.get_table_schema( ref_table_id, table_schema))) {
         } else if (table_schema != nullptr) {
           LOG_MYSQL_USER_ERROR(OB_ERR_MUTATING_TABLE_OPERATION, table_schema->get_table_name());
         }
         ret = OB_ERR_MUTATING_TABLE_OPERATION;
-        LOG_WARN("table is mutating", K(ret), K(ref_table_id));
       }
     }
     if (OB_SUCC(ret)) {
@@ -108,7 +107,6 @@ int ObDASUtils::build_table_loc_meta(ObIAllocator &allocator,
   void *buf = allocator.alloc(sizeof(ObDASTableLocMeta));
   if (OB_ISNULL(buf)) {
     ret = OB_ALLOCATE_MEMORY_FAILED;
-    LOG_WARN("allocate table loc meta failed", K(ret), K(sizeof(ObDASTableLocMeta)));
   } else {
     dst = new(buf) ObDASTableLocMeta(allocator);
     if (OB_FAIL(dst->assign(src))) {
@@ -222,7 +220,6 @@ int ObDASUtils::padding_fixed_string_value(int64_t max_len, ObIAllocator &alloca
       const char *str = value.get_string_ptr();
       if (OB_ISNULL(dest_str = (char *)(allocator.alloc(binary_len)))) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
-        LOG_WARN("fail to alloc mem to binary", K(ret), K(binary_len));
       } else {
         char pad_char = '\0';
         MEMCPY(dest_str, str, len);
@@ -255,13 +252,9 @@ int ObDASUtils::find_child_das_def(const ObDASBaseCtDef *root_ctdef,
   int ret = OB_SUCCESS;
   if (OB_ISNULL(root_ctdef) || OB_ISNULL(root_rtdef)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("root ctdef or rtdef is nullptr", K(ret), KP(root_ctdef), K(root_rtdef));
   } else if (OB_UNLIKELY(root_ctdef->op_type_ != root_rtdef->op_type_
       || root_ctdef->children_cnt_ != root_rtdef->children_cnt_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("the op_type of ctdef and rtdef do not match", K(ret),
-             K(root_ctdef->op_type_), K(root_rtdef->op_type_),
-             K(root_ctdef->children_cnt_), K(root_rtdef->children_cnt_));
   } else if (root_ctdef->op_type_ == op_type) {
     target_ctdef = root_ctdef;
     target_rtdef = root_rtdef;
@@ -285,7 +278,6 @@ int ObDASUtils::find_child_das_ctdef(const ObDASBaseCtDef *root_ctdef,
   int ret = OB_SUCCESS;
   if (OB_ISNULL(root_ctdef)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("root ctdef or rtdef is nullptr", K(ret), KP(root_ctdef));
   } else if (root_ctdef->op_type_ == op_type) {
     target_ctdef = root_ctdef;
   } else {
@@ -306,7 +298,6 @@ int ObDASUtils::find_child_das_rtdef(ObDASBaseRtDef *root_rtdef,
   int ret = OB_SUCCESS;
   if (OB_ISNULL(root_rtdef)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("root ctdef or rtdef is nullptr", K(ret), KP(root_rtdef));
   } else if (root_rtdef->op_type_ == op_type) {
     target_rtdef = root_rtdef;
   } else {
@@ -320,7 +311,7 @@ int ObDASUtils::find_child_das_rtdef(ObDASBaseRtDef *root_rtdef,
   return ret;
 }
 
-bool ObDASUtils::is_index_merge(const ObDASBaseCtDef *attach_ctdef)
+bool ObDASUtils::is_index_merge(const ObDASBaseCtDef *attach_ctdef) 
 {
   bool bret = false;
   if (attach_ctdef != nullptr) {
@@ -338,7 +329,7 @@ bool ObDASUtils::is_index_merge(const ObDASBaseCtDef *attach_ctdef)
   return bret;
 }
 
-bool ObDASUtils::is_func_lookup(const ObDASBaseCtDef *attach_ctdef)
+bool ObDASUtils::is_func_lookup(const ObDASBaseCtDef *attach_ctdef) 
 {
   int ret = OB_SUCCESS;
   bool bret = false;
@@ -352,7 +343,7 @@ bool ObDASUtils::is_func_lookup(const ObDASBaseCtDef *attach_ctdef)
   return bret;
 }
 
-bool ObDASUtils::is_vec_idx_scan(const ObDASBaseCtDef *attach_ctdef)
+bool ObDASUtils::is_vec_idx_scan(const ObDASBaseCtDef *attach_ctdef) 
 {
   int ret = OB_SUCCESS;
 
@@ -368,7 +359,7 @@ bool ObDASUtils::is_vec_idx_scan(const ObDASBaseCtDef *attach_ctdef)
   return bret;
 }
 
-bool ObDASUtils::is_fts_idx_scan(const ObDASBaseCtDef *attach_ctdef)
+bool ObDASUtils::is_fts_idx_scan(const ObDASBaseCtDef *attach_ctdef) 
 {
   int ret = OB_SUCCESS;
 
@@ -417,7 +408,6 @@ int ObDASUtils::wait_das_retry(int64_t retry_cnt)
     THIS_WORKER.sched_run();
     if (THIS_WORKER.is_timeout()) {
       ret = OB_TIMEOUT;
-      LOG_WARN("this worker is timeout after retry sleep. no more retry", K(ret));
     }
   }
   return ret;

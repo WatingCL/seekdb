@@ -42,9 +42,9 @@ static void *roaring_malloc(size_t size) {
       int ret = OB_ERR_UNEXPECTED;
       LOG_ERROR("mem_mgr is null");
       ob_abort();
-    } else if (last_mem_attr.label_.is_valid() &&
-               last_mem_attr.label_[0] == 'V' &&
-               last_mem_attr.label_[1] == 'I' &&
+    } else if (last_mem_attr.label_.is_valid() && 
+               last_mem_attr.label_[0] == 'V' && 
+               last_mem_attr.label_[1] == 'I' && 
                last_mem_attr.label_[2] == 'B') {
       alloc_ptr = ob_malloc(alloc_size, lib::ObMemAttr(last_mem_attr.label_));
       mem_mgr->incr_vec_idx_used(alloc_size);
@@ -79,9 +79,9 @@ static void roaring_free(void *ptr) {
       lib::ObMemAttr last_mem_attr = lib::ObMallocHookAttrGuard::get_tl_mem_attr();
       if (OB_ISNULL(mem_mgr)) {
         ob_free(alloc_ptr);
-      } else if (last_mem_attr.label_.is_valid() &&
-                 last_mem_attr.label_[0] == 'V' &&
-                 last_mem_attr.label_[1] == 'I' &&
+      } else if (last_mem_attr.label_.is_valid() && 
+                 last_mem_attr.label_[0] == 'V' && 
+                 last_mem_attr.label_[1] == 'I' && 
                  last_mem_attr.label_[2] == 'B') {
         void *size_ptr = reinterpret_cast<void *>(ptr_location - sizeof(size_t));
         size_t free_size = *reinterpret_cast<size_t *>(size_ptr);
@@ -167,11 +167,10 @@ int ObRbMemMgr::init_memory_hook()
 int ObRbMemMgr::init()
 {
   int ret = OB_SUCCESS;
-
+  
   lib::ObMemAttr mem_attr("RoaringBitmap");
   if (IS_INIT) {
     ret = OB_INIT_TWICE;
-    LOG_WARN("ObRbMemMgr init twice.", K(ret));
   } else if (OB_FAIL(allocator_.init(OB_MALLOC_BIG_BLOCK_SIZE, block_alloc_, mem_attr))) {
   } else {
     allocator_.set_nway(RB_ALLOC_CONCURRENCY);

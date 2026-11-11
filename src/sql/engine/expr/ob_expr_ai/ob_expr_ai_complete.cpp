@@ -22,28 +22,28 @@
 using namespace oceanbase::common;
 using namespace oceanbase::sql;
 
-namespace oceanbase
+namespace oceanbase 
 {
-namespace sql
+namespace sql 
 {
 ObExprAIComplete::ObExprAIComplete(common::ObIAllocator &alloc)
-    : ObFuncExprOperator(alloc,
-                        T_FUN_SYS_AI_COMPLETE,
+    : ObFuncExprOperator(alloc, 
+                        T_FUN_SYS_AI_COMPLETE, 
                         N_AI_COMPLETE,
-                        MORE_THAN_ZERO,
+                        MORE_THAN_ZERO, 
                         NOT_VALID_FOR_GENERATED_COL,
-                        NOT_ROW_DIMENSION)
+                        NOT_ROW_DIMENSION) 
 {
 }
 
-ObExprAIComplete::~ObExprAIComplete()
+ObExprAIComplete::~ObExprAIComplete() 
 {
 }
 
 int ObExprAIComplete::calc_result_typeN(ObExprResType &type,
                                         ObExprResType *types_stack,
                                         int64_t param_num,
-                                        common::ObExprTypeCtx &type_ctx) const
+                                        common::ObExprTypeCtx &type_ctx) const 
 {
 
   UNUSED(type_ctx);
@@ -60,7 +60,6 @@ int ObExprAIComplete::calc_result_typeN(ObExprResType &type,
     } else if (ob_is_json(types_stack[PROMPT_IDX].get_type())) {
     } else {
       ret = OB_ERR_INVALID_TYPE_FOR_OP;
-      LOG_WARN("invalid param type", K(ret), K(types_stack[PROMPT_IDX]));
     }
 
     if (OB_FAIL(ret)) {
@@ -83,9 +82,9 @@ int ObExprAIComplete::calc_result_typeN(ObExprResType &type,
   return ret;
 }
 
-int ObExprAIComplete::eval_ai_complete(const ObExpr &expr,
+int ObExprAIComplete::eval_ai_complete(const ObExpr &expr, 
                                        ObEvalCtx &ctx,
-                                       ObDatum &res)
+                                       ObDatum &res) 
 {
   INIT_SUCC(ret);
   ObDatum *arg_model_id = nullptr;
@@ -94,12 +93,11 @@ int ObExprAIComplete::eval_ai_complete(const ObExpr &expr,
   if (OB_FAIL(expr.eval_param_value(ctx, arg_model_id, arg_prompt, arg_config))) {
   } else if (arg_model_id->is_null() || arg_prompt->is_null()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("parameters is null", K(ret));
     LOG_USER_ERROR(OB_INVALID_ARGUMENT, "ai_complete, parameters is null");
     res.set_null();
   } else {
     ObEvalCtx::TempAllocGuard tmp_alloc_g(ctx);
-
+    
     MultimodeAlloctor temp_allocator(tmp_alloc_g.get_allocator());
     lib::ObMallocHookAttrGuard malloc_guard(lib::ObMemAttr(N_AI_COMPLETE));
     ObAIFuncExprInfo *info = nullptr;
@@ -114,7 +112,6 @@ int ObExprAIComplete::eval_ai_complete(const ObExpr &expr,
     ObExpr *arg_expr_prompt = expr.args_[1];
     if ( OB_ISNULL(arg_expr_prompt) ) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("arg_expr_prompt is null", K(ret));
     } else if (arg_expr_prompt->datum_meta_.type_ == ObJsonType) {
       ObIJsonBase *j_base = nullptr;
       ObJsonObject *prompt_object = nullptr;
@@ -122,36 +119,29 @@ int ObExprAIComplete::eval_ai_complete(const ObExpr &expr,
       if (OB_FAIL(ObJsonExprHelper::get_json_doc(expr, ctx, temp_allocator, PROMPT_IDX, j_base, is_null))) {
       } else if (j_base->json_type() != ObJsonNodeType::J_OBJECT) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("j_base is not json object", K(ret));
       } else if (OB_FALSE_IT(prompt_object = static_cast<ObJsonObject *>(j_base))) {
       } else if (!ObAIFuncPromptObjectUtils::is_valid_prompt_object(prompt_object)) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("prompt is not valid", K(ret));
         LOG_USER_ERROR(OB_INVALID_ARGUMENT, "prompt is not valid");
         res.set_null();
+      } else if (!ObAIFuncJsonUtils::ob_is_json_array_all_str(static_cast<ObJsonArray *>(prompt_object->get_value(ObAIFuncPromptObjectUtils::prompt_args_key)))) {
+        ret = OB_NOT_SUPPORTED;
+        LOG_USER_ERROR(OB_NOT_SUPPORTED, "prompt object is not support");
       } else if (OB_FAIL(ObAIFuncPromptObjectUtils::replace_all_str_args_in_template(temp_allocator, prompt_object, prompt))) {
       }
     } else if (OB_FAIL(ObTextStringHelper::read_real_string_data(ctx.exec_ctx_, temp_allocator, *arg_prompt, expr.args_[1]->datum_meta_, expr.args_[1]->obj_meta_.has_lob_header(), prompt))) {
     }
 
     if (OB_FAIL(ret)) {
-    } else if (OB_NOT_NULL(arg_config) && !arg_config->is_null()) {
-      ObIJsonBase *config_base = nullptr;
-      bool is_null = false;
-      if (OB_FAIL(ObJsonExprHelper::get_json_doc(expr, ctx, temp_allocator,
-                                               CONFIG_IDX, config_base, is_null))) {
-      } else if (is_null || OB_ISNULL(config_base) || config_base->json_type() != ObJsonNodeType::J_OBJECT) {
-        ret = OB_INVALID_DATA;
-        LOG_USER_ERROR(OB_INVALID_DATA, "json config is not an object");
-      } else {
-        config = static_cast<ObJsonObject *>(config_base);
+    } else if (OB_NOT_NULL(arg_config)) {
+      if (OB_FAIL(ObTextStringHelper::read_real_string_data(ctx.exec_ctx_, temp_allocator, *arg_config, expr.args_[2]->datum_meta_, expr.args_[2]->obj_meta_.has_lob_header(), config_str))) {
+      } else if (OB_FAIL(ObAIFuncJsonUtils::get_json_object_form_str(temp_allocator, config_str, config))) {
       }
     }
 
     if (OB_FAIL(ret)) {
     } else if (model_id.empty() || prompt.empty()) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("model id or input is empty", K(ret));
       LOG_USER_ERROR(OB_INVALID_ARGUMENT, "ai_complete, model id or input is empty");
       res.set_null();
     }
@@ -160,7 +150,6 @@ int ObExprAIComplete::eval_ai_complete(const ObExpr &expr,
     } else if (OB_FAIL(ObAIFuncUtils::get_ai_func_info(temp_allocator, model_id, info))) {
     } else if (OB_ISNULL(endpoint_resolver)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("AI endpoint resolver is unavailable", K(ret));
     } else if (OB_FAIL(endpoint_resolver->resolve_by_model_name(
                    model_id, temp_allocator, resolved_endpoint))) {
     } else {
@@ -176,7 +165,7 @@ int ObExprAIComplete::eval_ai_complete(const ObExpr &expr,
 
 int ObExprAIComplete::cg_expr(ObExprCGCtx &expr_cg_ctx,
                               const ObRawExpr &raw_expr,
-                              ObExpr &rt_expr) const
+                              ObExpr &rt_expr) const 
 {
   INIT_SUCC(ret);
   // TODO: support schema version match in plan cache for ai func

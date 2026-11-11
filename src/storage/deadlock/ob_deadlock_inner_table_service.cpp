@@ -30,10 +30,10 @@ share::ObDeadlockEventHistoryTableStorage ObDeadLockInnerTableService::storage_;
 int ObDeadLockInnerTableService::init()
 {
   int ret = OB_SUCCESS;
-  if (OB_ISNULL(GCTX.meta_db_pool_)) {
+  if (OB_ISNULL(GCTX.local_store_)) {
     ret = OB_NOT_INIT;
-    DETECT_LOG(WARN, "meta_db_pool_ is not initialized", K(ret));
-  } else if (OB_FAIL(storage_.init(GCTX.meta_db_pool_))) {
+    DETECT_LOG(WARN, "local_store_ is not initialized", K(ret));
+  } else if (OB_FAIL(storage_.init(GCTX.local_store_))) {
   }
   return ret;
 }
@@ -68,7 +68,7 @@ int ObDeadLockInnerTableService::insert(const ObDetectorInnerReportInfo &inner_i
     DETECT_LOG(WARN, "storage not init", KR(ret));
   } else {
     ObDeadlockEventHistoryEntry entry;
-
+    
     entry.event_id_ = inner_info.get_event_id();
     entry.detector_id_ = inner_info.get_detector_id();
     entry.report_time_ = current_ts;
@@ -123,15 +123,15 @@ int ObDeadLockInnerTableService::insert_all(const ObIArray<ObDetectorInnerReport
   } else {
     const int64_t current_ts = ObClockGenerator::getRealClock();
     ObArray<ObDeadlockEventHistoryEntry> entries;
-
+    
     for (int64_t i = 0; OB_SUCC(ret) && i < infos.count(); ++i) {
       const ObDetectorInnerReportInfo &info = infos.at(i);
       const ObDetectorUserReportInfo &user_info = info.get_user_report_info();
       const ObIArray<ObString> &extra_names = user_info.get_extra_columns_names();
       const ObIArray<ObString> &extra_values = user_info.get_extra_columns_values();
-
+      
       ObDeadlockEventHistoryEntry entry;
-
+      
       entry.event_id_ = info.get_event_id();
       entry.detector_id_ = info.get_detector_id();
       entry.report_time_ = current_ts;
@@ -163,7 +163,7 @@ int ObDeadLockInnerTableService::insert_all(const ObIArray<ObDetectorInnerReport
       if (extra_values.count() > 2) {
         entry.extra_value3_ = extra_values.at(2);
       }
-
+      
       if (CLICK() && OB_FAIL(entries.push_back(entry))) {
         DETECT_LOG(WARN, "failed to push back entry", KR(ret));
       }

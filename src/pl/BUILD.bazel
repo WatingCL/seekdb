@@ -133,6 +133,7 @@ cc_library(
     hdrs = PL_PRIVATE_HEADERS,
     deps = [
         ":pl_interface",
+        "//rust:config_headers",
         "//src/oblib:oblib_foundation",
         "//src/sql:sql_runtime_interface",
     ],
@@ -202,7 +203,7 @@ _PL_RUNTIME_SHARE_HEADER_DEPS = [
     "//src/share:sequence_runtime",
     "//src/share:session_state",
     "//src/share:sql_persistence_support",
-    "//src/share:sqlite_storage_interface",
+    "//src/share:local_storage_interface",
     "//src/share:statement_type",
     "//src/share:storage_cache_policy",
     "//src/share:system_variable_metadata",
@@ -262,7 +263,7 @@ seekdb_semantic_unity_cc_library(
         "pl_recompile",
         "pl_sys_package",
     ],
-    implementation_deps = _PL_RUNTIME_NON_OBLIB_DEPS,
+    implementation_deps = _PL_RUNTIME_NON_OBLIB_DEPS + ["//rust:config_headers"],
     group_implementation_deps = pl_runtime_group_oblib_deps(
         _PL_RUNTIME_UNITY_GROUPS,
     ),

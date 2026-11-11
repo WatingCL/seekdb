@@ -66,10 +66,10 @@ int ObLockUserResolver::resolve(const ParseNode &parse_tree)
         ret = OB_INVALID_ARGUMENT;
         SQL_RESV_LOG(ERROR, "params_.session_info_ is null", K(ret));
       } else {
-
+        
         {
           bool locked = node->children_[1]->value_ == 1 ? true : false;
-
+          
           lock_user_stmt->set_locked(locked);
           stmt_ = lock_user_stmt;
           ObString user_name;
@@ -80,7 +80,6 @@ int ObLockUserResolver::resolve(const ParseNode &parse_tree)
               SQL_RESV_LOG(ERROR, "name node is null", K(ret));
             } else if (2 != name_nodes[i]->num_child_) {
               ret = OB_INVALID_ARGUMENT;
-              LOG_WARN("sql_parser parse user error", K(ret));
             } else if (OB_ISNULL(name_nodes[i]->children_[0])) {
               ret = OB_INVALID_ARGUMENT;
               SQL_RESV_LOG(ERROR, "name invalid", KP(name_nodes[i]->children_[0]), K(ret));

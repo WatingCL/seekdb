@@ -38,17 +38,16 @@ int ObCreateRoleExecutor::execute(ObExecContext &ctx, ObCreateRoleStmt &stmt)
 {
   int ret = OB_SUCCESS;
   ObSQLSessionInfo *mysession = NULL;
-
+  
   const ObString &role_name = stmt.get_role_name();
   const ObString &pwd = stmt.get_password();
   ObCreateUserArg arg;
 
   if (OB_ISNULL(mysession = ctx.get_my_session())) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("failed to get mysession", K(ret));
   } else {
-
-
+    
+    
     arg.creator_id_ = mysession->get_user_id();
   }
 
@@ -58,7 +57,7 @@ int ObCreateRoleExecutor::execute(ObExecContext &ctx, ObCreateRoleStmt &stmt)
     arg.is_create_role_ = true;
     for (int i = 0; OB_SUCC(ret) && i < stmt.get_user_names().count(); i++) {
       ObUserInfo user_info;
-
+      
       user_info.set_type(OB_ROLE);
       user_info.set_user_name(stmt.get_user_names().at(i));
       user_info.set_host(stmt.get_host_names().at(i));
@@ -74,7 +73,7 @@ int ObCreateRoleExecutor::execute(ObExecContext &ctx, ObCreateRoleStmt &stmt)
 int ObDropRoleExecutor::execute(ObExecContext &ctx, ObDropRoleStmt &stmt)
 {
   int ret = OB_SUCCESS;
-
+  
   ObDropUserArg &arg = static_cast<ObDropUserArg &>(stmt.get_ddl_arg());
   {
     arg.is_role_ = true;
@@ -93,7 +92,7 @@ int ObAlterRoleExecutor::execute(ObExecContext &ctx, ObAlterRoleStmt &stmt)
   int ret = OB_SUCCESS;
   ObAlterRoleArg &arg = static_cast<ObAlterRoleArg &>(stmt.get_ddl_arg());
   char enc_buf[ENC_BUF_LEN] = {0};
-
+  
   arg.role_name_ = stmt.get_role_name();
   arg.host_name_ = ObString(OB_DEFAULT_HOST_NAME);
   const ObString &pwd = stmt.get_password();

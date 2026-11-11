@@ -16,7 +16,7 @@
 
 #define USING_LOG_PREFIX SQL_CG
 
-#include "sql/resolver/dml/ob_select_stmt.h"
+#include "config_bridge.h"
 #include "sql/code_generator/ob_code_generator.h"
 #include "sql/code_generator/ob_static_engine_cg.h"
 #include "sql/engine/ob_physical_plan.h"
@@ -26,77 +26,12 @@ namespace oceanbase
 namespace sql
 {
 
-namespace {
-int collect_ai_column_reads(const ObDMLStmt &stmt, share::schema::ObSchemaGetterGuard &guard,
-                            ObPhysicalPlan &plan)
-{
-  int ret = OB_SUCCESS;
-  auto &refs = plan.get_ai_column_read_refs();
-  if (!stmt.is_select_stmt()) {
-    for (int64_t ti=0;ti<stmt.get_table_items().count();++ti) {
-      const auto *item=stmt.get_table_items().at(ti);
-      const share::schema::ObTableSchema *table = nullptr;
-      if (item != nullptr && item->is_basic_table() && OB_SUCC(guard.get_table_schema(item->ref_id_, table)) && table != nullptr) {
-        for (auto it=table->column_begin(); it!=table->column_end(); ++it) {
-          if ((*it)->is_ai_column()) {
-            bool found=false;
-            for (int64_t wi=0;wi<plan.ai_column_write_tables_.count();++wi) found |= plan.ai_column_write_tables_.at(wi)==item->ref_id_;
-            if (!found) ret=plan.ai_column_write_tables_.push_back(item->ref_id_);
-            break;
-          }
-        }
-      }
-    }
-  }
-  for (int64_t i = 0; OB_SUCC(ret) && i < stmt.get_column_items().count(); ++i) {
-    const ColumnItem &item = stmt.get_column_items().at(i);
-    const TableItem *table = stmt.get_table_item_by_id(item.table_id_);
-    const share::schema::ObTableSchema *schema = nullptr;
-    if (table == nullptr || !table->is_basic_table() || item.expr_ == nullptr ||
-        !item.expr_->is_explicited_reference()) {
-      continue;
-    }
-    const uint64_t table_id = table->ref_id_;
-    if (OB_FAIL(guard.get_table_schema(table_id, schema))) {
-    } else if (schema != nullptr) {
-      const share::schema::ObColumnSchemaV2 *column = schema->get_column_schema(item.column_id_);
-      if (column != nullptr && column->is_ai_column()) {
-        bool seen = false;
-        for (int64_t j = 0; j + 1 < refs.count(); j += 2) {
-          seen |= refs.at(j) == table_id && refs.at(j+1) == item.column_id_;
-        }
-        if (!seen) {
-          if (OB_FAIL(refs.push_back(table_id))) {
-          } else if (OB_FAIL(refs.push_back(item.column_id_))) {
-          }
-        }
-      }
-    }
-  }
-  common::ObSEArray<ObSelectStmt *, 8> children;
-  if (OB_FAIL(ret)) {
-  } else if (OB_FAIL(stmt.get_child_stmts(children))) {
-  } else {
-    for (int64_t i = 0; OB_SUCC(ret) && i < children.count(); ++i) {
-      if (children.at(i) != nullptr) {
-        ret = SMART_CALL(collect_ai_column_reads(*children.at(i), guard, plan));
-      }
-    }
-  }
-  return ret;
-}
-}
-
 int ObCodeGenerator::generate(const ObLogPlan &log_plan,
                               ObPhysicalPlan &phy_plan)
 {
   int ret = OB_SUCCESS;
   int64_t batch_size = 0;
-  if (log_plan.get_stmt() != nullptr && log_plan.get_optimizer_context().get_schema_guard() != nullptr) {
-    ret = collect_ai_column_reads(*log_plan.get_stmt(),
-                                 *log_plan.get_optimizer_context().get_schema_guard(), phy_plan);
-  }
-  if (OB_SUCC(ret)) { OZ(detect_batch_size(log_plan, batch_size)); }
+  OZ(detect_batch_size(log_plan, batch_size));
   if (OB_SUCC(ret) && batch_size > 0) {
     log_plan.get_optimizer_context().set_batch_size(batch_size);
     phy_plan.set_batch_size(batch_size);
@@ -162,7 +97,6 @@ int ObCodeGenerator::detect_batch_size(
   bool has_registered_vec_op = false;
   if (OB_ISNULL(log_plan.get_plan_root())) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected null plan root", K(ret));
   } else if (OB_FAIL(ObStaticEngineCG::exist_registered_vec_op(*log_plan.get_plan_root(), true,
                                                                has_registered_vec_op))) {
   }
@@ -170,10 +104,10 @@ int ObCodeGenerator::detect_batch_size(
   } else if (OB_ISNULL(session)) {
     // empty session disable batch processing
   } else {
-
+    
     double scan_cardinality = 0;
     // TODO bin.lb: move to optimizer and more sophisticated rules
-    int64_t lob_rowsets_max_rows = GCONF._lob_rowsets_max_rows;
+    int64_t lob_rowsets_max_rows = config::_lob_rowsets_max_rows();
     const ObOptParamHint *opt_params = &log_plan.get_stmt()->get_query_ctx()->get_global_hint().opt_params_;
     if (OB_FAIL(opt_params->get_integer_opt_param(ObOptParamHint::LOB_ROWSETS_MAX_ROWS, lob_rowsets_max_rows))) {
     } else {
@@ -212,10 +146,10 @@ int ObCodeGenerator::detect_batch_size(
           exec_ctx->get_sql_ctx()->schema_guard_,
           exec_ctx->get_physical_plan_ctx()->get_original_param_cnt(),
           0);
-      int64_t rowsets_max_rows = GCONF._rowsets_max_rows;
+      int64_t rowsets_max_rows = config::_rowsets_max_rows();
       OZ(expr_cg.detect_batch_size(flattened_exprs, batch_size,
                                    rowsets_max_rows,
-                                   GCONF._rowsets_target_maxsize,
+                                   config::_rowsets_target_maxsize(),
                                    scan_cardinality,
                                    lob_rowsets_max_rows));
       // overwrite batch size if hint is specified

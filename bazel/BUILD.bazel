@@ -2,6 +2,7 @@ load(":seekdb_build_settings.bzl", "seekdb_bool_flag")
 load(":defs.bzl", cc_library = "seekdb_cc_library")
 
 exports_files([
+    "cargo.bzl",
     "defs.bzl",
     "seekdb_cc_library.bzl",
     "seekdb_build_config.bzl",

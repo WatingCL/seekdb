@@ -33,7 +33,6 @@ int ObLCObjectManager::init(int64_t hash_bucket, ObPlanCache *lib_cache)
   int ret = OB_SUCCESS;
   if (OB_ISNULL(lib_cache)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid plan cache", K(ret));
   } else if (FALSE_IT(lib_cache_ = lib_cache)) {
   } else if (OB_FAIL(cache_obj_map_.create(hash::cal_next_prime(hash_bucket),
                                     ObModIds::OB_HASH_BUCKET_LC_STAT,
@@ -53,17 +52,15 @@ int ObLCObjectManager::alloc(ObCacheObjGuard& guard,
   lib::MemoryContext entity = NULL;
   ObMemAttr mem_attr;
   ObILibCacheObject *cache_obj = NULL;
-
+  
   mem_attr.ctx_id_ = ObCtxIds::PLAN_CACHE_CTX_ID;
   if (ns <= NS_INVALID || ns >= NS_MAX || OB_ISNULL(LC_CO_ALLOC[ns])) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("out of the max type", K(ret), K(ns));
   } else if (FALSE_IT(mem_attr.label_ = LC_NS_TYPE_LABELS[ns])) {
   } else if (OB_FAIL(parent_context->CREATE_CONTEXT(entity,
                      lib::ContextParam().set_mem_attr(mem_attr)))) {
   } else if (OB_ISNULL(entity)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("NULL memory entity", K(ret));
   } else {
     WITH_CONTEXT(entity) {
       if (OB_FAIL(LC_CO_ALLOC[ns](entity, cache_obj))) {
@@ -71,7 +68,6 @@ int ObLCObjectManager::alloc(ObCacheObjGuard& guard,
         uint64_t obj_id = allocate_object_id();
         cache_obj->object_id_ = obj_id;
         if (OB_FAIL(alloc_cache_obj_map_.set_refactored(obj_id, cache_obj))) {
-          LOG_WARN("failed to add element to hashmap", K(ret));
           inner_free(cache_obj);
           entity = NULL;
           cache_obj = NULL;
@@ -92,7 +88,6 @@ int ObLCObjectManager::add_cache_obj(ObILibCacheObject *cache_obj)
   int ret = OB_SUCCESS;
   if (OB_ISNULL(cache_obj)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid argument", K(cache_obj), K(ret));
   } else if (OB_FAIL(cache_obj_map_.set_refactored(cache_obj->get_object_id(), cache_obj))) {
   }
   return ret;
@@ -135,7 +130,7 @@ void ObLCObjectManager::common_free(ObILibCacheObject *cache_obj)
     if (ref_count > 0) {
       // do nothing
     } else if (ref_count == 0) {
-
+      
       if (OB_FAIL(cache_obj->before_cache_evicted())) {
       } else if (OB_FAIL(destroy_cache_obj(false, cache_obj->get_object_id()))) {
       }
@@ -154,7 +149,6 @@ int ObLCObjectManager::destroy_cache_obj(const bool is_leaked,
     if (OB_HASH_NOT_EXIST == ret) {
       ret = OB_SUCCESS;
     } else {
-      LOG_WARN("failed to erase element from alloc obj list", K(object_id), K(ret));
     }
   } else if (OB_ISNULL(to_del_obj)) {
     ret = OB_ERR_UNEXPECTED;

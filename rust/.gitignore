@@ -2,3 +2,4 @@
 # tree (CARGO_TARGET_DIR), but ignore an in-tree `target/` too for standalone
 # `cargo build` runs.
 /target
+/Cargo.lock

@@ -29,6 +29,9 @@ int ObFTSortList::add_token(const ObIKToken &token)
 {
   int ret = OB_SUCCESS;
 
+  // sorted insert over the reuse array: the ordering key and the dedup rule
+  // are byte-identical to the ObList version (operator< / operator== above);
+  // only the storage changed (contiguous blocks instead of per-node alloc).
   if (tokens_.empty()) {
     if (OB_FAIL(tokens_.push_back(token))) {
     }
@@ -41,14 +44,15 @@ int ObFTSortList::add_token(const ObIKToken &token)
     if (OB_FAIL(tokens_.push_front(token))) {
     }
   } else {
-    for (ObFTSortList::CellIter iter = tokens_.last(); OB_SUCC(ret) && iter != tokens_.end();
-         --iter) {
-      if (token < *iter) {
+    const int64_t cnt = tokens_.size();
+    // scan from the tail for the last element that is not greater than token
+    for (int64_t i = cnt - 1; OB_SUCC(ret) && i >= 0; --i) {
+      if (token < tokens_.at(i)) {
         continue;
       }
-      if (*iter == token) {
+      if (tokens_.at(i) == token) {
         // no need to add again
-      } else if (OB_FAIL(tokens_.insert(++iter, token))) {
+      } else if (OB_FAIL(tokens_.insert_at(i + 1, token))) {
       } else {
         // insert ok
       }
@@ -156,7 +160,6 @@ int ObIKTokenChain::copy(ObIKTokenChain *other)
 
   if (OB_ISNULL(other)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("other is null", K(ret));
   } else {
     min_offset_ = other->min_offset_;
     max_offset_ = other->max_offset_;
@@ -196,7 +199,6 @@ int ObIKTokenChain::pop_back(ObIKToken &token)
   int ret = OB_SUCCESS;
   if (list_.tokens().empty()) {
     ret = OB_ENTRY_NOT_EXIST;
-    LOG_WARN("Token list is empty", K(ret));
   } else if (FALSE_IT(token = list_.tokens().get_last())) {
   } else if (OB_FAIL(list_.tokens().pop_back())) {
   } else if (list_.tokens().empty()) {

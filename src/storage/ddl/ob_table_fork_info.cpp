@@ -62,7 +62,6 @@ int ObTableForkInfo::assign(const ObTableForkInfo &info)
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(!info.is_valid())) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid arg", K(ret), K(info));
   } else if (OB_FAIL(source_tablet_ids_.assign(info.source_tablet_ids_))) {
   } else if (OB_FAIL(dest_tablet_ids_.assign(info.dest_tablet_ids_))) {
   } else {
@@ -92,14 +91,11 @@ int ObTableForkInfo::generate_fork_params(common::ObIArray<ObTabletForkParam> &p
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(!is_valid())) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid fork info", K(ret), K(*this));
-  } else if (OB_UNLIKELY(source_tablet_ids_.count() != dest_tablet_ids_.count())) {
-    ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("source and dest tablet ids count mismatch", K(ret), K_(source_tablet_ids), K_(dest_tablet_ids));
   } else {
+    OB_ASSERT(source_tablet_ids_.count() == dest_tablet_ids_.count());
     for (int64_t i = 0; OB_SUCC(ret) && i < source_tablet_ids_.count(); ++i) {
       ObTabletForkParam fork_param;
-
+      
       fork_param.table_id_ = table_id_;
       fork_param.schema_version_ = schema_version_;
       fork_param.task_id_ = task_id_;
@@ -123,11 +119,8 @@ int ObTableForkInfo::get_tablet_fork_param(
   int64_t found_idx = -1;
   if (OB_UNLIKELY(!is_valid() || !tablet_id.is_valid())) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid args", K(ret), K(*this), K(tablet_id));
-  } else if (OB_UNLIKELY(source_tablet_ids_.count() != dest_tablet_ids_.count())) {
-    ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("source and dest tablet ids count mismatch", K(ret), K_(source_tablet_ids), K_(dest_tablet_ids));
   } else {
+    OB_ASSERT(source_tablet_ids_.count() == dest_tablet_ids_.count());
     for (int64_t i = 0; i < source_tablet_ids_.count(); ++i) {
       if (source_tablet_ids_.at(i) == tablet_id) {
         found_idx = i;
@@ -139,7 +132,7 @@ int ObTableForkInfo::get_tablet_fork_param(
       LOG_INFO("tablet not in fork info", K(ret), K(tablet_id), K_(task_id), K_(table_id));
     } else {
       tablet_fork_param.reset();
-
+      
       tablet_fork_param.table_id_ = table_id_;
       tablet_fork_param.schema_version_ = schema_version_;
       tablet_fork_param.task_id_ = task_id_;

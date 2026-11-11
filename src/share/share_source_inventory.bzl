@@ -213,8 +213,6 @@ SHARE_UNITY_GROUPS = [
             "src/share/compaction/ob_compaction_timer_task_mgr.cpp",
             "src/share/compaction/ob_new_micro_info.cpp",
             "src/share/compaction/ob_tablet_check_info.cpp",
-            "src/share/storage/ob_sqlite_connection.cpp",
-            "src/share/storage/ob_sqlite_connection_pool.cpp",
             "src/share/storage/ob_deadlock_event_history_table_storage.cpp",
             "src/share/storage/ob_admin_job_table_storage.cpp",
             "src/share/storage/ob_tablet_local_checksum_table_storage.cpp",
@@ -230,15 +228,10 @@ SHARE_UNITY_GROUPS = [
         name = "ob_share_config_0",
         language = "c++",
         srcs = [
-            "src/share/config/ob_common_config.cpp",
-            "src/share/config/ob_config.cpp",
             "src/share/config/ob_config_helper.cpp",
             "src/share/config/ob_config_manager.cpp",
             "src/share/config/ob_reload_config.cpp",
             "src/share/config/ob_server_config.cpp",
-            "src/share/config/ob_system_config.cpp",
-            "src/share/config/ob_config_storage.cpp",
-            "src/share/config/ob_runtime_config.cpp",
         ],
         generated_srcs = [],
         external_srcs = [],
@@ -455,7 +448,6 @@ SHARE_UNITY_GROUPS = [
             "src/share/ai_service/ob_ai_service_struct.cpp",
             "src/share/schema/ob_ai_model_mgr.cpp",
             "src/share/schema/ob_ai_model_sql_service.cpp",
-            "src/share/ai_service/ai_column_task.cpp",
             "src/share/schema/ob_objpriv_mysql_schema_struct.cpp",
             "src/share/schema/ob_schema_getter_guard_objpriv_mysql.cpp",
         ],
@@ -570,7 +562,6 @@ SHARE_STANDALONE_SOURCES = [
     struct(path = "src/share/ob_rpc_struct.cpp", language = "c++", kind = "source"),
     struct(path = "src/share/ob_sql_client_decorator.cpp", language = "c++", kind = "source"),
     struct(path = "src/share/ob_timezone_mgr.cpp", language = "c++", kind = "source"),
-    struct(path = "src/share/parameter/ob_parameter_attr.cpp", language = "c++", kind = "source"),
 ]
 
 SHARE_DATUM_STANDALONE_SOURCES = [
@@ -588,4 +579,5 @@ SHARE_DATUM_STANDALONE_SOURCES = [
     struct(path = "src/share/datum/ob_str_datum_funcs_compilation/ob_str_datum_funcs_compilation_0.cpp", language = "c++", kind = "source"),
     struct(path = "src/share/datum/ob_str_datum_funcs_compilation/ob_str_datum_funcs_compilation_1.cpp", language = "c++", kind = "source"),
     struct(path = "src/share/datum/ob_str_datum_funcs_compilation/ob_str_datum_funcs_compilation_2.cpp", language = "c++", kind = "source"),
+    struct(path = "src/share/datum/ob_str_datum_funcs_compilation/ob_str_datum_funcs_compilation_3.cpp", language = "c++", kind = "source"),
 ]

@@ -769,7 +769,7 @@ private:
   static const int64_t MIN_MEM_BOUND = 2 * 1024 * 1024; // 2M
   static const int64_t MIN_PERIOD_ROW_CNT = 16;
   const int64_t EXTEND_BKT_NUM_PUSH_DOWN = INIT_L3_CACHE_SIZE / sizeof(ObHashPartCols);
-
+  
   lib::MemoryContext mem_context_;
   common::ObIAllocator *alloc_;
   common::ObArenaAllocator *arena_alloc_;
@@ -879,7 +879,7 @@ int ObHashPartInfrastructure<HashCol, HashRowStore>::init(
     ret = OB_NOT_SUPPORTED;
     SQL_ENG_LOG(WARN, "Two-way input does not support rewind", K(ret), K(need_rewind), K(ways));
   } else {
-
+    
     enable_sql_dumped_ = enable_sql_dumped;
     unique_ = unique;
     need_pre_part_ = need_pre_part;
@@ -2558,7 +2558,6 @@ int ObHashPartInfrastructure<HashCol, HashRowStore>::get_left_next_batch(
     if (OB_ISNULL(store_rows_ = static_cast<ObChunkDatumStore::StoredRow **>
         (alloc_->alloc(max_row_cnt * sizeof(ObChunkDatumStore::StoredRow *))))) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("failed to alloc store rows", K(ret));
     } else {
       store_rows_size_ = max_row_cnt;
     }
@@ -2747,7 +2746,6 @@ int ObHashPartInfrastructure<HashCol, HashRowStore>::rewind()
         ret = OB_ERR_UNEXPECTED;
         SQL_ENG_LOG(ERROR, "unexpected status: part it not match", K(ret), K(part), K(tmp_part));
       } else if (OB_FAIL(left_part_map_.set_refactored(tmp_part->part_key_, tmp_part))) {
-        SQL_ENG_LOG(WARN, "failed to push into hash table", K(ret), K(tmp_part->part_key_));
       } else {
         left_part_list_.add_last(tmp_part);
       }

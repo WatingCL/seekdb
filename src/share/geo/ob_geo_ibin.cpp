@@ -297,11 +297,10 @@ int ObIWkbGeogCollection::do_visit(ObIGeoVisitor &visitor)
             }
             default : {
               ret = OB_INVALID_ARGUMENT;
-              LOG_WARN("invalid geo type", K(ret), K(sub_type));
               break;
             }
           }
-        }
+        } 
       }
     }
   }
@@ -314,7 +313,7 @@ int ObIWkbGeogCollection::do_visit(ObIGeoVisitor &visitor)
 
 
 int ObIWkbGeomPoint::do_visit(ObIGeoVisitor &visitor)
-{
+{ 
   return visitor.visit(this);
 }
 
@@ -453,13 +452,12 @@ int ObIWkbGeomCollection::do_visit(ObIGeoVisitor &visitor)
             }
             default : {
               ret = OB_INVALID_ARGUMENT;
-              LOG_WARN("invalid geo type", K(ret), K(sub_type));
               break;
             }
           }
         }
-      }
-    }
+      } 
+    }    
   }
   if (OB_SUCC(ret)) {
     if (OB_FAIL(visitor.finish(this))) {

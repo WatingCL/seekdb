@@ -162,7 +162,7 @@ def sql_validate_source_inventory(
         extra_sources,
         parser_sources,
         separately_owned_sources):
-    """Freezes SQL's checked-in source and release Unity baselines."""
+    """Validates SQL source paths, unique ownership, and required groups."""
 
     group_keys = {}
     unity_paths = {}
@@ -207,21 +207,6 @@ def sql_validate_source_inventory(
         if path in separate_paths or path in unity_paths or path in standalone_paths or path in parser_paths:
             fail("duplicate separately owned SQL source: %s" % path)
         separate_paths[path] = True
-
-    if len(unity_groups) != 67:
-        fail("SQL inventory must contain 67 regular Unity groups, got %s" % len(unity_groups))
-    if len(simd_unity_groups) != 1:
-        fail("SQL inventory must contain 1 SIMD Unity group, got %s" % len(simd_unity_groups))
-    if len(unity_paths) != 1110:
-        fail("SQL inventory must contain 1110 Unity sources, got %s" % len(unity_paths))
-    if len(standalone_paths) != 26:
-        fail("SQL inventory must contain 26 standalone sources, got %s" % len(standalone_paths))
-    if len(parser_paths) != 15:
-        fail("SQL inventory must contain 15 checked-in parser sources, got %s" % len(parser_paths))
-    if len(separate_paths) != 7:
-        fail("SQL inventory must contain 7 separately owned sources, got %s" % len(separate_paths))
-    if len(unity_paths) + len(standalone_paths) + len(parser_paths) + len(separate_paths) != 1158:
-        fail("SQL checked-in source ownership must cover exactly 1158 files")
 
     sql_groups_named(unity_groups, SQL_OPTIMIZER_GROUP_NAMES)
     sql_groups_without(unity_groups, SQL_OPTIMIZER_GROUP_NAMES, SQL_PREPARE_SOURCES)

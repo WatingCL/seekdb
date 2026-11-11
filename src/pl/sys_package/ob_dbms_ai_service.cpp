@@ -37,16 +37,14 @@ int ObDBMSAiService::check_ai_model_privilege_(ObPLExecCtx &ctx, ObPrivSet requi
 {
   int ret = OB_SUCCESS;
   bool has_priv = false;
-
+  
   if (OB_ISNULL(ctx.exec_ctx_) || OB_ISNULL(ctx.exec_ctx_->get_my_session())) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("exec_ctx or session is null", K(ret));
   } else {
     ObArenaAllocator tmp_allocator;
     share::schema::ObSchemaGetterGuard *schema_guard = ctx.exec_ctx_->get_sql_ctx()->schema_guard_;
     if (OB_ISNULL(schema_guard)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("schema guard is null", K(ret));
     } else {
       sql::ObAIServiceEndpointPrivUtil priv_util(*schema_guard);
       share::schema::ObSessionPrivInfo session_priv;
@@ -77,7 +75,7 @@ int ObDBMSAiService::check_ai_model_privilege_(ObPLExecCtx &ctx, ObPrivSet requi
             LOG_WARN("invalid privilege type", K(ret), K(required_priv));
             break;
         }
-
+        
         if (OB_SUCC(ret) && !has_priv) {
           ret = OB_ERR_NO_PRIVILEGE;
           LOG_WARN("no privilege for ai model operation", K(ret), K(required_priv));
@@ -85,7 +83,7 @@ int ObDBMSAiService::check_ai_model_privilege_(ObPLExecCtx &ctx, ObPrivSet requi
       }
     }
   }
-
+  
   return ret;
 }
 
@@ -108,12 +106,10 @@ int ObDBMSAiService::create_ai_model_endpoint(ObPLExecCtx &ctx, sql::ParamStore 
   } else if (OB_FAIL(params.at(0).get_string(endpoint_name))) {
   } else if (endpoint_name.empty()) {
     ret = OB_AI_FUNC_PARAM_EMPTY;
-    LOG_WARN("ai service endpoint name is empty", K(ret), K(params));
     ObString var_name = "name";
     LOG_USER_ERROR(OB_AI_FUNC_PARAM_EMPTY, var_name.length(), var_name.ptr());
   } else if (params.at(1).is_null()) {
     ret = OB_AI_FUNC_PARAM_EMPTY;
-    LOG_WARN("ai service endpoint params is wrong", K(ret), K(params));
     ObString var_name = "PARAMS";
     LOG_USER_ERROR(OB_AI_FUNC_PARAM_EMPTY, var_name.length(), var_name.ptr());
   } else {
@@ -122,7 +118,6 @@ int ObDBMSAiService::create_ai_model_endpoint(ObPLExecCtx &ctx, sql::ParamStore 
     if (OB_FAIL(get_json_base_(ctx, tmp_allocator, params, j_base))) {
     } else if (OB_ISNULL(endpoint_admin)) {
       ret = OB_NOT_INIT;
-      LOG_WARN("ai endpoint admin is not initialized", K(ret));
     } else if (OB_FAIL(endpoint_admin->create_endpoint(
                           tmp_allocator, endpoint_name, *j_base))) {
     }
@@ -148,12 +143,10 @@ int ObDBMSAiService::alter_ai_model_endpoint(ObPLExecCtx &ctx, sql::ParamStore &
   } else if (OB_FAIL(params.at(0).get_string(endpoint_name))) {
   } else if (endpoint_name.empty()) {
     ret = OB_AI_FUNC_PARAM_EMPTY;
-    LOG_WARN("ai service endpoint name is empty", K(ret), K(params), K(endpoint_name));
     ObString var_name = "name";
     LOG_USER_ERROR(OB_AI_FUNC_PARAM_EMPTY, var_name.length(), var_name.ptr());
   } else if (params.at(1).is_null()) {
     ret = OB_AI_FUNC_PARAM_EMPTY;
-    LOG_WARN("ai service endpoint params is wrong", K(ret), K(params));
     ObString var_name = "PARAMS";
     LOG_USER_ERROR(OB_AI_FUNC_PARAM_EMPTY, var_name.length(), var_name.ptr());
   } else {
@@ -162,13 +155,12 @@ int ObDBMSAiService::alter_ai_model_endpoint(ObPLExecCtx &ctx, sql::ParamStore &
     if (OB_FAIL(get_json_base_(ctx, tmp_allocator, params, j_base))) {
     } else if (OB_ISNULL(endpoint_admin)) {
       ret = OB_NOT_INIT;
-      LOG_WARN("ai endpoint admin is not initialized", K(ret));
     } else if (OB_FAIL(endpoint_admin->alter_endpoint(
                           tmp_allocator, endpoint_name, *j_base))) {
     }
   }
 
-  return ret;
+  return ret;  
 }
 
 int ObDBMSAiService::drop_ai_model_endpoint(ObPLExecCtx &ctx, sql::ParamStore &params, common::ObObj &result)
@@ -188,26 +180,23 @@ int ObDBMSAiService::drop_ai_model_endpoint(ObPLExecCtx &ctx, sql::ParamStore &p
   } else if (OB_FAIL(params.at(0).get_string(endpoint_name))) {
   } else if (endpoint_name.empty()) {
     ret = OB_AI_FUNC_PARAM_EMPTY;
-    LOG_WARN("ai service endpoint name is empty", K(ret), K(params), K(endpoint_name));
     ObString var_name = "name";
     LOG_USER_ERROR(OB_AI_FUNC_PARAM_EMPTY, var_name.length(), var_name.ptr());
   } else if (OB_ISNULL(endpoint_admin)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("ai endpoint admin is not initialized", K(ret));
   } else if (OB_FAIL(endpoint_admin->drop_endpoint(endpoint_name))) {
   }
 
 
-  return ret;
+  return ret;  
 }
 
 int ObDBMSAiService::precheck_version_and_param_count_(int expect_param_count, sql::ParamStore &params)
 {
   int ret = OB_SUCCESS;
-
+  
   if (expect_param_count != params.count()) {
     ret = OB_INVALID_ARGUMENT_NUM;
-    LOG_WARN("invalid argument", K(ret), K(params.count()));
     LOG_USER_ERROR(OB_INVALID_ARGUMENT_NUM);
   }
   return ret;
@@ -222,17 +211,15 @@ int ObDBMSAiService::get_json_base_(
   int ret = OB_SUCCESS;
   ObString j_str;
   ObJsonInType in_type = ObJsonInType::JSON_BIN;
-  uint32_t parse_flag = 0; // mysql mode
+  uint32_t parse_flag = 0; // mysql mode 
 
   if (OB_ISNULL(ctx.exec_ctx_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("exec context is null", K(ret));
   } else if (OB_FAIL(sql::ObTextStringHelper::read_real_string_data(
                  *ctx.exec_ctx_, &allocator, params.at(1), j_str))) {
   } else if (OB_FAIL(ObJsonBaseFactory::get_json_base(&allocator, j_str, in_type, in_type, j_base, parse_flag))) {
   } else if (j_base->json_type() != ObJsonNodeType::J_OBJECT) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("ai service endpoint params is not a json object", K(ret), K(params));
     LOG_USER_ERROR(OB_AI_FUNC_PARAM_TYPE_INVALID, (int)strlen("PARAMS"), "PARAMS", (int)strlen("JSON_OBJECT"), "JSON_OBJECT");
   }
   return ret;
@@ -242,7 +229,7 @@ int ObDBMSAiService::create_ai_model(ObPLExecCtx &ctx, sql::ParamStore &params, 
 {
   int ret = OB_SUCCESS;
   ObString model_name;
-
+  
   ObSchemaGetterGuard schema_guard;
   const ObAiModelSchema *ai_model_schema = nullptr;
   query::ObIRootCommandService *root_commands =
@@ -260,29 +247,23 @@ int ObDBMSAiService::create_ai_model(ObPLExecCtx &ctx, sql::ParamStore &params, 
   } else if (OB_FAIL(params.at(0).get_string(model_name))) {
   } else if (model_name.empty()) {
     ret = OB_AI_FUNC_PARAM_EMPTY;
-    LOG_WARN("ai model name is empty", K(ret), K(params), K(model_name));
     ObString var_name = "name";
     LOG_USER_ERROR(OB_AI_FUNC_PARAM_EMPTY, var_name.length(), var_name.ptr());
   } else if (params.at(1).is_null()) {
     ret = OB_AI_FUNC_PARAM_EMPTY;
-    LOG_WARN("ai model params is null", K(ret), K(params));
     ObString var_name = "PARAMS";
     LOG_USER_ERROR(OB_AI_FUNC_PARAM_EMPTY, var_name.length(), var_name.ptr());
   } else if (OB_ISNULL(GCTX.schema_service_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("schema service is null", K(ret));
   } else if (OB_FAIL(GCTX.schema_service_->get_runtime_schema_guard(schema_guard))) {
   } else if (OB_FAIL(schema_guard.get_ai_model_schema( model_name, ai_model_schema))) {
   } else if (OB_NOT_NULL(ai_model_schema)) {
     ret = OB_AI_FUNC_MODEL_EXISTS;
-    LOG_WARN("ai model already exists", K(ret), K(model_name));
     LOG_USER_ERROR(OB_AI_FUNC_MODEL_EXISTS, model_name.length(), model_name.ptr());
   } else if (OB_ISNULL(ctx.exec_ctx_)) {
     ret =  OB_ERR_UNEXPECTED;
-    LOG_WARN("exec context is null", K(ret));
   } else if (OB_ISNULL(ctx.exec_ctx_->get_sql_ctx())) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("session is null", K(ret));
   } else {
     ObArenaAllocator tmp_allocator;
     ObIJsonBase *j_base = nullptr;
@@ -295,7 +276,6 @@ int ObDBMSAiService::create_ai_model(ObPLExecCtx &ctx, sql::ParamStore &params, 
       if (OB_FAIL(arg.check_valid())) {
       } else if (OB_ISNULL(root_commands)) {
         ret = OB_NOT_INIT;
-        LOG_WARN("root command service is not initialized", K(ret));
       } else if (OB_FAIL(query::serialize_root_service_call(
                            [&]{ return root_commands->create_ai_model(arg); }))) {
       }
@@ -309,7 +289,7 @@ int ObDBMSAiService::drop_ai_model(ObPLExecCtx &ctx, sql::ParamStore &params, co
 {
   int ret = OB_SUCCESS;
   ObString model_name;
-
+  
   ObSchemaGetterGuard schema_guard;
   const ObAiModelSchema *ai_model_schema = nullptr;
   query::ObIRootCommandService *root_commands =
@@ -327,30 +307,24 @@ int ObDBMSAiService::drop_ai_model(ObPLExecCtx &ctx, sql::ParamStore &params, co
   } else if (OB_FAIL(params.at(0).get_string(model_name))) {
   } else if (model_name.empty()) {
     ret = OB_AI_FUNC_PARAM_EMPTY;
-    LOG_WARN("ai model name is empty", K(ret), K(params), K(model_name));
     ObString var_name = "name";
     LOG_USER_ERROR(OB_AI_FUNC_PARAM_EMPTY, var_name.length(), var_name.ptr());
   } else if (OB_ISNULL(GCTX.schema_service_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("schema service is null", K(ret));
   } else if (OB_FAIL(GCTX.schema_service_->get_runtime_schema_guard(schema_guard))) {
   } else if (OB_FAIL(schema_guard.get_ai_model_schema( model_name, ai_model_schema))) {
   } else if (OB_ISNULL(ai_model_schema)) {
     ret = OB_AI_FUNC_MODEL_NOT_FOUND;
-    LOG_WARN("ai model not exists", K(ret), K(model_name));
     LOG_USER_ERROR(OB_AI_FUNC_MODEL_NOT_FOUND, model_name.length(), model_name.ptr());
   } else if (OB_ISNULL(ctx.exec_ctx_)) {
     ret =  OB_ERR_UNEXPECTED;
-    LOG_WARN("exec context is null", K(ret));
   } else if (OB_ISNULL(ctx.exec_ctx_->get_sql_ctx())) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("session is null", K(ret));
   } else {
     obcall::ObDropAiModelArg arg(model_name);
     arg.ddl_stmt_str_ = ctx.exec_ctx_->get_sql_ctx()->cur_sql_;
       if (OB_ISNULL(root_commands)) {
         ret = OB_NOT_INIT;
-        LOG_WARN("root command service is not initialized", K(ret));
       } else if (OB_FAIL(query::serialize_root_service_call(
                            [&]{ return root_commands->drop_ai_model(arg); }))) {
     }

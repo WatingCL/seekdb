@@ -78,6 +78,12 @@ cc_library(
     includes = ["devtools/include"],
 )
 
+cc_library(
+    name = "jemalloc_headers",
+    hdrs = glob(["include/jemalloc/**/*." + extension for extension in HEADER_EXTENSIONS], allow_empty = True),
+    includes = ["include"],
+)
+
 filegroup(
     name = "sanity_pass",
     srcs = ["devtools/lib64/libsanitypass.so"],
@@ -229,11 +235,6 @@ cc_library(
     includes = ["include"],
 )
 
-cc_library(
-    name = "sqlite_headers",
-    hdrs = glob(["include/sqlite/**/*." + extension for extension in HEADER_EXTENSIONS], allow_empty = True),
-    includes = ["include"],
-)
 
 cc_library(
     name = "vsag_headers",

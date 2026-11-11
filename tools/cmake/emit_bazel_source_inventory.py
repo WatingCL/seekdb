@@ -272,7 +272,7 @@ def _source_path(record: Any, context: str) -> str:
 def _cmake_path(path: str) -> str:
     if path.startswith("src/share/inner_table/ob_inner_table_schema."):
         return "${CMAKE_BINARY_DIR}/generated/" + path[len("src/"):]
-    if path == "src/observer/virtual_table/ob_all_virtual_sqlite_tables.cpp":
+    if path == "src/observer/virtual_table/ob_all_virtual_local_tables.cpp":
         return "${CMAKE_BINARY_DIR}/generated/" + path[len("src/"):]
     return "${CMAKE_SOURCE_DIR}/" + path
 
@@ -383,9 +383,14 @@ def emit(repo: Path, output: Path) -> None:
             paths.append(path)
         _emit_set(lines, name, paths)
 
-    lines.append("set(SEEKDB_PRETEST_MODULES %s)" % " ".join(PRETEST_MODULES))
+    pretest_modules = [
+        module
+        for module in PRETEST_MODULES
+        if (repo / "unittest" / module / "BUILD.bazel").is_file()
+    ]
+    lines.append("set(SEEKDB_PRETEST_MODULES %s)" % " ".join(pretest_modules))
     lines.append("")
-    for module in PRETEST_MODULES:
+    for module in pretest_modules:
         relative = "unittest/%s/BUILD.bazel" % module
         spec = _pretest_spec(repo / relative, module)
         prefix = "SEEKDB_PRETEST_%s" % _cmake_name(module).upper()

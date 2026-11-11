@@ -458,9 +458,6 @@ cc_library(
     name = "config_value_support",
     hdrs = [
         "ob_encryption_util.h",
-        "parameter/ob_parameter_attr.h",
-        "parameter/ob_parameter_macro.h",
-        "parameter/ob_parameter_seed.ipp",
     ],
     deps = [
         "//src/oblib:oblib_foundation",
@@ -485,13 +482,12 @@ cc_library(
 )
 
 cc_library(
-    name = "sqlite_storage_interface",
+    name = "local_storage_interface",
     hdrs = [
-        "storage/ob_sqlite_connection.h",
-        "storage/ob_sqlite_connection_pool.h",
+        "storage/local_store.h",
     ],
-    srcs = ["storage/ob_sqlite_table_schema.h"],
     deps = [
+        "//rust:local",
         ":_generated_inner_table_headers",
         "//src/oblib:oblib_foundation",
     ],
@@ -504,15 +500,10 @@ _CONFIG_UNITY_GROUP = share_select_unity_sources(
     SHARE_UNITY_GROUPS,
     "config",
     [
-        "src/share/config/ob_common_config.cpp",
-        "src/share/config/ob_config.cpp",
         "src/share/config/ob_config_helper.cpp",
         "src/share/config/ob_config_manager.cpp",
         "src/share/config/ob_reload_config.cpp",
-        "src/share/config/ob_runtime_config.cpp",
         "src/share/config/ob_server_config.cpp",
-        "src/share/config/ob_system_config.cpp",
-        "src/share/config/ob_config_storage.cpp",
     ],
 )
 
@@ -521,31 +512,25 @@ seekdb_semantic_unity_cc_library(
     owner_package = "src/share",
     unity_groups = [_CONFIG_UNITY_GROUP],
     public_hdrs = [
-        "config/ob_common_config.h",
-        "config/ob_config.h",
         "config/ob_config_manager.h",
         "config/ob_config_rpc_types.h",
-        "config/ob_config_storage.h",
         "config/ob_parallel_ddl_control_mode.h",
         "config/ob_reload_config.h",
-        "config/ob_runtime_config.h",
         "config/ob_server_config.h",
-        "config/ob_system_config.h",
-        "config/ob_system_config_key.h",
-        "config/ob_system_config_value.h",
     ],
     deps = [
         ":cache",
         ":config_parser_interface",
         ":config_value_support",
         ":core_types",
-        ":sqlite_storage_interface",
         ":tenant_runtime",
         "//src/oblib:oblib_compression",
         "//src/oblib:oblib_foundation",
         "//src/oblib:oblib_mysql_client_domain",
+        "//rust:config_headers",
     ],
     implementation_deps = [
+        "//rust:local",
         ":cluster_version_interface",
         ":error_codes",
         ":io",
@@ -1418,6 +1403,7 @@ _INNER_TABLE_SCHEMA_CPP_OUTS = inner_table_schema_cpp_outputs(
     SHARE_UNITY_GROUPS,
 )
 _INNER_TABLE_SCHEMA_HEADER_OUTS = [
+    _INNER_TABLE_GENERATED_DIR + "/local_table_schema.h",
     _INNER_TABLE_GENERATED_DIR + "/ob_inner_table_schema.h",
     _INNER_TABLE_GENERATED_DIR + "/ob_inner_table_schema_constants.h",
     _INNER_TABLE_GENERATED_DIR + "/ob_inner_table_schema_misc.ipp",
@@ -1425,9 +1411,9 @@ _INNER_TABLE_SCHEMA_HEADER_OUTS = [
 _INNER_TABLE_SCHEMA_DATA_OUTS = [
     _INNER_TABLE_GENERATED_DIR + "/table_id_to_name",
 ]
-_SQLITE_VIRTUAL_TABLE_OUTS = [
-    _OBSERVER_GENERATED_DIR + "/ob_all_virtual_sqlite_tables.cpp",
-    _OBSERVER_GENERATED_DIR + "/ob_all_virtual_sqlite_tables.h",
+_LOCAL_VIRTUAL_TABLE_OUTS = [
+    _OBSERVER_GENERATED_DIR + "/ob_all_virtual_local_tables.cpp",
+    _OBSERVER_GENERATED_DIR + "/ob_all_virtual_local_tables.h",
 ]
 _EXPECTED_GENERATED_OUTPUTS = sorted(
     [
@@ -1440,7 +1426,7 @@ _EXPECTED_GENERATED_OUTPUTS = sorted(
     ] +
     [
         "observer/" + output[len(_OBSERVER_GENERATED_DIR) + 1:]
-        for output in _SQLITE_VIRTUAL_TABLE_OUTS
+        for output in _LOCAL_VIRTUAL_TABLE_OUTS
     ],
 )
 _EXPECTED_GENERATED_OUTPUT_ARGS = " ".join([
@@ -1459,7 +1445,7 @@ genrule(
         _INNER_TABLE_SCHEMA_CPP_OUTS +
         _INNER_TABLE_SCHEMA_HEADER_OUTS +
         _INNER_TABLE_SCHEMA_DATA_OUTS +
-        _SQLITE_VIRTUAL_TABLE_OUTS
+        _LOCAL_VIRTUAL_TABLE_OUTS
     ),
     cmd = """
       PYTHONDONTWRITEBYTECODE=1 python3 \
@@ -1504,9 +1490,18 @@ cc_library(
 )
 
 cc_library(
-    name = "_generated_sqlite_virtual_table_headers",
+    name = "local_table_schema",
+    hdrs = [_INNER_TABLE_GENERATED_DIR + "/local_table_schema.h"],
+    include_prefix = "share/inner_table",
+    strip_include_prefix = _INNER_TABLE_GENERATED_DIR,
+    deps = [":local_storage_interface"],
+    visibility = ["//src:__subpackages__"],
+)
+
+cc_library(
+    name = "_generated_local_virtual_table_headers",
     hdrs = [
-        _OBSERVER_GENERATED_DIR + "/ob_all_virtual_sqlite_tables.h",
+        _OBSERVER_GENERATED_DIR + "/ob_all_virtual_local_tables.h",
     ],
     include_prefix = "observer/virtual_table",
     strip_include_prefix = _OBSERVER_GENERATED_DIR,
@@ -1520,9 +1515,9 @@ filegroup(
 )
 
 filegroup(
-    name = "generated_sqlite_virtual_table_source",
+    name = "generated_local_virtual_table_source",
     srcs = [
-        _OBSERVER_GENERATED_DIR + "/ob_all_virtual_sqlite_tables.cpp",
+        _OBSERVER_GENERATED_DIR + "/ob_all_virtual_local_tables.cpp",
     ],
     visibility = ["//src/observer:__subpackages__"],
 )
@@ -1562,6 +1557,7 @@ _SHARE_NATIVE_UNITY_SOURCES = share_unity_group_sources(
 )
 
 _SHARE_RUNTIME_DEPS = [
+    ":local_table_schema",
     ":_generated_inner_table_headers",
     ":_generated_inner_table_short_headers",
     ":cache",
@@ -1607,7 +1603,7 @@ _SHARE_RUNTIME_DEPS = [
     ":seekdb_runtime_foundation",
     ":semistruct",
     ":sequence_option",
-    ":sqlite_storage_interface",
+    ":local_storage_interface",
     ":storage_cache_policy",
     ":system_variable_metadata",
     ":table_load_protocol",
@@ -1642,7 +1638,6 @@ _SHARE_RUNTIME_DEPS = [
     "@seekdb_3rd_headers//:rapidjson_headers",
     "@seekdb_3rd_headers//:roaring_headers",
     "@seekdb_3rd_headers//:s2_headers",
-    "@seekdb_3rd_headers//:sqlite_headers",
     "@seekdb_3rd_headers//:zlib_headers",
 ]
 
@@ -1771,6 +1766,7 @@ seekdb_semantic_unity_cc_library(
     ),
     implementation_deps = [
         ":_share_implementation_headers",
+        "//rust:config_headers",
     ] + _SHARE_RUNTIME_COMPILE_DEPS,
     features = ["layering_check"],
     tags = ["manual"],

@@ -16,6 +16,7 @@
 
 #define USING_LOG_PREFIX SERVER
 
+#include "config_bridge.h"
 #include "ob_dbms_sched_table_operator.h"
 #include "ob_dbms_sched_job_utils.h"
 #include "query/scheduler/ob_scheduler_job.h"
@@ -114,7 +115,7 @@ int ObDBMSSchedTableOperator::_build_job_drop_dml(int64_t now, ObDBMSSchedJobInf
 {
   int ret = OB_SUCCESS;
   ObDMLSqlSplicer dml;
-
+  
   OZ (dml.add_gmt_modified(now));
   OZ (dml.add_pk_column("job_name", job_info.job_name_));
   OZ (dml.splice_delete_sql(OB_ALL_SCHEDULER_JOB_TNAME, sql));
@@ -125,7 +126,7 @@ int ObDBMSSchedTableOperator::_build_job_finished_dml(int64_t now, ObDBMSSchedJo
 {
   int ret = OB_SUCCESS;
   ObDMLSqlSplicer dml;
-
+  
   OZ (dml.add_gmt_modified(now));
   OZ (dml.add_pk_column("job", job_info.job_));
   OZ (dml.add_pk_column("job_name", job_info.job_name_));
@@ -151,7 +152,7 @@ int ObDBMSSchedTableOperator::_build_job_rollback_start_dml(ObDBMSSchedJobInfo &
 {
   int ret = OB_SUCCESS;
   ObDMLSqlSplicer dml;
-
+  
   OZ (dml.add_pk_column("job", job_info.job_));
   OZ (dml.add_pk_column("job_name", job_info.job_name_));
   OZ (dml.add_column(true, "this_date"));
@@ -166,7 +167,7 @@ int ObDBMSSchedTableOperator::update_for_rollback(ObDBMSSchedJobInfo &job_info)
   ObMySQLTransaction trans;
   ObSqlString sql1;
   int64_t affected_rows = 0;
-
+  
   CK (OB_NOT_NULL(sql_proxy_));
   CK (OB_LIKELY(job_info.job_ != OB_INVALID_ID));
   OZ (_build_job_rollback_start_dml(job_info, sql1));
@@ -207,7 +208,7 @@ int ObDBMSSchedTableOperator::update_for_end(ObDBMSSchedJobInfo &job_info, int e
   int64_t affected_rows = 0;
   const int64_t now = ObTimeUtility::current_time();
   UNUSED(errmsg);
-
+  
   CK (OB_NOT_NULL(sql_proxy_));
   CK (OB_LIKELY(job_info.job_ != OB_INVALID_ID));
   if (OB_FAIL(ret)) {
@@ -247,7 +248,7 @@ int ObDBMSSchedTableOperator::update_for_kill(ObDBMSSchedJobInfo &job_info)
   ObSqlString sql1;
   int64_t affected_rows = 0;
   const int64_t now = ObTimeUtility::current_time();
-
+  
   CK (OB_NOT_NULL(sql_proxy_));
   CK (OB_LIKELY(job_info.job_ != OB_INVALID_ID));
   OZ (_build_job_drop_dml(now, job_info, sql1));
@@ -271,7 +272,7 @@ int ObDBMSSchedTableOperator::check_job_can_running(int64_t alive_job_count, boo
   ObSqlString sql;
   OX (can_running = false);
   CK (true);
-  OX (job_queue_processor = GCONF.job_queue_processes);
+  OX (job_queue_processor = config::job_queue_processes());
   // found current running job count
   if (OB_FAIL(ret)) {
   } else if (alive_job_count <= job_queue_processor) {
@@ -284,7 +285,6 @@ int ObDBMSSchedTableOperator::check_job_can_running(int64_t alive_job_count, boo
         if (OB_FAIL(sql_proxy_->read(result, sql.ptr()))) {
         } else if (OB_ISNULL(result.get_result())) {
           ret = OB_ERR_UNEXPECTED;
-          LOG_WARN("get result failed", K(ret), K(sql));
         } else {
           if (OB_SUCCESS == (ret = result.get_result()->next())) {
             int64_t int_value = 0;
@@ -293,7 +293,6 @@ int ObDBMSSchedTableOperator::check_job_can_running(int64_t alive_job_count, boo
               job_running_cnt = static_cast<uint64_t>(int_value);
             }
           } else {
-            LOG_WARN("failed to calc all running job, no row return", K(ret));
           }
         }
       }
@@ -310,7 +309,7 @@ int ObDBMSSchedTableOperator::extract_info(
   int ret = OB_SUCCESS;
   ObDBMSSchedJobInfo job_info_local;
 
-
+  
   EXTRACT_INT_FIELD_MYSQL(result, "job", job_info_local.job_, uint64_t);
   EXTRACT_INT_FIELD_MYSQL(result, "user_id", job_info_local.user_id_, uint64_t);
   if (OB_ERR_NULL_VALUE == ret || OB_ERR_COLUMN_NOT_FOUND == ret) {
@@ -451,7 +450,6 @@ int ObDBMSSchedTableOperator::get_dbms_sched_job_info(
       if (OB_FAIL(sql_proxy_->read(result, sql.ptr()))) {
       } else if (OB_ISNULL(result.get_result())) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("failed to get result", K(ret), K(job_id));
       } else {
         if (OB_SUCCESS == (ret = result.get_result()->next())) {
           OZ (extract_info(*(result.get_result()), allocator, job_info));
@@ -469,9 +467,7 @@ int ObDBMSSchedTableOperator::get_dbms_sched_job_info(
             }
           }
         } else if (OB_ITER_END == ret) {
-          LOG_WARN("job not exists, may delete alreay!", K(ret), K(job_id));
         } else {
-          LOG_WARN("failed to get next", K(ret), K(job_id));
         }
       }
     }
@@ -498,7 +494,6 @@ int ObDBMSSchedTableOperator::get_dbms_sched_job_infos_in_runtime(
       if (OB_FAIL(sql_proxy_->read(result, sql.ptr()))) {
       } else if (OB_ISNULL(result.get_result())) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("get result failed", K(ret), K(sql));
       } else {
         do {
           if (OB_FAIL(result.get_result()->next())) {
@@ -526,7 +521,7 @@ int ObDBMSSchedTableOperator::extract_job_class_info(
   int ret = OB_SUCCESS;
   ObDBMSSchedJobClassInfo job_class_info_local;
 
-
+  
   EXTRACT_VARCHAR_FIELD_MYSQL_SKIP_RET(result, "job_class_name", job_class_info_local.job_class_name_);
   EXTRACT_VARCHAR_FIELD_MYSQL_SKIP_RET(result, "service", job_class_info_local.service_);
   EXTRACT_VARCHAR_FIELD_MYSQL_SKIP_RET(result, "logging_level", job_class_info_local.logging_level_);
@@ -556,7 +551,6 @@ int ObDBMSSchedTableOperator::get_dbms_sched_job_class_info(
       if (OB_FAIL(sql_proxy_->read(result, sql.ptr()))) {
       } else if (OB_ISNULL(result.get_result())) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("get result failed", K(ret), K(sql), K(job_class_name));
       } else {
         if (OB_SUCCESS == (ret = result.get_result()->next())) {
           OZ (extract_job_class_info(*(result.get_result()), allocator, job_class_info));
@@ -574,7 +568,6 @@ int ObDBMSSchedTableOperator::get_dbms_sched_job_class_info(
           LOG_INFO("job_class_name not exists, may delete alreay!", K(ret), K(job_class_name));
           ret = OB_SUCCESS; // job not exist, do nothing ...
         } else {
-          LOG_WARN("failed to get next", K(ret), K(job_class_name));
         }
       }
     }
@@ -598,7 +591,6 @@ int ObDBMSSchedTableOperator::get_dbms_sched_job_class_infos_in_runtime(
       if (OB_FAIL(sql_proxy_->read(result, sql.ptr()))) {
       } else if (OB_ISNULL(result.get_result())) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("get result failed", K(ret), K(sql));
       } else {
         do {
           if (OB_FAIL(result.get_result()->next())) {

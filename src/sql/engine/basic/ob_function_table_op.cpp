@@ -19,8 +19,6 @@
 #include "sql/engine/basic/ob_function_table_op.h"
 #include "sql/engine/ob_exec_context.h"
 #include "sql/engine/expr/ob_expr_lob_utils.h"
-#include "sql/engine/expr/ob_obj_cast_runtime.h"
-#include <new>
 
 
 namespace oceanbase
@@ -29,32 +27,7 @@ using namespace common;
 namespace sql
 {
 
-OB_SERIALIZE_MEMBER((ObFunctionTableSpec, ObOpSpec), value_expr_, column_exprs_, has_correlated_expr_, file_scan_, file_column_ids_);
-
-OB_SERIALIZE_MEMBER((FileScanSpec, ObFunctionTableSpec));
-
-int FileScanOp::inner_get_next_batch(int64_t maximum)
-{
-  int ret = OB_SUCCESS;
-  const int64_t size = std::min<int64_t>(maximum, get_spec().max_batch_size_);
-  brs_.size_ = 0;
-  brs_.end_ = false;
-  brs_.skip_->reset(size);
-  file_row_allocator_.reuse();
-  ObEvalCtx::BatchInfoScopeGuard guard(eval_ctx_);
-  guard.set_batch_size(size);
-  for (int64_t i = 0; OB_SUCC(ret) && i < size; ++i) {
-    guard.set_batch_idx(i);
-    if (OB_FAIL(inner_get_next_row_file())) {
-      if (ret == OB_ITER_END) { brs_.end_ = true; ret = OB_SUCCESS; break; }
-    } else ++brs_.size_;
-  }
-  if (OB_SUCC(ret)) {
-    const ObFunctionTableSpec &spec=static_cast<const ObFunctionTableSpec &>(get_spec());
-    for (int64_t i=0;i<spec.column_exprs_.count();++i) spec.column_exprs_.at(i)->set_evaluated_projected(eval_ctx_);
-  }
-  return ret;
-}
+OB_SERIALIZE_MEMBER((ObFunctionTableSpec, ObOpSpec), value_expr_, column_exprs_, has_correlated_expr_);
 
 int ObFunctionTableOp::inner_open()
 {
@@ -63,30 +36,6 @@ int ObFunctionTableOp::inner_open()
   already_calc_ = false;
   if (OB_ISNULL(MY_SPEC.value_expr_)) {
     ret = OB_ERR_UNEXPECTED;
-  } else if (MY_SPEC.file_scan_) {
-    ObDatum *value = nullptr;
-    bool enabled = false;
-    ObString root;
-    if (OB_FAIL(ctx_.get_my_session()->get_sys_variable(share::SYS_VAR_ENABLE_FILE_SQL, enabled))) {
-    } else if (!enabled) {
-      ret = OB_NOT_SUPPORTED;
-    } else if (OB_FAIL(ctx_.get_my_session()->get_secure_file_priv(root))) {
-    } else if (OB_FAIL(MY_SPEC.value_expr_->eval(eval_ctx_, value))) {
-    } else if (OB_ISNULL(file_reader_ = new (std::nothrow) file_sql::Reader())) {
-      ret = OB_ALLOCATE_MEMORY_FAILED;
-    } else {
-      std::set<size_t> projected;
-      for (int64_t i = 0; i < MY_SPEC.file_column_ids_.count(); ++i) projected.insert(MY_SPEC.file_column_ids_.at(i));
-      file_reader_->project(projected);
-      ObString payload = value->get_string();
-      if (!file_sql::decode(std::string(payload.ptr(), payload.length()), *file_reader_) ||
-          !file_reader_->open(file_reader_->options, std::string(root.ptr(), root.length()), false)) {
-        ret = OB_INVALID_ARGUMENT;
-        LOG_USER_ERROR(OB_INVALID_ARGUMENT, file_reader_->error.c_str());
-      } else {
-        next_row_func_ = &ObFunctionTableOp::inner_get_next_row_file;
-      }
-    }
   } else if (ObExtendType == MY_SPEC.value_expr_->datum_meta_.type_) {
     next_row_func_ = &ObFunctionTableOp::inner_get_next_row_udf;
   } else {
@@ -99,10 +48,6 @@ int ObFunctionTableOp::inner_rescan()
 {
   int ret = OB_SUCCESS;
   if (OB_FAIL(ObOperator::inner_rescan())) {
-  } else if (MY_SPEC.file_scan_) {
-    if (file_reader_ == nullptr || !file_reader_->rescan()) {
-      ret = OB_INVALID_ARGUMENT;
-    }
   } else {
     node_idx_ = 0;
     if (MY_SPEC.has_correlated_expr_) {
@@ -118,8 +63,6 @@ int ObFunctionTableOp::inner_rescan()
 int ObFunctionTableOp::inner_close()
 {
   int ret = OB_SUCCESS;
-  if (file_reader_ != nullptr) { delete file_reader_; file_reader_ = nullptr; }
-  file_row_allocator_.reset();
   node_idx_ = 0;
   row_count_ = 0;
   col_count_ = 0;
@@ -129,8 +72,6 @@ int ObFunctionTableOp::inner_close()
 
 void ObFunctionTableOp::destroy()
 {
-  if (file_reader_ != nullptr) { delete file_reader_; file_reader_ = nullptr; }
-  file_row_allocator_.reset();
   ObOperator::destroy();
 }
 
@@ -163,51 +104,6 @@ int ObFunctionTableOp::inner_get_next_row()
   return (this->*next_row_func_)();
 }
 
-int ObFunctionTableOp::inner_get_next_row_file()
-{
-  int ret = OB_SUCCESS;
-  clear_evaluated_flag();
-  if (!is_vectorized()) file_row_allocator_.reuse();
-  std::vector<file_sql::Cell> row;
-  bool end = false;
-  if (OB_FAIL(ctx_.check_status())) {
-  } else if (file_reader_ == nullptr || !file_reader_->next(row, end)) {
-    ret = OB_INVALID_ARGUMENT;
-    LOG_USER_ERROR(OB_INVALID_ARGUMENT, file_reader_ == nullptr ? "file scan is not open" : file_reader_->error.c_str());
-  } else if (end) {
-    ret = OB_ITER_END;
-  } else {
-    const ObDataTypeCastParams params = ObBasicSessionInfo::create_dtc_params(ctx_.get_my_session());
-    for (int64_t i = 0; OB_SUCC(ret) && i < MY_SPEC.column_exprs_.count(); ++i) {
-      ObExpr *expr = MY_SPEC.column_exprs_.at(i);
-      const int64_t column = MY_SPEC.file_column_ids_.at(i);
-      ObDatum &datum = expr->locate_datum_for_write(eval_ctx_);
-      if (column < 0 || column >= row.size()) {
-        ret = OB_ERR_UNEXPECTED;
-      } else if (row[column].null_value) {
-        datum.set_null();
-      } else {
-        ObString copied;
-        ObObj input, output;
-        const std::string &text = row[column].text;
-        if (OB_FAIL(ob_write_string(file_row_allocator_, ObString(text.size(), text.data()), copied))) {
-        } else {
-          if (file_reader_->columns[column].type == file_sql::Type::BOOLEAN) input.set_tinyint(text == "true" ? 1 : 0);
-          else { input.set_varchar(copied); input.set_collation_type(CS_TYPE_UTF8MB4_BIN); }
-          ObCastCtx cast_ctx(&file_row_allocator_, &params, CM_NONE, expr->obj_meta_.get_collation_type());
-          ObSqlObjCastRuntime runtime(&ctx_);
-          cast_ctx.runtime_ = &runtime;
-          if (OB_FAIL(ObObjCaster::to_type(expr->datum_meta_.type_, expr->obj_meta_.get_collation_type(), cast_ctx, input, output))) {
-          } else if (OB_FAIL(datum.from_obj(output, expr->obj_datum_map_))) {
-          }
-        }
-      }
-      if (OB_SUCC(ret)) { expr->set_evaluated_projected(eval_ctx_); expr->set_evaluated_flag(eval_ctx_); }
-    }
-  }
-  return ret;
-}
-
 int ObFunctionTableOp::inner_get_next_row_udf()
 {
   int ret = OB_SUCCESS;
@@ -215,13 +111,10 @@ int ObFunctionTableOp::inner_get_next_row_udf()
   clear_evaluated_flag();
   if (OB_ISNULL(plan_ctx = ctx_.get_physical_plan_ctx())) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("failed to get plan ctx", K(ret), K(plan_ctx));
   } else if (OB_ISNULL(MY_SPEC.value_expr_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("value expr is not init", K(ret));
   } else if (ObExtendType != MY_SPEC.value_expr_->datum_meta_.type_) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("get unexpected value", K(ret), K(MY_SPEC.value_expr_->datum_meta_.type_));
   } else if (FALSE_IT(plan_ctx->set_autoinc_id_tmp(0))) {
   } else if (OB_FAIL(ctx_.check_status())) {
   } else {
@@ -233,7 +126,6 @@ int ObFunctionTableOp::inner_get_next_row_udf()
       } else if (OB_ISNULL(value_table_ 
                  = reinterpret_cast<pl::ObPLCollection*>(value->get_ext()))) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("failed to get value table", K(ret));
       } else {
         row_count_ = value_table_->is_inited() ? value_table_->get_count() : 0;
         col_count_ = value_table_->get_column_count();
@@ -268,7 +160,6 @@ int ObFunctionTableOp::inner_get_next_row_udf()
               OX (obj_stack[0] = record_obj);
             } else {
               ret = OB_ERR_UNEXPECTED;
-              LOG_WARN("unexpected composite type", K(ret), K(composite->get_type()));
             }
           }
         } else {
@@ -295,7 +186,6 @@ int ObFunctionTableOp::inner_get_next_row_udf()
                      OB_FAIL(ob_adjust_lob_datum(get_exec_ctx(), obj_stack[i],
                                                  expr->obj_meta_, datum_map,
                                                  get_exec_ctx().get_allocator(), datum))) {
-            LOG_WARN("adjust lob datum failed", K(ret), K(obj_stack[i].get_meta()), K(expr->obj_meta_));
           }
         }
         if (OB_SUCC(ret)) {
@@ -315,11 +205,9 @@ int ObFunctionTableOp::inner_get_next_row_sys_func()
   clear_evaluated_flag();
   if (OB_ISNULL(plan_ctx = ctx_.get_physical_plan_ctx())) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("failed to get plan ctx", K(ret), K(plan_ctx));
   } else if (OB_FAIL(ctx_.check_status())) {
   } else if (OB_FAIL(MY_SPEC.value_expr_->eval(eval_ctx_, value))) {
     if (OB_ITER_END != ret) {
-      LOG_WARN("failed to eval value expr", K(ret));
     }
   } else {
     MY_SPEC.column_exprs_.at(0)->locate_datum_for_write(eval_ctx_).set_datum(*value);

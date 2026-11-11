@@ -37,7 +37,6 @@ int ObStorageEstimator::estimate_row_count(const obcall::ObEstPartArg &arg,
       ::oceanbase::share::server_service<::oceanbase::data_plane::ObIReadTimestampService>();
   if (OB_ISNULL(read_timestamp_service)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("read timestamp service is not available", K(ret));
   } else if (OB_FAIL(read_timestamp_service->latest_read_scn(max_readable_scn))) {
   } else {
     param.frozen_version_ = static_cast<int64_t>(max_readable_scn.get_val_for_sql());
@@ -102,7 +101,6 @@ int ObStorageEstimator::storage_estimate_rowcount(ObTableScanParam &param,
                        res.est_records_,
                        rc_logical,
                        rc_physical))) {
-    LOG_WARN("fail to get partition batch rowcount", K(param.tablet_id_), K(batch), K(ret));
     res.reset();
     ret = OB_SUCCESS;
   } else {
@@ -130,7 +128,6 @@ int ObStorageEstimator::storage_estimate_partition_batch_rowcount(const ObSimple
 
     if (OB_ISNULL(storage_estimator)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("get unexpected null", K(ret), KP(storage_estimator));
     } else if (OB_FAIL(storage_estimator->estimate_row_count_for_batch(
                    table_scan_param,
                    batch,
@@ -164,14 +161,13 @@ int ObStorageEstimator::storage_estimate_block_count_and_row_count(
     res.sstable_row_count_ = sstable_row_count;
     res.memtable_row_count_ = memtable_row_count;
   } else {
-
+    
     SERVER_MODULE_SCOPE {
       const int64_t timeout_us = THIS_WORKER.get_timeout_remain();
       data_plane::ObIStorageEstimator *storage_estimator =
           ::oceanbase::share::server_service<::oceanbase::data_plane::ObIStorageEstimator>();
       if (OB_ISNULL(storage_estimator)) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("get unexpected null", K(ret), KP(storage_estimator));
       } else if (OB_FAIL(storage_estimator->estimate_block_count_and_row_count(
                      arg.tablet_id_,
                      timeout_us,

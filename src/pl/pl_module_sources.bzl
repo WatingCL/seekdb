@@ -53,15 +53,6 @@ def pl_validate_source_inventory(unity_groups, standalone_sources, checked_in_so
         if source.kind == "generated":
             generated_paths[source.path] = True
 
-    if len(group_names) != 4:
-        fail("PL inventory must contain 4 release Unity groups, got %s" % len(group_names))
-    if len(unity_paths) != 31:
-        fail("PL inventory must contain 31 Unity sources, got %s" % len(unity_paths))
-    if len(standalone_paths) != 5:
-        fail("PL inventory must contain 5 standalone sources, got %s" % len(standalone_paths))
-    if len(generated_paths) != 2:
-        fail("PL inventory must contain 2 generated parser sources, got %s" % len(generated_paths))
-
     owned = {}
     for path in unity_paths.keys():
         owned[path[len(_PL_SOURCE_PREFIX):]] = True

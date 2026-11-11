@@ -34,13 +34,12 @@ int ObAiModelSqlService::create_ai_model(const ObAiModelSchema &new_schema,
   ObDMLSqlSplicer sql;
   ObSqlString buffer;
   int ret = OB_SUCCESS;
-
-
+  
+  
   int64_t affected_rows = 0;
 
   if (!new_schema.is_valid()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid argument", K(ret), K(new_schema));
   } else if (OB_FAIL(sql.add_pk_column("model_id", new_schema.get_ai_model_id()))) {
   } else if (OB_FAIL(sql.add_column("name", ObHexEscapeSqlStr(new_schema.get_name())))) {
   } else if (OB_FAIL(sql.add_column("type", static_cast<int64_t>(new_schema.get_type())))) {
@@ -49,7 +48,6 @@ int ObAiModelSqlService::create_ai_model(const ObAiModelSchema &new_schema,
   } else if (OB_FAIL(sql_client.write(buffer.ptr(), affected_rows))) {
   } else if (!is_single_row(affected_rows)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected value", K(affected_rows), K(buffer), K(ret));
   } else if (OB_FAIL(sql.add_pk_column("schema_version", new_schema.get_schema_version()))) {
   } else if (OB_FAIL(sql.add_column("is_deleted", 0))) {
   } else if (FALSE_IT(buffer.reuse())) {
@@ -57,10 +55,9 @@ int ObAiModelSqlService::create_ai_model(const ObAiModelSchema &new_schema,
   } else if (OB_FAIL(sql_client.write(buffer.ptr(), affected_rows))) {
   } else if (!is_single_row(affected_rows)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected value", K(affected_rows), K(buffer), K(ret));
   } else {
     ObSchemaOperation opt;
-
+    
     opt.ai_model_id_ = new_schema.get_ai_model_id();
     opt.op_type_ = OB_DDL_CREATE_AI_MODEL;
     opt.schema_version_ = new_schema.get_schema_version();
@@ -82,18 +79,16 @@ int ObAiModelSqlService::drop_ai_model(const ObAiModelSchema &schema,
   ObDMLSqlSplicer sql;
   ObSqlString buffer;
   int64_t affected_rows = 0;
-
-
+  
+  
 
   if (!schema.is_valid()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid argument", K(ret), K(schema));
   } else if (OB_FAIL(sql.add_pk_column("model_id", schema.get_ai_model_id()))) {
   } else if (OB_FAIL(sql.splice_delete_sql(OB_ALL_AI_MODEL_TNAME, buffer))) {
   } else if (OB_FAIL(sql_client.write(buffer.ptr(), affected_rows))) {
   } else if (!is_single_row(affected_rows)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected value", K(affected_rows), K(buffer), K(ret));
   } else {
     buffer.reuse();
     sql.reuse();
@@ -107,13 +102,12 @@ int ObAiModelSqlService::drop_ai_model(const ObAiModelSchema &schema,
     } else if (OB_FAIL(sql_client.write(buffer.ptr(), affected_rows))) {
     } else if (!is_single_row(affected_rows)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("unexpected value", K(affected_rows), K(buffer), K(ret));
     }
   }
 
   if (OB_SUCC(ret)) {
     ObSchemaOperation opt;
-
+    
     opt.ai_model_id_ = schema.get_ai_model_id();
     opt.op_type_ = OB_DDL_DROP_AI_MODEL;
     opt.schema_version_ = new_schema_version;

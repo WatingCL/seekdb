@@ -29,13 +29,12 @@ FUNCTION SEARCH (IN table_name VARCHAR(65535),
                  IN search_params LONGTEXT)
 RETURN JSON;
 */
-int ObDBMSHybridVectorMySql::search(ObPLExecCtx &ctx, ParamStore &params, ObObj &result)
+int ObDBMSHybridVectorMySql::search(ObPLExecCtx &ctx, ParamStore &params, ObObj &result) 
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(params.count() != 2) || !params.at(0).is_varchar() ||
       !params.at(1).is_text()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid argument types for search", K(ret));
   } else {
     ObString table_name = params.at(0).get_varchar();
     ObString search_params_str;
@@ -61,13 +60,12 @@ FUNCTION GET_SQL (IN table_name VARCHAR(65535),
                    IN search_params LONGTEXT)
 RETURN LONGTEXT;
 */
-int ObDBMSHybridVectorMySql::get_sql(ObPLExecCtx &ctx, ParamStore &params, ObObj &result)
+int ObDBMSHybridVectorMySql::get_sql(ObPLExecCtx &ctx, ParamStore &params, ObObj &result) 
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(params.count() != 2) || !params.at(0).is_varchar() ||
       !params.at(1).is_text()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid argument types for get_sql", K(ret));
   } else {
     ObString table_name = params.at(0).get_varchar();
     ObString search_params_str;

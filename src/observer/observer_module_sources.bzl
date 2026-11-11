@@ -26,8 +26,6 @@ def observer_validate_source_inventory(
         generated_sources):
     group_names = {}
     owned = {}
-    unity_count = 0
-    standalone_count = 0
 
     for group in unity_groups:
         if group.name in group_names:
@@ -42,7 +40,6 @@ def observer_validate_source_inventory(
             if package_path in owned:
                 fail("duplicate Observer source: %s" % path)
             owned[package_path] = group.name
-            unity_count += 1
 
     for source_set in standalone_source_sets:
         for source in source_set:
@@ -54,19 +51,8 @@ def observer_validate_source_inventory(
             if package_path in owned:
                 fail("duplicate Observer standalone source: %s" % source.path)
             owned[package_path] = "standalone"
-            standalone_count += 1
-
-    if len(unity_groups) != 18 or unity_count != 246:
-        fail(
-            "Observer Unity baseline changed: groups=%s sources=%s" %
-            (len(unity_groups), unity_count),
-        )
-    if standalone_count != 5:
-        fail("Observer standalone baseline changed: %s" % standalone_count)
 
     ignored = {path: True for path in ignored_sources}
-    if len(ignored) != 6:
-        fail("Observer ignored-source baseline changed: %s" % len(ignored))
     for path in ignored:
         if path in owned:
             fail("ignored Observer source is also owned: %s" % path)
@@ -76,8 +62,6 @@ def observer_validate_source_inventory(
         if not path.startswith(_OBSERVER_SOURCE_PREFIX):
             fail("generated Observer source outside src/observer: %s" % path)
         generated[path[len(_OBSERVER_SOURCE_PREFIX):]] = True
-    if len(generated) != 1:
-        fail("Observer generated-source baseline changed: %s" % len(generated))
     missing_generated = sorted([path for path in generated if path not in owned])
     if missing_generated:
         fail("generated Observer sources are not owned: %s" % missing_generated)

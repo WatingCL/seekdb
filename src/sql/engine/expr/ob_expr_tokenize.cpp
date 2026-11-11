@@ -32,6 +32,8 @@
 #include "data_plane/fts/dict/ob_gen_dic_loader.h"
 #include "data_plane/fts/ob_fts_parser_property.h"
 
+#include "lib/utility/ob_print_utils.h"
+
 #define USING_LOG_PREFIX SQL_ENG
 #include "sql/engine/expr/ob_expr_json_func_helper.h" // file not self-contained, there're logs inside.
 
@@ -63,7 +65,6 @@ int ObExprTokenize::eval_tokenize(const ObExpr &expr, ObEvalCtx &ctx, ObDatum &e
   // check param num, which is checked in ObExprOperator::calc_result_typeN.
   if (OB_UNLIKELY(expr.arg_cnt_ < 1 || expr.arg_cnt_ > 3)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("Args count invalid.", K(ret), K(expr.arg_cnt_));
   } else if (OB_FAIL(parse_param(expr, ctx, temp_allocator, param))) {
   } else if (OB_FAIL(tokenize_fulltext(param, param.output_mode_, temp_allocator, json_result))) {
   } else if (OB_FAIL(ObJsonExprHelper::pack_json_res(expr,
@@ -87,11 +88,8 @@ int ObExprTokenize::tokenize_fulltext(const TokenizeParam &param,
   int64_t doc_len = 0;
   storage::ObFTWordMap token_map;
 
-  ObArenaAllocator tmp_parse_alloc(ObMemAttr("Tmp buffer"));
-
   if (TokenizeParam::OUTPUT_MODE::DEFAULT != mode && TokenizeParam::OUTPUT_MODE::ALL != mode) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("Invalid output mode", K(ret), K(mode));
   } else if (OB_FAIL(tokenize_helper.init(&allocator, param.parser_name_, param.properties_))) {
   } else if (OB_FAIL(token_map.create(ft_word_bkt_cnt, common::ObMemAttr("FTWordMap")))) {
   } else if (
@@ -102,7 +100,6 @@ int ObExprTokenize::tokenize_fulltext(const TokenizeParam &param,
                      param.fulltext_.length(),
                      doc_len,
                      token_map))) {
-    LOG_WARN("Fail to segment fulltext", K(ret));
   } else {
     switch (param.output_mode_) {
     case TokenizeParam::OUTPUT_MODE::DEFAULT: {
@@ -121,7 +118,6 @@ int ObExprTokenize::tokenize_fulltext(const TokenizeParam &param,
     }
     default:
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("Invalid output mode", K(ret), K(param.output_mode_));
     }
   }
   return ret;
@@ -132,7 +128,10 @@ ObExprTokenize::TokenizeParam ::TokenizeParam()
     parser_name_(ObString(OB_DEFAULT_FULLTEXT_PARSER_NAME)),
     meta_(),
     fulltext_(),
-    output_mode_(OUTPUT_MODE::DEFAULT)
+    output_mode_(OUTPUT_MODE::DEFAULT),
+    parser_name_buf_(),
+    default_props_buf_(),
+    parser_is_ik_(false)
 {
 }
 
@@ -144,28 +143,23 @@ int ObExprTokenize::TokenizeParam::parse_json_param(const ObIJsonBase *obj)
 
   if (OB_UNLIKELY(nullptr == obj)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("Json param is null.", K(ret));
   } else if (ObJsonNodeType::J_OBJECT != obj->json_type()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("Json args should be an object", K(ret));
   } else if (obj->element_count() == 0) {
     // no data
   } else if (OB_FAIL(obj->get_object_value(0, str, val))) {
   } else if (0 == str.case_compare(CASE_INDICATOR_STR)) {
     if (ObJsonNodeType::J_STRING != val->json_type()) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("Json argument invalid", K(ret));
     } else if (0 == ObString(val->get_data_length(), val->get_data()).case_compare("UPPER")) {
     } else if (0 == ObString(val->get_data_length(), val->get_data()).case_compare("LOWER")) {
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("Case indentifier not valid", K(ret));
     }
     ret = OB_NOT_SUPPORTED;
     LOG_USER_ERROR(OB_NOT_SUPPORTED, "case indentifier");
   } else if (0 == str.case_compare(OUTPUT_MODE_STR)) {
     if (ObJsonNodeType::J_STRING != val->json_type()) {
-      LOG_WARN("Json argument invalid", K(ret));
       ret = OB_INVALID_ARGUMENT;
       LOG_USER_ERROR(OB_INVALID_ARGUMENT, "output mode should be string default or all");
     } else if (0 == ObString(val->get_data_length(), val->get_data()).case_compare("DEFAULT")) {
@@ -182,12 +176,10 @@ int ObExprTokenize::TokenizeParam::parse_json_param(const ObIJsonBase *obj)
   } else if (0 == str.case_compare(ADDITIONAL_ARGS_STR)) {
     if (ObJsonNodeType::J_ARRAY != val->json_type()) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("Additional args should be an array", K(ret));
       LOG_USER_ERROR(OB_INVALID_ARGUMENT, "parser arguments");
     } else {
       ObString json_str;
       if (OB_FAIL(storage::ObFTParserJsonProps::tokenize_array_to_props_json(allocator_, val, json_str))) {
-        LOG_WARN("Fail to tokenize array to props json", K(ret));
         ObSqlString message;
         message.append_fmt("format in %s form", ADDITIONAL_ARGS_STR);
         LOG_USER_ERROR(OB_INVALID_ARGUMENT, message.ptr());
@@ -196,7 +188,6 @@ int ObExprTokenize::TokenizeParam::parse_json_param(const ObIJsonBase *obj)
       }
     }
   } else {
-    LOG_WARN("Unsupported parameter", K(ret), K(str));
     ret = OB_INVALID_ARGUMENT;
     ObSqlString message;
     message.append_fmt("config: %s", str.ptr());
@@ -216,15 +207,38 @@ int ObExprTokenize::parse_param(const ObExpr &expr,
   ObString raw_parser_name = ObString::make_string(OB_DEFAULT_FULLTEXT_PARSER_NAME);
 
   ObEvalCtx::TempAllocGuard tmp_alloc_g(ctx);
-
+  
   MultimodeAlloctor temp_allocator(tmp_alloc_g.get_allocator());
 
   if (OB_UNLIKELY(expr.arg_cnt_ < 1 || expr.arg_cnt_ > 3)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("Args count invalid.", K(ret), K(expr.arg_cnt_));
   } else if (OB_FAIL(parse_fulltext(expr, ctx, param))) {
   } else if (OB_FAIL(parse_parser_name(expr, ctx, param))) {
   } else if (OB_FAIL(parse_parser_properties(expr, ctx, temp_allocator, param))) {
+  } else if (expr.arg_cnt_ < 3) {
+    // No user properties: skip the parse+rebuild+serialize JSON round trip
+    // and feed the helper the same effective defaults that
+    // reform_parser_properties() would have produced for an empty input:
+    //  - ik requires an explicit ik_mode, otherwise parse_for_parser_helper()
+    //    fails with OB_SEARCH_NOT_FOUND; the ik rebuild injects "smart" when
+    //    the key is absent, so compose exactly that.
+    //  - every other builtin parser reads its defaults from the empty-string
+    //    branch of ObFTParserProperty::parse_for_parser_helper(), which equals
+    //    what the per-parser rebuild injects, so an empty properties string
+    //    yields the identical property state.
+    if (param.parser_is_ik_) {
+      char *buf = param.default_props_buf_;
+      int64_t pos = 0;
+      if (OB_FAIL(common::databuff_printf(buf,
+                                          sizeof(param.default_props_buf_),
+                                          pos,
+                                          "{\"%s\":\"%s\"}",
+                                          storage::ObFTSLiteral::CONFIG_NAME_IK_MODE,
+                                          storage::ObFTSLiteral::FT_IK_MODE_SMART))) {
+      } else {
+        param.properties_ = ObString(static_cast<int32_t>(pos), buf);
+      }
+    }
   } else if (OB_FAIL(param.reform_parser_properties(param.properties_))) {
   } else if (OB_FAIL(param.try_load_dictionary_for_ik())) {
   }
@@ -236,15 +250,15 @@ int ObExprTokenize::construct_ft_parser_inner_name(const ObString &input_str, To
   int ret = OB_SUCCESS;
   storage::ObFTParser parser;
 
-  char *parser_name_buf = nullptr;
-  if (OB_ISNULL(parser_name_buf
-                = static_cast<char *>(param.allocator_.alloc(storage::OB_FT_PARSER_NAME_LENGTH)))) {
-    ret = OB_ALLOCATE_MEMORY_FAILED;
-    LOG_WARN("Fail to alloc memory", K(ret));
-  } else if (OB_FAIL(parser.init(input_str))) {
+  // compose into the param-owned fixed buffer: serialize_to_str() writes the
+  // name verbatim and every consumer re-parses it within this evaluation, so
+  // the per-call heap allocation is unnecessary.
+  char *parser_name_buf = param.parser_name_buf_;
+  if (OB_FAIL(parser.init(input_str))) {
   } else if (OB_FAIL(parser.serialize_to_str(parser_name_buf, storage::OB_FT_PARSER_NAME_LENGTH))) {
   } else {
     param.parser_name_ = ObString::make_string(parser_name_buf);
+    param.parser_is_ik_ = parser.is_ik();
   }
   return ret;
 }
@@ -369,7 +383,6 @@ int ObExprTokenize::parse_parser_properties(const ObExpr &expr,
     } else {
       if (ObJsonNodeType::J_ARRAY != base->json_type()) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("Invalid json type", K(ret), K(base->json_type()));
         LOG_USER_ERROR(OB_INVALID_ARGUMENT, "parser args should be in an array.");
       } else {
         for (uint64_t i = 0; OB_SUCC(ret) && i < base->element_count(); ++i) {
@@ -377,7 +390,6 @@ int ObExprTokenize::parse_parser_properties(const ObExpr &expr,
           if (OB_FAIL(base->get_array_element(i, node))) {
           } else if (ObJsonNodeType::J_OBJECT != (node->json_type())) {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("Argument of json array invalid", K(ret));
           } else if (OB_FAIL(param.parse_json_param(node))) {
           }
         } // for
@@ -395,7 +407,6 @@ int ObExprTokenize::TokenizeParam::reform_parser_properties(const ObString &prop
 
   if (OB_FAIL(parser_properties.init())) {
   } else if (OB_FAIL(parser_properties.parse_from_valid_str(properties))) {
-    LOG_WARN("fail to parse properties", K(ret));
     LOG_USER_ERROR(OB_INVALID_ARGUMENT, "parser properties invalid.");
   } else if (OB_FAIL(parser_properties.rebuild_props_for_ddl(parser_name_,
                                                              ObCollationType::CS_TYPE_UTF8MB4_BIN,
@@ -420,7 +431,6 @@ int ObExprTokenize::TokenizeParam::try_load_dictionary_for_ik()
                     dic_loader_handle))) {
     } else if (OB_UNLIKELY(!dic_loader_handle.is_valid())) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("dic loader handle is not valid", K(ret), K(dic_loader_handle));
     } else if (OB_FAIL(dic_loader_handle.get_loader()->try_load_dictionary_in_trans())) {
     }
   }

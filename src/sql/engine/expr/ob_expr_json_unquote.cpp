@@ -98,7 +98,6 @@ int ObExprJsonUnquote::calc(ObEvalCtx &ctx, const ObDatum &data, ObDatumMeta met
     } else if (OB_FAIL(ObJsonBaseFactory::get_json_base(allocator, j_str, j_in_type,
                                                         j_in_type, j_base, 0, 
                                                         ObJsonExprHelper::get_json_max_depth_config()))) {
-      LOG_WARN("failed: get json base", K(ret), K(type));
       if (OB_ERR_INVALID_JSON_TEXT) {
         ret = OB_ERR_INVALID_JSON_TEXT_IN_PARAM;
       }
@@ -118,14 +117,13 @@ int ObExprJsonUnquote::eval_json_unquote(const ObExpr &expr, ObEvalCtx &ctx, ObD
   ObExpr *arg = expr.args_[0];
   ObDatum* json_datum = NULL;
   ObEvalCtx::TempAllocGuard tmp_alloc_g(ctx);
-
+  
   MultimodeAlloctor temp_allocator(tmp_alloc_g.get_allocator());
   ObJsonBuffer j_buf(&temp_allocator);
   bool is_null = false;
 
   if (OB_FAIL(temp_allocator.eval_arg(arg, ctx, json_datum))) {
     ret = OB_ERR_INVALID_DATATYPE;
-    LOG_WARN("error, eval json args datum failed", K(ret));
   } else if (OB_FAIL(calc(ctx, *json_datum, arg->datum_meta_, arg->obj_meta_.has_lob_header(), &temp_allocator, j_buf, is_null))) {
   } else if (is_null) {
     res.set_null();

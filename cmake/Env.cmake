@@ -52,11 +52,6 @@ ob_define(USE_LTO_CACHE OFF)
 # 开源模式默认支持系统租户使用向量索引
 ob_define(OB_BUILD_SYS_VEC_IDX ON)
 
-# [hipVS/cuVS] optional GPU vector-index backend (AMD gfx1100 via hipVS/cuVS); OFF by default.
-ob_define(OB_BUILD_CUVS OFF)
-ob_define(CUVS_BRIDGE_LIB "")
-ob_define(OB_BUILD_CUVS_TRACE OFF)  # developer-only obvsag call-chain tracer
-
 if(WIN32)
   EXECUTE_PROCESS(COMMAND powershell -NoProfile -Command "$env:PROCESSOR_ARCHITECTURE"
     OUTPUT_VARIABLE ARCHITECTURE)
@@ -64,6 +59,8 @@ if(WIN32)
   STRING(STRIP "${ARCHITECTURE}" ARCHITECTURE)
 elseif(OB_ANDROID)
   set(ARCHITECTURE "aarch64")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  set(ARCHITECTURE "arm64")
 else()
   EXECUTE_PROCESS(COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTURE)
 endif()
@@ -144,14 +141,6 @@ if (OB_BUILD_SYS_VEC_IDX)
  add_definitions(-DOB_BUILD_SYS_VEC_IDX)
 endif()
 
-if (OB_BUILD_CUVS)
- add_definitions(-DOB_BUILD_CUVS)
-endif()
-
-if (OB_BUILD_CUVS_TRACE)
- add_definitions(-DOB_BUILD_CUVS_TRACE)
-endif()
-
 # Find objcopy - on macOS it may be installed via Homebrew or available as llvm-objcopy
 set(OB_CLANG_BIN "clang-17")
 set(OB_CLANGXX_BIN "clang++-17")
@@ -194,23 +183,21 @@ if(OB_ANDROID)
   set(OB_LD_BIN "${_NDK_TOOLCHAIN_BIN}/ld.lld")
   set(OB_OBJCOPY_BIN "${_NDK_TOOLCHAIN_BIN}/llvm-objcopy")
   message(STATUS "NDK toolchain bin: ${_NDK_TOOLCHAIN_BIN}")
+elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  # iOS toolchain details are initialized by IOS.cmake. Do not infer macOS
+  # host deployment settings for the cross-compiled target.
+  set(OB_MACOS27 OFF)
+  ob_define(SYS_INCLUDE_DIR "/usr")
+  add_definitions(-D_DARWIN_C_SOURCE)
+  set(OB_CLANG_BIN "clang")
+  set(OB_CLANGXX_BIN "clang++")
+  set(CMAKE_TOOLCHAIN_PATH "/usr")
+  set(GCC_DEVTOOL_PATH "/usr/lib/")
 elseif(APPLE)
   ob_define(SYS_INCLUDE_DIR "/usr")
   add_definitions(-D_DARWIN_C_SOURCE)
   set(OB_CLANG_BIN "clang")
   set(OB_CLANGXX_BIN "clang++")
-  # Match the compiler to the active Xcode SDK. The packaged LLVM may predate
-  # libc++ builtins required by a newly installed SDK. Preserve explicit choices.
-  if(NOT OB_CC)
-    execute_process(COMMAND xcrun --find clang
-      OUTPUT_VARIABLE OB_CC OUTPUT_STRIP_TRAILING_WHITESPACE
-      COMMAND_ERROR_IS_FATAL ANY)
-  endif()
-  if(NOT OB_CXX)
-    execute_process(COMMAND xcrun --find clang++
-      OUTPUT_VARIABLE OB_CXX OUTPUT_STRIP_TRAILING_WHITESPACE
-      COMMAND_ERROR_IS_FATAL ANY)
-  endif()
   set(CMAKE_TOOLCHAIN_PATH "/usr")
   set(GCC_DEVTOOL_PATH "/usr/lib/")
   # Set macOS deployment target to match the current system version
@@ -224,6 +211,9 @@ elseif(APPLE)
   # extract major version like 15.6.1 -> 15
   string(REPLACE "." ";" MACOS_VERSION_LISTS "${MACOS_VERSION}")
   list(GET MACOS_VERSION_LISTS 0 MACOS_MAJOR)
+  if(MACOS_MAJOR GREATER_EQUAL 27)
+    include("${CMAKE_CURRENT_LIST_DIR}/MacOS27.cmake")
+  endif()
   if(MACOS_MAJOR LESS 15)
     set(COMPACT_UNWIND_FLAG "-Wl,-no_compact_unwind")
   endif()
@@ -232,7 +222,7 @@ elseif(WIN32)
   set(OB_CXX "clang-cl")
   add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX)
 
-  # All bundled / vcpkg-provided vendor libraries (s2.lib, sqlite3.lib,
+  # All bundled / vcpkg-provided vendor libraries (s2.lib,
   # zlib.lib, ...) are built against the Release MSVC runtime. Using /MDd
   # in a Debug build makes MSVC STL set _ITERATOR_DEBUG_LEVEL=2, which
   # then trips #pragma detect_mismatch at link time against those
@@ -320,7 +310,7 @@ if (OB_USE_CLANG)
       NO_DEFAULT_PATH)
   endif()
 
-  if(NOT OB_ANDROID)
+  if(NOT OB_ANDROID AND NOT OB_MACOS27)
     set(OB_OBJCOPY_BIN "${DEVTOOLS_DIR}/bin/llvm-objcopy")
   endif()
 
@@ -337,7 +327,9 @@ if (OB_USE_CLANG)
       set(LD_OPT "-Wl,-dead_strip")
       set(REORDER_COMP_OPT "-ffunction-sections -fdata-sections")
       set(REORDER_LINK_OPT "-Wl,-dead_strip")
-      set(OB_LD_BIN "ld")
+      if(NOT OB_MACOS27)
+        set(OB_LD_BIN "ld")
+      endif()
     elseif(WIN32)
       set(LD_OPT "/INCREMENTAL:NO")
       set(REORDER_COMP_OPT "")
@@ -350,6 +342,11 @@ if (OB_USE_CLANG)
       set(REORDER_LINK_OPT "-Wl,--no-rosegment,--build-id=sha1,--gc-sections,--icf=all ${HOTFUNC_OPT}")
       set(OB_LD_BIN "${DEVTOOLS_DIR}/bin/ld.lld")
     endif()
+  endif()
+
+  if(OB_MACOS27)
+    # CMAKE_LINKER alone does not control the linker invoked by clang.
+    string(APPEND LD_OPT " --ld-path=\"${OB_LD_BIN}\"")
   endif()
 
   if(OB_ANDROID)
@@ -386,7 +383,6 @@ if (OB_USE_CLANG)
     set(CMAKE_SHARED_LINKER_FLAGS "${LD_OPT} -Wl,-z,noexecstack ${THIN_LTO_CONCURRENCY_LINK} ${REORDER_LINK_OPT}")
     set(CMAKE_EXE_LINKER_FLAGS "${LD_OPT} -Wl,-z,noexecstack ${PIE_OPT} ${THIN_LTO_CONCURRENCY_LINK} ${REORDER_LINK_OPT} ${CMAKE_COVERAGE_EXE_LINKER_OPTIONS}")
   endif()
-
 else() # not clang, use gcc
   message("gcc9 not support currently, please set OB_USE_CLANG ON and we will finish it as soon as possible")
 endif()
@@ -400,8 +396,8 @@ if (OB_BUILD_CCLS)
 endif()
 
 if (OB_CC AND OB_CXX)
-  set(CMAKE_C_COMPILER "${OB_CC}" CACHE FILEPATH "C compiler" FORCE)
-  set(CMAKE_CXX_COMPILER "${OB_CXX}" CACHE FILEPATH "C++ compiler" FORCE)
+  set(CMAKE_C_COMPILER ${OB_CC})
+  set(CMAKE_CXX_COMPILER ${OB_CXX})
 else()
   message(FATAL_ERROR "can't find suitable compiler")
 endif()

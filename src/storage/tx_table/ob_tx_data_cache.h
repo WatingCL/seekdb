@@ -60,7 +60,7 @@ public:  // derived from ObIKVCacheKey
     return hash_code;
   }
 
-
+  
 
   virtual int64_t size() const { return sizeof(*this); }
 
@@ -72,18 +72,14 @@ public:  // derived from ObIKVCacheKey
       STORAGE_LOG(WARN, "invalid argument", KR(ret), K(buf_len), K(size()));
     } else {
       ObTxDataCacheKey *new_key = new (buf) ObTxDataCacheKey(tx_id_);
-      if (OB_ISNULL(new_key)) {
-        ret = OB_ERR_UNEXPECTED;
-        STORAGE_LOG(WARN, "new key ptr is null", KR(ret), KPC(this));
-      } else {
-        key = new_key;
-      }
+      OB_ASSERT(new_key != nullptr);
+      key = new_key;
     }
     return ret;
   }
 
 private:
-
+  
   transaction::ObTransID tx_id_;
 };
 

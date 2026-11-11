@@ -74,7 +74,7 @@ int ObExprJsonMergePreserve::eval_json_merge_preserve(const ObExpr &expr, ObEval
   INIT_SUCC(ret);
   ObDatum *json_datum = NULL;
   ObEvalCtx::TempAllocGuard tmp_alloc_g(ctx);
-
+  
   MultimodeAlloctor temp_allocator(tmp_alloc_g.get_allocator());
   lib::ObMallocHookAttrGuard malloc_guard(lib::ObMemAttr("JSONModule"));
   ObIJsonBase *j_base = NULL;
@@ -82,7 +82,6 @@ int ObExprJsonMergePreserve::eval_json_merge_preserve(const ObExpr &expr, ObEval
   bool has_null = false;
   if (expr.datum_meta_.cs_type_ != CS_TYPE_UTF8MB4_BIN) {
     ret = OB_ERR_INVALID_JSON_CHARSET;
-    LOG_WARN("invalid out put charset", K(ret), K(expr.datum_meta_.cs_type_));
   }
 
   for (int32 i = 0; OB_SUCC(ret) && i < expr.arg_cnt_ && !has_null; i++) {

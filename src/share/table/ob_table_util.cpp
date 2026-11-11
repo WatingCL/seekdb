@@ -42,7 +42,7 @@ namespace table
   {
     int ret = OB_SUCCESS;
     const ObSimpleTableSchemaV2 *table_schema = NULL;
-
+    
     if (OB_FAIL(schema_guard.get_simple_table_schema( arg_table_id, table_schema))) {
     } else if (OB_ISNULL(table_schema)) {
       ret = OB_TABLE_NOT_EXIST;
@@ -70,12 +70,11 @@ namespace table
                                               ObTabletID &tablet_id)
   {
     int ret = OB_SUCCESS;
-
+    
     const ObSimpleTableSchemaV2 *table_schema = NULL;
     if (OB_FAIL(schema_guard.get_simple_table_schema( table_id, table_schema))) {
     } else if (OB_ISNULL(table_schema)) {
       ret = OB_TABLE_NOT_EXIST;
-      LOG_WARN("get table schema failed", K(ret), K(table_id));
     } else if (OB_FAIL(get_tablet_id_by_part_idx(*table_schema, part_idx, subpart_idx, tablet_id))) {
     }
     return ret;
@@ -89,7 +88,7 @@ namespace table
     int ret = OB_SUCCESS;
     ObObjectID tmp_object_id = OB_INVALID_ID;
     ObObjectID tmp_first_level_part_id = OB_INVALID_ID;
-
+    
     if (!table_schema.is_partitioned_table()) {
       tablet_id = table_schema.get_tablet_id();
     } else if (OB_FAIL(table_schema.get_part_id_and_tablet_id_by_idx(part_idx,

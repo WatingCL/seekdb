@@ -21,6 +21,7 @@
 #include "lib/charset/ob_charset.h"
 #include "lib/utility/ob_macro_utils.h"
 #include "storage/fts/ik/ob_ik_char_util.h"
+#include "storage/fts/ik/ob_ft_token_vec.h"
 #include "storage/fts/ik/ob_ik_token.h"
 
 namespace oceanbase
@@ -39,6 +40,20 @@ public:
   ~TokenizeContext();
 
   int init();
+  // Re-apply the per-fulltext state on top of a reused context: cursor
+  // position, charset resolution and the per-character cache cursor are all
+  // re-derived from the new fulltext, and the cross-call caches are emptied
+  // (char_infos_ entries are dropped when the parser is released, see
+  // release_scratch()). This is the reuse counterpart of init().
+  int reinit(ObCollationType coll_type,
+             const char *fulltext,
+             int64_t fulltext_len,
+             bool is_smart);
+  // Walk-and-clear every per-call container while their memory is still
+  // valid, then drop the per-character cache table so no stale entry can be
+  // read by the next fulltext. Must be called before the scratch allocator
+  // backing the containers is recycled.
+  void release_scratch();
   int reset_resource();
 
   int get_next_token(const char *&word, int64_t &word_len, int64_t &offset, int64_t &char_cnt);
@@ -49,6 +64,18 @@ public:
   int current_char_type(ObFTCharUtil::CharType &type);
 
   int step_next();
+
+  // Reuse table of per-character (offset, len, type) recorded while the
+  // cursor advances, so that ObIKArbitrator::output_result() can look the
+  // classification up instead of re-decoding the fulltext a second time.
+  // byte_offset must be a character start boundary; hint_idx is a monotonic
+  // lookup cursor owned by the caller. Positions beyond the prepared region
+  // fall back to the original first_valid_char + classify_first_char path.
+  int get_char_info(int64_t byte_offset,
+                    int64_t &hint_idx,
+                    int64_t &char_len,
+                    ObFTCharUtil::CharType &type) const;
+  int get_char_len(int64_t byte_offset, int64_t &hint_idx, int64_t &char_len) const;
 
   ObCollationType collation() const;
   int64_t get_end_cursor() const;
@@ -69,26 +96,45 @@ public:
 
   ObFTSortList &token_list() { return token_list_; }
 
-  ObList<ObIKToken, ObIAllocator> &result_list() { return result_list_; }
+  ObFTTokenQueue<ObIKToken> &result_list() { return result_list_; }
 
   int32_t handle_size() const { return handle_size_; }
 
 private:
+  struct CharInfo
+  {
+    int64_t offset_;
+    int64_t len_;
+    ObFTCharUtil::CharType type_;
+  };
+
   int prepare_next_char();
+  int record_char_info();
+  int lookup_char_info(int64_t byte_offset, int64_t &hint_idx, CharInfo &info) const;
 
   ObCollationType coll_type_;
   const char *fulltext_;
   int64_t fulltext_len_;
 
+  ObIAllocator &allocator_;
+  CharInfo *char_infos_;
+  int64_t char_info_cnt_;
+  int64_t char_info_cap_;
+
   int64_t cursor_;
   int64_t next_char_len_;
   ObFTCharUtil::CharType next_char_type_;
+
+  // charset resolved once in init() so that the per-character hot path is free
+  // of repeated get_charset()/charset_type_by_coll() lookups
+  const ObCharsetInfo *cs_;
+  ObCharsetType cs_type_;
 
   uint32_t handle_size_;
   bool is_smart_;
 
   ObFTSortList token_list_;
-  ObList<ObIKToken, ObIAllocator> result_list_;
+  ObFTTokenQueue<ObIKToken> result_list_;
 
 private:
   DISALLOW_COPY_AND_ASSIGN(TokenizeContext);
@@ -101,7 +147,12 @@ public:
 
   virtual ~ObIIKProcessor() {}
 
-  int process(TokenizeContext &ctx);
+  int process(TokenizeContext &ctx, const char *ch, uint8_t char_len, ObFTCharUtil::CharType type);
+
+  // Reset the cross-call mutable state of this processor so that a reused
+  // processor never carries pending-token state from one fulltext into the
+  // next. Default: the processor keeps no cross-call state.
+  virtual void reset_state() {}
 
   virtual int do_process(TokenizeContext &ctx,
                          const char *ch,

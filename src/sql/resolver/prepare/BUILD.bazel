@@ -71,7 +71,7 @@ _RESOLVER_PREPARE_SHARE_DEPS = [
     "//src/share:sequence_option",
     "//src/share:sequence_runtime",
     "//src/share:session_state",
-    "//src/share:sqlite_storage_interface",
+    "//src/share:local_storage_interface",
     "//src/share:statement_type",
     "//src/share:storage_cache_policy",
     "//src/share:system_variable_metadata",

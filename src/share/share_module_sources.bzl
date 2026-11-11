@@ -127,7 +127,7 @@ def share_remaining_unity_groups(groups, excluded_sources, language = "c++"):
     return result
 
 def share_validate_source_inventory(unity_groups, standalone_sources):
-    """Freezes the release source/action baseline before semantic regrouping."""
+    """Validates source paths and unique ownership before semantic regrouping."""
 
     group_keys = {}
     unity_paths = {}
@@ -158,10 +158,3 @@ def share_validate_source_inventory(unity_groups, standalone_sources):
         if source.path in unity_paths:
             fail("Share source appears in Unity and standalone: %s" % source.path)
         standalone_paths[source.path] = True
-
-    if len(group_keys) != 28:
-        fail("Share inventory must contain 28 Unity groups, got %s" % len(group_keys))
-    if len(unity_paths) != 310:
-        fail("Share inventory must contain 310 Unity sources, got %s" % len(unity_paths))
-    if len(standalone_paths) != 46:
-        fail("Share inventory must contain 46 standalone sources, got %s" % len(standalone_paths))

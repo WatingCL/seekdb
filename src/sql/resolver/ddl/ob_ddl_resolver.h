@@ -53,17 +53,13 @@ struct PartitionInfo
   ObDDLStmt::array_t list_value_exprs_;
 };
 
-int collect_ai_column_dependencies(const ParseNode *node, const share::schema::ObTableSchema &table,
-                                   common::ObIArray<uint64_t> &dependencies, int64_t depth = 0);
-
 enum NUMCHILD {
   CREATE_TABLE_NUM_CHILD = 8,
   CREATE_TABLE_AS_SEL_NUM_CHILD = 11,
   COLUMN_DEFINITION_NUM_CHILD = 4,
   COLUMN_DEF_NUM_CHILD = 3,
   INDEX_NUM_CHILD = 5,
-  GEN_COLUMN_DEFINITION_NUM_CHILD = 7,
-  AI_COLUMN_DEFINITION_NUM_CHILD = 8
+  GEN_COLUMN_DEFINITION_NUM_CHILD = 7
 };
 
 struct ObColumnResolveStat
@@ -512,7 +508,6 @@ protected:
       bool is_resolve_for_alter_table);
   int resolve_column_name(common::ObString &col_name, ParseNode *node);
   int resolve_column_name(share::schema::ObColumnSchemaV2 &column, ParseNode *node);
-  int resolve_ai_column_definition(share::schema::ObColumnSchemaV2 &column, ParseNode &node);
   int resolve_column_definition(
       share::schema::ObColumnSchemaV2 &column,
       ParseNode *node,

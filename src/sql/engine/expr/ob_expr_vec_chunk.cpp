@@ -17,7 +17,7 @@
  #define USING_LOG_PREFIX COMMON
 
  #include "sql/engine/expr/ob_expr_vec_chunk.h"
-
+ 
 namespace oceanbase
 {
 using namespace common;
@@ -28,7 +28,7 @@ ObExprVecChunk::ObExprVecChunk(ObIAllocator &allocator)
 {
    need_charset_convert_ = false;
 }
-
+ 
 int ObExprVecChunk::calc_result_typeN(ObExprResType &type,
                                        ObExprResType *types,
                                        int64_t param_num,
@@ -37,7 +37,6 @@ int ObExprVecChunk::calc_result_typeN(ObExprResType &type,
   int ret = OB_SUCCESS;
   if (OB_ISNULL(types)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid argument for hybrid vector index expr", K(ret), K(param_num), KP(types));
   } else {
     type.set_type(types->get_type());
     type.set_length(types->get_length());
@@ -45,7 +44,7 @@ int ObExprVecChunk::calc_result_typeN(ObExprResType &type,
   }
   return ret;
 }
-
+ 
 int ObExprVecChunk::calc_resultN(ObObj &result,
                                   const ObObj *objs_array,
                                   int64_t param_num,
@@ -53,7 +52,7 @@ int ObExprVecChunk::calc_resultN(ObObj &result,
 {
    return OB_NOT_SUPPORTED;
 }
-
+ 
 int ObExprVecChunk::cg_expr(
     ObExprCGCtx &expr_cg_ctx,
     const ObRawExpr &raw_expr,
@@ -62,10 +61,8 @@ int ObExprVecChunk::cg_expr(
   int ret = OB_SUCCESS;
   UNUSED(raw_expr);
   UNUSED(expr_cg_ctx);
-  if (OB_UNLIKELY(rt_expr.arg_cnt_ < 1) || OB_ISNULL(rt_expr.args_)) {
-    ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid arguments", K(rt_expr.arg_cnt_), KP(rt_expr.args_), K(rt_expr.type_));
-  } else {
+  {
+    OB_ASSERT(rt_expr.arg_cnt_ >= 1 && rt_expr.args_ != nullptr);
     rt_expr.eval_func_ = generate_vec_chunk;
   }
   return ret;
@@ -81,7 +78,6 @@ int ObExprVecChunk::generate_vec_chunk(
   if (OB_FAIL(raw_ctx.args_[0]->eval(eval_ctx, datum))) {
   } else if (OB_ISNULL(datum)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("get null datum", K(ret), KPC(raw_ctx.args_[0]));
   } else if (datum->is_null()) {
     expr_datum.set_null();
   } else {
@@ -92,3 +88,4 @@ int ObExprVecChunk::generate_vec_chunk(
 
 }  // namespace sql
 }  // namespace oceanbase
+ 

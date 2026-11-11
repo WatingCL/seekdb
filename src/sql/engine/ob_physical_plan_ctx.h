@@ -85,7 +85,7 @@ public:
     subschema_ctx_.destroy();
     all_local_session_vars_.destroy();
   }
-
+  
   inline void set_runtime_schema_version(const int64_t version) { runtime_schema_version_ = version; }
   inline int64_t get_runtime_schema_version() const { return runtime_schema_version_; }
   /**
@@ -102,11 +102,13 @@ public:
   }
   inline int64_t get_ps_timeout_timestamp() const
   {
-    return ts_timeout_us_ - ESTIMATE_PS_RESERVE_TIME; // Consider RPC time + offset time
+    // Storage runs locally. Reserving RPC time can put a short query's
+    // storage deadline in the past before its scan has even started.
+    return ts_timeout_us_;
   }
   inline int64_t get_trans_timeout_timestamp() const
   {
-    return ts_timeout_us_ - ESTIMATE_TRANS_RESERVE_TIME; // Consider RPC time + offset time, should be a bit larger than ps
+    return ts_timeout_us_;
   }
   inline bool is_timeout(int64_t *remain_us = NULL) const
   {
@@ -501,7 +503,6 @@ private:
 private:
   DISALLOW_COPY_AND_ASSIGN(ObPhysicalPlanCtx);
 private:
-  static const int64_t ESTIMATE_TRANS_RESERVE_TIME = 70 * 1000;
   // Some datetime functions are evaluated during execution, not before execution.
   // sysdate/systimestamp and current_date/current_timestamp/localtimestamp use
   // different timestamps, so we use `cur_time_` for the first category and
@@ -512,7 +513,7 @@ private:
   /**
    * @note these member need serialize
    */
-
+  
   // used for TRANSACTION SET CONSISTENCY check
   int64_t tsc_snapshot_timestamp_;
   // only used when the sql contains fun like current_time

@@ -18,22 +18,21 @@
 #include "ob_ai_func.h"
 #include "share/ai_service/ob_ai_service_struct.h"
 
-namespace oceanbase
+namespace oceanbase 
 {
-namespace common
+namespace common 
 {
 
 OB_SERIALIZE_MEMBER(ObAIFuncExprInfo, name_, type_, model_);
 int ObAIFuncExprInfo::deep_copy(common::ObIAllocator &allocator,
                                 const ObExprOperatorType type,
-                                ObIExprExtraInfo *&copied_info) const
+                                ObIExprExtraInfo *&copied_info) const 
 {
   int ret = OB_SUCCESS;
   ObAIFuncExprInfo *other = NULL;
   if (OB_FAIL(ObExprExtraInfoFactory::alloc(allocator, type, copied_info))) {
   } else if (OB_ISNULL(other = static_cast<ObAIFuncExprInfo *>(copied_info))) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected ai func expr info ptr", K(ret));
   } else {
     OZ(ob_write_string(allocator, name_, other->name_));
     OZ(ob_write_string(allocator, model_, other->model_));
@@ -42,18 +41,16 @@ int ObAIFuncExprInfo::deep_copy(common::ObIAllocator &allocator,
   return ret;
 }
 
-int ObAIFuncExprInfo::init(ObIAllocator &allocator, const ObString &model_id, share::schema::ObSchemaGetterGuard &schema_guard)
+int ObAIFuncExprInfo::init(ObIAllocator &allocator, const ObString &model_id, share::schema::ObSchemaGetterGuard &schema_guard) 
 {
   int ret = OB_SUCCESS;
   const ObAiModelSchema *ai_model_schema = NULL;
-  if (model_id.empty()) {
+  if (model_id.empty()) { 
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("model id is empty", KR(ret), K(model_id));
     LOG_USER_ERROR(OB_INVALID_ARGUMENT, "model id is empty");
   } else if (OB_FAIL(schema_guard.get_ai_model_schema( model_id, ai_model_schema))) {
   } else if (OB_ISNULL(ai_model_schema)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("ai model schema is null", KR(ret), K(model_id));
     LOG_USER_ERROR(OB_INVALID_ARGUMENT, "ai_function, ai model not found, please check if the model exists");
   } else {
     OZ(ob_write_string(allocator, ai_model_schema->get_name(), name_));

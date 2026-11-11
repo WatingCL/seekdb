@@ -181,7 +181,7 @@ int ObCreateTableResolver::resolve(const ParseNode &parse_tree)
     uint64_t database_id = OB_INVALID_ID;
     ObSEArray<ObString, 8> pk_columns_name;
     bool is_create_as_sel = (CREATE_TABLE_AS_SEL_NUM_CHILD == create_table_node->num_child_);
-
+    
     if (OB_ISNULL(create_table_stmt = create_stmt<ObCreateTableStmt>())) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
       SQL_RESV_LOG(ERROR, "failed to create select stmt", K(ret));
@@ -245,7 +245,7 @@ int ObCreateTableResolver::resolve(const ParseNode &parse_tree)
       } else if (OB_FAIL(ob_write_string(
                   *allocator_, database_name, create_table_stmt->get_non_const_db_name()))) {
       } else if (ObCharset::case_insensitive_equal(ObString(strlen(OB_SYS_DATABASE_NAME), OB_SYS_DATABASE_NAME), database_name)) {
-
+        
         uint64_t database_id = OB_INVALID_ID;
         if (OB_ISNULL(schema_checker_)) {
           ret = OB_ERR_UNEXPECTED;
@@ -284,7 +284,7 @@ int ObCreateTableResolver::resolve(const ParseNode &parse_tree)
         // resolve table organizations before resolve table elements
         if (OB_FAIL(ret)) {
           //do nothing
-        } else if (OB_FAIL(resolve_table_organization(&GCONF, create_table_node->children_[4]))) {
+        } else if (OB_FAIL(resolve_table_organization(create_table_node->children_[4]))) {
         }
 
         //consider index can be defined before column, so column should be
@@ -430,10 +430,8 @@ int ObCreateTableResolver::check_generated_partition_column(ObTableSchema &table
   for (int64_t idx = 0; OB_SUCC(ret) && idx < part_key_info.get_size(); ++idx) {
     if (OB_ISNULL(part_column = part_key_info.get_column(idx))) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("Part column is NULL", K(ret), K(idx));
     } else if (OB_ISNULL(column_schema = table_schema.get_column_schema(part_column->column_id_))) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("Failed to get column schema", K(ret), K(part_column->column_id_));
     } else if (column_schema->is_generated_column()) {
       if (OB_FAIL(column_schema->get_cur_default_value().get_string(expr_def))) {
       } else if (OB_FAIL(ObRawExprUtils::build_generated_column_expr(NULL,
@@ -468,13 +466,11 @@ int ObCreateTableResolver::check_column_name_duplicate(const ParseNode *node)
       || T_TABLE_ELEMENT_LIST != node->type_
       || OB_ISNULL(node->children_)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid argument", K(ret), K(node->type_), K(node->num_child_));
   } else {
     for (int64_t i = 0; OB_SUCC(ret) && i < node->num_child_; ++i) {
       ParseNode *element = node->children_[i];
       if (OB_ISNULL(element)) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("element node is null", K(ret));
       } else if (OB_LIKELY(T_COLUMN_DEFINITION == element->type_)) {
         if (OB_USER_ROW_MAX_COLUMNS_COUNT < column_name_set_.count()) {
           ret = OB_ERR_TOO_MANY_COLUMNS;
@@ -483,12 +479,10 @@ int ObCreateTableResolver::check_column_name_duplicate(const ParseNode *node)
             T_COLUMN_REF != element->children_[COLUMN_REF_NODE]->type_ ||
             COLUMN_DEF_NUM_CHILD != element->children_[COLUMN_REF_NODE]->num_child_) {
           ret = OB_ERR_UNEXPECTED;
-          LOG_WARN("invalid parse node", K(ret));
         } else {
           ParseNode *name_node = element->children_[COLUMN_REF_NODE]->children_[COLUMN_NAME_NODE];
           if (OB_ISNULL(name_node)) {
             ret = OB_ERR_UNEXPECTED;
-            LOG_WARN("name node can not be null", K(ret));
           } else if (0 == name_node->str_len_) {
             ret = OB_WRONG_COLUMN_NAME;
             LOG_USER_ERROR(OB_WRONG_COLUMN_NAME, (int)name_node->str_len_, name_node->str_value_);
@@ -592,115 +586,14 @@ int ObCreateTableResolver::get_resolve_stats_from_table_schema(
   for(; OB_SUCC(ret) && it_begin != it_end; it_begin++) {
     if (OB_ISNULL(it_begin)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("it_begin should not be NULL", K(ret));
     } else if (OB_ISNULL(*it_begin)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("*it_begin should not be NULL", K(ret));
     } else {
       const ObColumnSchemaV2 &column_schema = **it_begin;
       stat.reset();
       stat.column_id_ = column_schema.get_column_id();
       if (OB_FAIL(stats.push_back(stat))) {
       }
-    }
-  }
-  return ret;
-}
-
-int collect_ai_column_dependencies(const ParseNode *node, const ObTableSchema &table,
-                                   ObIArray<uint64_t> &dependencies, int64_t depth)
-{
-  int ret = OB_SUCCESS;
-  if (depth > 256) {
-    ret = OB_SIZE_OVERFLOW;
-  } else if (node == nullptr) {
-  } else if (node->type_ == T_COLUMN_REF) {
-    if (node->num_child_ != 3 || node->children_[0] != nullptr || node->children_[1] != nullptr
-        || node->children_[2] == nullptr || node->children_[2]->type_ == T_STAR) {
-      ret = OB_NOT_SUPPORTED;
-      LOG_USER_ERROR(OB_NOT_SUPPORTED, "qualified AI COLUMN dependency");
-    } else {
-      const ObString name(node->children_[2]->str_len_, node->children_[2]->str_value_);
-      const ObColumnSchemaV2 *dependency = table.get_column_schema(name);
-      if (dependency == nullptr) {
-        ret = OB_ERR_BAD_FIELD_ERROR;
-        LOG_USER_ERROR(OB_ERR_BAD_FIELD_ERROR, name.length(), name.ptr(), "AI COLUMN expression");
-      } else if (dependency->is_ai_column() || dependency->is_hidden()) {
-        ret = OB_NOT_SUPPORTED;
-
-      } else if (!has_exist_in_array(dependencies, dependency->get_column_id())) {
-        ret = dependencies.push_back(dependency->get_column_id());
-      }
-    }
-  } else if (depth > 0 && node->type_ == T_FUN_SYS && node->num_child_ > 0 && node->children_[0] != nullptr &&
-      (ObString(node->children_[0]->str_len_,node->children_[0]->str_value_).case_compare("ai_complete")==0 ||
-       ObString(node->children_[0]->str_len_,node->children_[0]->str_value_).case_compare("ai_embed")==0 ||
-       ObString(node->children_[0]->str_len_,node->children_[0]->str_value_).case_compare("ai_rerank")==0)) {
-    ret=OB_NOT_SUPPORTED;
-    LOG_USER_ERROR(OB_NOT_SUPPORTED,"nested model call in AI COLUMN");
-  } else if (node->type_ == T_SELECT || node->type_ == T_QEURY_EXPRESSION_LIST) {
-    ret = OB_NOT_SUPPORTED;
-    LOG_USER_ERROR(OB_NOT_SUPPORTED, "subquery in AI COLUMN expression");
-  } else {
-    for (int64_t i = 0; OB_SUCC(ret) && i < node->num_child_; ++i) {
-      ret = collect_ai_column_dependencies(node->children_[i], table, dependencies, depth + 1);
-    }
-  }
-  return ret;
-}
-
-int ObCreateTableResolver::resolve_ai_columns(const ParseNode &elements, ObTableSchema &table_schema)
-{
-  int ret = OB_SUCCESS;
-  for (int64_t i = 0; OB_SUCC(ret) && i < elements.num_child_; ++i) {
-    ParseNode *element = elements.children_[i];
-    if (element == nullptr || element->type_ != T_COLUMN_DEFINITION
-        || element->num_child_ != AI_COLUMN_DEFINITION_NUM_CHILD) {
-      continue;
-    }
-    ParseNode *name_node = element->children_[0]->children_[2];
-    ObColumnSchemaV2 *column = table_schema.get_column_schema(ObString(name_node->str_len_, name_node->str_value_));
-    ObSEArray<uint64_t, 4> dependencies;
-    ObSqlString dependency_ids;
-    if (column == nullptr || !column->is_ai_column()) {
-      ret = OB_ERR_UNEXPECTED;
-    } else if (OB_FAIL(collect_ai_column_dependencies(element->children_[3], table_schema, dependencies))) {
-    }
-    for (int64_t j = 0; OB_SUCC(ret) && j < dependencies.count(); ++j) {
-      ret = dependency_ids.append_fmt("%s%lu", j == 0 ? "" : ",", dependencies.at(j));
-    }
-    if (OB_SUCC(ret)) { ret = column->set_ai_column_dependency_ids(dependency_ids.string()); }
-    for (int64_t kind = 0; OB_SUCC(ret) && kind < 3; ++kind) {
-      ObColumnSchemaV2 hidden;
-      ObSqlString name;
-      const uint64_t id = gen_column_id();
-      hidden.set_column_id(id);
-      hidden.set_is_hidden(true);
-      hidden.add_column_flag(AI_COLUMN_INTERNAL_FLAG);
-      hidden.set_nullable(true);
-      hidden.set_charset_type(CHARSET_UTF8MB4);
-      hidden.set_collation_type(CS_TYPE_UTF8MB4_BIN);
-      if (kind == 0) {
-        hidden.set_data_type(ObIntType);
-        hidden.set_charset_type(CHARSET_BINARY);
-        hidden.set_collation_type(CS_TYPE_BINARY);
-        hidden.get_cur_default_value().set_int(int64_t(0));
-        ret=hidden.set_orig_default_value(hidden.get_cur_default_value());
-        column->set_ai_column_state_column_id(id);
-      } else if (kind == 1) {
-        hidden.set_data_type(ObVarcharType);
-        hidden.set_data_length(64);
-        column->set_ai_column_request_column_id(id);
-      } else {
-        hidden.set_data_type(ObLongTextType);
-        hidden.set_data_length(ObAccuracy::MAX_ACCURACY[ObLongTextType].get_length());
-        column->set_ai_column_result_spec_column_id(id);
-      }
-      if (OB_FAIL(name.append_fmt("__ai_%s_%lu", kind == 0 ? "state" : kind == 1 ? "request" : "spec", column->get_column_id()))) {
-      } else if (table_schema.get_column_schema(name.string()) != nullptr) {
-        ret = OB_ERR_COLUMN_DUPLICATE;
-      } else if (OB_FAIL(hidden.set_column_name(name.string()))) {
-      } else { ret = table_schema.add_column(hidden); }
     }
   }
   return ret;
@@ -734,7 +627,7 @@ int ObCreateTableResolver::resolve_table_elements(const ParseNode *node,
     int64_t row_data_length = 0;
     ObArray<ObColumnResolveStat> stats;
     ObTableSchema &table_schema = create_table_stmt->get_create_table_arg().schema_;
-
+    
     bool has_visible_col = false;
     bool primary_key_set_in_heap_table = false;
     // Store the column schema after resolve_column_definition in resolved_cols
@@ -760,7 +653,7 @@ int ObCreateTableResolver::resolve_table_elements(const ParseNode *node,
         //continue
       } else if (OB_LIKELY(T_COLUMN_DEFINITION == element->type_)) {
         ObColumnSchemaV2 column;
-
+        
         ObColumnResolveStat stat;
         common::ObString pk_name;
         if (OB_INVALID_ID == column.get_column_id()) {
@@ -1030,10 +923,6 @@ int ObCreateTableResolver::resolve_table_elements(const ParseNode *node,
       }
     }
 
-    if (OB_SUCC(ret) && resolve_rule != RESOLVE_NON_COL) {
-      ret = resolve_ai_columns(*node, table_schema);
-    }
-
     if (OB_SUCC(ret)) {
       if (OB_UNLIKELY(get_primary_key_size() > 0 && NULL != primary_node)) {
         ret = OB_ERR_PRIMARY_KEY_DUPLICATE;
@@ -1076,7 +965,6 @@ int ObCreateTableResolver::set_nullable_for_cta_column(ObSelectStmt *select_stmt
   bool is_not_null = false;
   if (OB_ISNULL(expr) || OB_ISNULL(select_stmt)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected null of expr and select stmt.", K(ret));
   } else {
     // scope set to FROM since it will not go deduce process with context,
     // such as null reject in where condition and having condition.
@@ -1132,10 +1020,8 @@ int ObCreateTableResolver::resolve_insert_mode(const ParseNode *parse_tree)
       OB_ISNULL(create_table_stmt) ||
       OB_ISNULL(params_.query_ctx_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected error",K(parse_tree), K(create_table_stmt), K(session_info_), K(exec_ctx), K(sql_ctx), K(ret));
   } else if (parse_tree->num_child_ != CREATE_TABLE_AS_SEL_NUM_CHILD){
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected child_num",K(parse_tree->num_child_), K(ret));
   } else {
     flag_node = parse_tree->children_[10];
     if (flag_node == NULL) {
@@ -1167,12 +1053,10 @@ int ObCreateTableResolver::resolve_table_elements_from_select(const ParseNode &p
         && 0 != params_.query_ctx_->question_marks_count_
         && !params_.is_prepare_protocol_) {
     ret = OB_ERR_PARSER_SYNTAX;
-    LOG_WARN("not support questionmark in normal create.", K(ret));
   } else if (OB_UNLIKELY(parse_tree.num_child_ <= 3 ||
                          (parse_tree.children_[3] != NULL &&
                           T_TABLE_ELEMENT_LIST != parse_tree.children_[3]->type_))) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid argument.", K(ret));
   } else if (OB_ISNULL(session_info_) || OB_ISNULL(allocator_) || OB_ISNULL(params_.param_list_)) {
     ret = OB_NOT_INIT;
     SQL_RESV_LOG(WARN, "ObCreateTableResolver is not init", K(params_.param_list_), K(allocator_),
@@ -1185,7 +1069,7 @@ int ObCreateTableResolver::resolve_table_elements_from_select(const ParseNode &p
   } else {
     select_stmt = select_resolver.get_select_stmt();
     ObTableSchema &table_schema = create_table_stmt->get_create_table_arg().schema_;
-
+    
     if (OB_ISNULL(select_stmt)) {
       ret = OB_ERR_UNEXPECTED;
       LOG_WARN("invalid select stmt", K(select_stmt));
@@ -1231,7 +1115,6 @@ int ObCreateTableResolver::resolve_table_elements_from_select(const ParseNode &p
         TableItem *new_table_item = select_stmt->get_table_item_by_id(new_col_ref->get_table_id());
         if (OB_UNLIKELY(NULL == expr)) {
           ret = OB_ERR_UNEXPECTED;
-          LOG_WARN("select item expr is null", K(ret), K(i));
         } else {
           column.reset();
           if (!select_item.alias_name_.empty()) {
@@ -1244,10 +1127,8 @@ int ObCreateTableResolver::resolve_table_elements_from_select(const ParseNode &p
               if (base_table_schema == NULL &&
                   OB_FAIL(schema_checker_->get_table_schema(
                                                             new_table_item->ref_id_, base_table_schema))) {
-                LOG_WARN("get table schema failed", K(ret));
               } else if (OB_ISNULL(base_table_schema)) {
                 ret = OB_ERR_UNEXPECTED;
-                LOG_WARN("NULL table schema", K(ret));
               } else {
                 const ObColumnSchemaV2 *org_column = base_table_schema->get_column_schema(select_item.expr_name_);
                 if (NULL != org_column &&
@@ -1328,7 +1209,6 @@ int ObCreateTableResolver::resolve_table_elements_from_select(const ParseNode &p
                                                                              table_name_,
                                                                              *allocator_,
                                                                              stmt_))) {
-                  LOG_WARN("failed to check and set nullable for cta.", K(ret));
                 }
               } else if (need_set_nullable && OB_FAIL(set_nullable_for_cta_column(select_stmt,
                                                                                   new_column,
@@ -1336,7 +1216,6 @@ int ObCreateTableResolver::resolve_table_elements_from_select(const ParseNode &p
                                                                                   table_name_,
                                                                                   *allocator_,
                                                                                   stmt_))) {
-                LOG_WARN("failed to check and set nullable for cta.", K(ret));
               } else if (OB_FAIL(table_schema.delete_column(org_column->get_column_name_str()))) {
               } else if (OB_FAIL(table_schema.add_column(new_column))) {
               } else {
@@ -1458,7 +1337,6 @@ int ObCreateTableResolver::generate_index_arg(const bool process_heap_table_prim
       } else if (VEC_KEY == index_keyname_) {
         if (global_) {
           ret = OB_NOT_SUPPORTED;
-          LOG_WARN("not support global vec index now", K(ret));
         }
         if (OB_SUCC(ret)) {
           type = INDEX_TYPE_VEC_DELTA_BUFFER_LOCAL; // Need to consider ivf, hnsw, spiv these three modes, where ivf index is divided into ivfflat, ivfsq8, ivfpq three categories
@@ -1466,7 +1344,6 @@ int ObCreateTableResolver::generate_index_arg(const bool process_heap_table_prim
       } else if (FTS_KEY == index_keyname_) {
         if (global_) {
           ret = OB_NOT_SUPPORTED;
-          LOG_WARN("not support global fts index now", K(ret));
           LOG_USER_ERROR(OB_NOT_SUPPORTED, "global fulltext index is");
         } else {
           // set type to fts_doc_rowkey first, append other fts arg later
@@ -1475,14 +1352,12 @@ int ObCreateTableResolver::generate_index_arg(const bool process_heap_table_prim
       } else if (MULTI_KEY == index_keyname_) {
         if (global_) {
           ret = OB_NOT_SUPPORTED;
-          LOG_WARN("not support global fts index now", K(ret));
         } else {
           type = INDEX_TYPE_NORMAL_MULTIVALUE_LOCAL;
         }
       } else if (MULTI_UNIQUE_KEY == index_keyname_) {
         if (global_) {
           ret = OB_NOT_SUPPORTED;
-          LOG_WARN("not support global multivalue index now", K(ret));
         } else {
           type = INDEX_TYPE_UNIQUE_MULTIVALUE_LOCAL;
         }
@@ -1504,7 +1379,7 @@ int ObCreateTableResolver::generate_index_arg(const bool process_heap_table_prim
       ObTableSchema &index_schema = index_arg_.index_schema_;
       index_schema.set_table_type(USER_INDEX);
       index_schema.set_index_type(index_arg_.index_type_);
-
+      
       bool check_data_schema = false;
       if (OB_FAIL(share::ObIndexBuilderUtil::adjust_expr_index_args(
               index_arg_, table_schema, *allocator_, gen_columns))) {
@@ -1693,10 +1568,8 @@ int ObCreateTableResolver::resolve_index_node(const ParseNode *node)
         if (OB_FAIL(ret)) {
         } else if (OB_ISNULL(session_info_)) {
           ret = OB_ERR_UNEXPECTED;
-          LOG_WARN("unexpected null", K(ret));
         } else if (is_vec_index && index_column_list_node->num_child_ >= 2) {
           ret = OB_NOT_SUPPORTED;
-          LOG_WARN("multi column of vector index is not support yet", K(ret), K(index_column_list_node->num_child_));
           LOG_USER_ERROR(OB_NOT_SUPPORTED, "multi vector index column is");
         }
         for (int32_t i = 0; OB_SUCC(ret) && i < index_column_list_node->num_child_; ++i) {
@@ -1735,7 +1608,6 @@ int ObCreateTableResolver::resolve_index_node(const ParseNode *node)
                          && NULL != index_column_node->children_[2]
                          && 1 != index_column_node->children_[2]->is_empty_) {
                 ret = OB_NOT_SUPPORTED;
-                LOG_WARN("explicit order is not supported for multivalue index", K(ret));
                 LOG_USER_ERROR(OB_NOT_SUPPORTED, "ASC/DESC for multivalue index is");
               } else if (NULL != index_column_node->children_[1]) {
                 sort_item.prefix_len_ = static_cast<int32_t>(index_column_node->children_[1]->value_);
@@ -1766,8 +1638,6 @@ int ObCreateTableResolver::resolve_index_node(const ParseNode *node)
                                                                                   budy_column_schema))) {
                 } else if (OB_ISNULL(column_schema) || OB_ISNULL(budy_column_schema)) {
                   ret = OB_ERR_UNEXPECTED;
-                  LOG_WARN("multivalue index generate column, or budy column is null.",
-                    K(ret), KP(column_schema), KP(budy_column_schema));
                 } else {
                   ObColumnNameHashWrapper column_name_key(column_schema->get_column_name_str());
                   if (OB_FAIL(column_name_set_.set_refactored(column_name_key))) {
@@ -1794,10 +1664,8 @@ int ObCreateTableResolver::resolve_index_node(const ParseNode *node)
                 //real index expr, so generate hidden generated column in data table schema
                 if (ob_is_geometry(expr->get_data_type()) || static_cast<int64_t>(INDEX_KEYNAME::SPATIAL_KEY) == node->value_) {
                   ret = OB_ERR_SPATIAL_FUNCTIONAL_INDEX;
-                  LOG_WARN("Spatial functional index is not supported.", K(ret), K(column_name));
                 } else if (ob_is_collection_sql_type(expr->get_data_type()) || static_cast<int64_t>(INDEX_KEYNAME::VEC_KEY) == node->value_) {
                   ret = OB_ERR_FUNCTIONAL_INDEX_ON_FIELD;
-                  LOG_WARN("Functional index for vector index is not supported.", K(ret), K(column_name));
                 } else if (OB_FAIL(ObIndexBuilderUtil::generate_ordinary_generated_column(*expr,
                                                                                    *session_info_,
                                                                                    tbl_schema,
@@ -1812,7 +1680,6 @@ int ObCreateTableResolver::resolve_index_node(const ParseNode *node)
                 }
               } else {
                 ret = OB_ERR_FUNCTIONAL_INDEX_ON_FIELD;
-                LOG_WARN("Functional index on a column is not supported.", K(ret), K(*expr));
               }
             } else {
               if (NULL == (column_schema = tbl_schema.get_column_schema(column_name))) {
@@ -1825,7 +1692,6 @@ int ObCreateTableResolver::resolve_index_node(const ParseNode *node)
               vec_index_col_id = column_schema->get_column_id();
               if (ObVectorIndexUtil::has_multi_index_on_same_column(vec_index_col_ids_, vec_index_col_id)) {
                 ret = OB_NOT_SUPPORTED;
-                LOG_WARN("more than one vector index on same column is not supported", K(ret), K(vec_index_col_id), K(vec_index_col_ids_));
                 LOG_USER_ERROR(OB_NOT_SUPPORTED, "more than one vector index on same column is");
               } else if (OB_FAIL(set_vec_column_name(column_schema->get_column_name()))) {
               }
@@ -1833,20 +1699,17 @@ int ObCreateTableResolver::resolve_index_node(const ParseNode *node)
             if (OB_SUCC(ret)) {
               if (OB_ISNULL(session_info_)) {
                 ret = OB_NOT_INIT;
-                LOG_WARN("session_info_ is null");
               }  else if (sort_item.prefix_len_ > column_schema->get_data_length()) {
                 ret = OB_WRONG_SUB_KEY;
                 SQL_RESV_LOG(WARN, "prefix length is longer than column length", K(sort_item), K(column_schema->get_data_length()), K(ret));
               } else if (ob_is_collection_sql_type(column_schema->get_data_type())
                   && static_cast<int64_t>(INDEX_KEYNAME::VEC_KEY) != node->value_) {
                 ret = OB_NOT_SUPPORTED;
-                LOG_WARN("index column is vector column, but is not vector index is not supported", K(ret));
                 LOG_USER_ERROR(OB_NOT_SUPPORTED, "vector column index but not vector index is");
               } else if (column_schema->is_key_forbid_lob() && static_cast<int64_t>(INDEX_KEYNAME::FTS_KEY) != node->value_ && static_cast<int64_t>(INDEX_KEYNAME::VEC_KEY) != node->value_) {
                 if (column_schema->is_hidden()) {
                   //functional index in mysql mode
                   ret = OB_ERR_FUNCTIONAL_INDEX_ON_LOB;
-                  LOG_WARN("Cannot create a functional index on an expression that returns a BLOB or TEXT.", K(ret));
                 } else if(sort_item.prefix_len_ <= 0) {
                   ret = OB_ERR_WRONG_KEY_COLUMN;
                   LOG_USER_ERROR(OB_ERR_WRONG_KEY_COLUMN, column_name.length(), column_name.ptr());
@@ -1879,7 +1742,6 @@ int ObCreateTableResolver::resolve_index_node(const ParseNode *node)
                   } else if (length <= 0) {
                     ret = OB_ERR_WRONG_KEY_COLUMN;
                     LOG_USER_ERROR(OB_ERR_WRONG_KEY_COLUMN, column_name.length(), column_name.ptr());
-                    LOG_WARN("byte_length of string type column should bigger than zero", K(length), K(ret));
                   } else {
                     // do nothing
                   }
@@ -2011,7 +1873,6 @@ int ObCreateTableResolver::resolve_index_node(const ParseNode *node)
             LOG_USER_ERROR(OB_NOT_SUPPORTED, "invalid partition option for index");
           } else if (OB_ISNULL(node->children_[4]->children_[0])) {
             ret = OB_ERR_UNEXPECTED;
-            LOG_WARN("node is null", K(ret));
           } else if (LOCAL_INDEX == index_scope_) {
             ret = OB_NOT_SUPPORTED;
             LOG_USER_ERROR(OB_NOT_SUPPORTED, "specify partition option of local index");
@@ -2056,7 +1917,6 @@ int ObCreateTableResolver::resolve_index_node(const ParseNode *node)
             // refresh vector index type
             if (!is_vec_index(vec_index_type_)) {
               ret = OB_ERR_UNEXPECTED;
-              LOG_WARN("unexpected index type", KR(ret), K(vec_index_type_));
             } else if (FALSE_IT(create_index_arg.index_type_ = vec_index_type_)) {
             } else if (FALSE_IT(create_index_arg.index_schema_.set_index_params(index_params_))) {
             } else if (ObVectorIndexUtil::should_set_max_lob_inrow_threshold_for_async_index(
@@ -2153,7 +2013,6 @@ int ObCreateTableResolver::resolve_index_name(
     ObCollationType cs_type = CS_TYPE_INVALID;
     if (OB_UNLIKELY(NULL == session_info_)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("session if NULL", K(ret));
     } else if (OB_FAIL(session_info_->get_collation_connection(cs_type))) {
     } else if (OB_FAIL(ObSQLUtils::check_index_name(cs_type, index_name_))) {
     }
@@ -2194,7 +2053,7 @@ int ObCreateTableResolver::resolve_table_charset_info(const ParseNode *node) {
       // For CREATE TABLE statements, the database character set and collation are used as default
       // values for table definitions if the table character set and collation are not specified.
       // To override this, provide explicit CHARACTER SET and COLLATE table options.
-
+      
       ObString database_name;
       uint64_t database_id = OB_INVALID_ID;
       const ObDatabaseSchema *database_schema = NULL;
@@ -2202,7 +2061,6 @@ int ObCreateTableResolver::resolve_table_charset_info(const ParseNode *node) {
       } else if (OB_FAIL(schema_checker_->get_database_schema( database_id, database_schema))) {
       } else if (OB_ISNULL(database_schema)) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("unexpected error. db schema is null", K(ret), K(database_schema));
       } else {
         charset_type_ = database_schema->get_charset_type();
         collation_type_ = database_schema->get_collation_type();
@@ -2225,7 +2083,6 @@ int ObCreateTableResolver::check_max_row_data_length(const ObTableSchema &table_
     const ObColumnSchemaV2 *column = table_schema.get_column_schema_by_idx(i);
     if (OB_ISNULL(column)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("column is null", K(ret), K(table_schema));
     } else if (! column->is_string_type() && ! is_lob_storage(column->get_data_type()) ) { // skip non string or lob storage type
     } else if (OB_FAIL(column->get_byte_length(length, false))) {
     } else if (ob_is_string_tc(column->get_data_type()) && length > OB_MAX_VARCHAR_LENGTH) {
@@ -2276,7 +2133,6 @@ int ObCreateTableResolver::check_building_domain_index_legal()
   int ret = OB_SUCCESS;
   if (!index_aux_name_set_.created() &&
       OB_FAIL(index_aux_name_set_.create(common::OB_MAX_COLUMN_NUMBER))) {
-    LOG_WARN("fail to init index aux name set", K(ret));
   } else {
     ObCreateTableStmt *create_table_stmt = static_cast<ObCreateTableStmt*>(stmt_);
     const ObSArray<obcall::ObCreateIndexArg> &index_arg_list = create_table_stmt->get_index_arg_list();
@@ -2288,11 +2144,9 @@ int ObCreateTableResolver::check_building_domain_index_legal()
           ret = OB_ERR_KEY_NAME_DUPLICATE;
           LOG_USER_ERROR(OB_ERR_KEY_NAME_DUPLICATE,
               index_arg.index_name_.length(), index_arg.index_name_.ptr());
-          LOG_WARN("there is duplicate index aux name", K(ret), K(index_arg.index_name_));
         } else if (OB_HASH_NOT_EXIST == ret) {
           ret = OB_SUCCESS;
         } else {
-          LOG_WARN("fail to search index aux name set", K(ret), K(index_arg.index_name_));
         }
         if (OB_SUCC(ret)) {
           if (OB_FAIL(index_aux_name_set_.set_refactored(index_name_key))) {
@@ -2360,7 +2214,6 @@ int ObCreateTableResolver::resolve_primary_key_node_in_heap_table(const ParseNod
           } else if (OB_FAIL(check_add_column_as_pk_allowed(*col))) {
           } else if (ob_is_collection_sql_type(col->get_data_type())) {
             ret = OB_NOT_SUPPORTED;
-            LOG_WARN("not support primary key is vector column yet", K(ret));
             LOG_USER_ERROR(OB_NOT_SUPPORTED, "create primary key on vector column is");
           } else if (column_list_node->num_child_ > OB_USER_MAX_ROWKEY_COLUMN_NUMBER) {
             ret = OB_ERR_TOO_MANY_ROWKEY_COLUMNS;

@@ -59,14 +59,6 @@ public:
   int32_t body_crc_;
 };
 
-enum class ObServerRuntimeCreateStatus
-{
-  CREATING = 0,
-  CREATED, // 1
-  CREATE_ABORT, // 2
-  MAX
-};
-
 struct ServerSuperBlockBody final
 {
 public:
@@ -228,7 +220,7 @@ public:
 
   OB_UNIS_VERSION(SERVER_RUNTIME_SUPER_BLOCK_VERSION);
 public:
-
+  
   // Local recovery state for LS and tablet metadata.
   common::ObLogCursor replay_start_point_;
   blocksstable::MacroBlockId ls_meta_entry_;

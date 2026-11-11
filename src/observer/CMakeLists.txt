@@ -3,6 +3,7 @@ seekdb_apply_standalone_inventory(ob_server SEEKDB_OBSERVER_STANDALONE)
 seekdb_apply_standalone_inventory(
   ob_server SEEKDB_OBSERVER_RETRIEVAL_COMPOSITION)
 ob_server_add_target(ob_server)
+target_link_libraries(ob_server PUBLIC config)
 
 add_library(oceanbase_static STATIC EXCLUDE_FROM_ALL
   ${CMAKE_CURRENT_BINARY_DIR}/ob_version.cpp)
@@ -73,7 +74,6 @@ target_link_libraries(ob_main PUBLIC ob_base)
 
 add_executable(seekdb)
 if(WIN32)
-  target_link_options(seekdb PRIVATE /FORCE:MULTIPLE)
   get_filename_component(CLANG_BIN_DIR ${CMAKE_CXX_COMPILER} DIRECTORY)
   get_filename_component(LLVM_ROOT ${CLANG_BIN_DIR} DIRECTORY)
   file(GLOB CLANG_RT_BUILTINS
@@ -87,9 +87,9 @@ if(WIN32)
 endif()
 
 target_link_libraries(seekdb PRIVATE
-  $<$<AND:$<NOT:$<PLATFORM_ID:Darwin>>,$<NOT:$<PLATFORM_ID:Windows>>>:-Wl,--start-group>
+  $<$<AND:$<NOT:$<PLATFORM_ID:Darwin,iOS>>,$<NOT:$<PLATFORM_ID:Windows>>>:-Wl,--start-group>
   ob_main
-  $<$<AND:$<NOT:$<PLATFORM_ID:Darwin>>,$<NOT:$<PLATFORM_ID:Windows>>>:ob_malloc>
+  $<$<AND:$<NOT:$<PLATFORM_ID:Darwin,iOS>>,$<NOT:$<PLATFORM_ID:Windows>>>:ob_malloc>
   oceanbase_static
   ob_sql_static
   ob_storage_static
@@ -97,10 +97,17 @@ target_link_libraries(seekdb PRIVATE
   sql_nio
   $<$<PLATFORM_ID:Windows>:ob_malloc>
   $<$<PLATFORM_ID:Windows>:synchronization>
-  $<$<AND:$<NOT:$<PLATFORM_ID:Darwin>>,$<NOT:$<PLATFORM_ID:Windows>>>:-Wl,--end-group>
+  $<$<AND:$<NOT:$<PLATFORM_ID:Darwin,iOS>>,$<NOT:$<PLATFORM_ID:Windows>>>:-Wl,--end-group>
   $<$<PLATFORM_ID:Linux>:-static-libgcc>
   $<$<PLATFORM_ID:Linux>:-static-libstdc++>
   ${link_malloc_hook})
+
+if(ENABLE_SANITY)
+  target_link_options(seekdb PRIVATE ${SEEKDB_SANITY_WRAP_LINK_OPTIONS})
+  if(NOT OB_SO_CACHE)
+    target_link_options(oceanbase PRIVATE ${SEEKDB_SANITY_WRAP_LINK_OPTIONS})
+  endif()
+endif()
 
 if(APPLE AND OB_HAVE_BUNDLED_JEMALLOC)
   # jemalloc's macOS allocator takeover lives in a standalone archive member.
@@ -133,6 +140,8 @@ else()
 endif()
 if (NOT CMAKE_BUILD_TYPE)
   set(BUILD_FLAGS "default" CACHE INTERNAL "build flags")
+elseif(ENABLE_SANITY)
+  set(BUILD_FLAGS "${CMAKE_BUILD_TYPE}|Sanity" CACHE INTERNAL "build flags")
 else()
   set(BUILD_FLAGS "${CMAKE_BUILD_TYPE}" CACHE INTERNAL "build flags")
 endif()
@@ -164,4 +173,29 @@ else()
     COMMAND ${CMAKE_COMMAND} -E create_symlink
       ${CMAKE_BINARY_DIR}/src/observer/seekdb
       ${CMAKE_BINARY_DIR}/src/observer/observer)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  execute_process(
+    COMMAND git rev-parse --short=12 HEAD
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+    RESULT_VARIABLE SEEKDB_IOS_GIT_RESULT
+    OUTPUT_VARIABLE SEEKDB_IOS_BUILD_ID
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  string(LENGTH "${SEEKDB_IOS_BUILD_ID}" SEEKDB_IOS_BUILD_ID_LENGTH)
+  if(NOT SEEKDB_IOS_GIT_RESULT EQUAL 0 OR
+     NOT SEEKDB_IOS_BUILD_ID MATCHES "^[0-9a-f]+$" OR
+     NOT SEEKDB_IOS_BUILD_ID_LENGTH EQUAL 12)
+    message(FATAL_ERROR "Cannot determine the iOS runtime source revision")
+  endif()
+  add_library(seekdb_ios_runtime STATIC EXCLUDE_FROM_ALL ios/seekdb_ios.cpp)
+  target_include_directories(seekdb_ios_runtime PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/ios")
+  target_compile_definitions(seekdb_ios_runtime PRIVATE
+    SEEKDB_IOS_BUILD_ID="${SEEKDB_IOS_BUILD_ID}"
+    SEEKDB_IOS_HOOK_MODE="disabled")
+  target_link_libraries(seekdb_ios_runtime PUBLIC oceanbase_static sql_nio)
+  option(SEEKDB_IOS_FRAMEWORK "Build SeekDB.framework, which starts and stops the in-process iOS engine" OFF)
+  if(SEEKDB_IOS_FRAMEWORK)
+    add_subdirectory(ios/driver)
+  endif()
 endif()

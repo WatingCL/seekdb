@@ -90,9 +90,11 @@ private:
   int eval_relevance_expr();
   int batch_eval_relevance_expr(const int64_t count);
   int estimate_token_doc_cnt();
+public:
+  // exposed for the DaaT wrapper iter to know whether the inner token iter
+  // already evaluated the relevance expr for the rows it returned
   inline bool need_inv_idx_agg() { return inv_idx_agg_iter_ != nullptr; }
   inline bool need_calc_relevance() { return inv_idx_agg_iter_ != nullptr; }
-public:
   static const int64_t INV_IDX_ROWKEY_COL_CNT = 2;
 private:
   lib::MemoryContext mem_context_;
@@ -139,13 +141,13 @@ public:
     score = token_iter_->get_max_token_relevance();
     if (OB_UNLIKELY(score < 0.0)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("unexpected max token relevance", K(ret), K(score));
     }
     return ret;
   }
 private:
   int save_relevances_and_docids();
   int save_docids();
+  int save_docid(const ObDatum &src, const int64_t i);
   ObArenaAllocator *allocator_;
   ObTextRetrievalTokenIter *token_iter_;
   sql::ObEvalCtx *eval_ctx_;
@@ -156,6 +158,13 @@ private:
   int64_t count_;
   ObFixedArray<double, ObIAllocator> relevance_; // when ~ObFixedArray(), wikll destory itself
   ObFixedArray<ObDocIdExt, ObIAllocator> doc_id_;
+  // value-copy fast path for 8-byte integer domain ids (init() decides):
+  // fast_doc_ids_[i] is a datum view pointing into the stable fast_id_vals_[i]
+  // slot and carries the same packed bytes ObDocIdExt::from_datum would have
+  // produced, without the per-row deep-copy call
+  ObFixedArray<ObDatum, ObIAllocator> fast_doc_ids_;
+  ObFixedArray<int64_t, ObIAllocator> fast_id_vals_;
+  bool value_id_fast_;
   common::ObDatumCmpFuncType cmp_func_;
   bool is_inited_;
   DISALLOW_COPY_AND_ASSIGN(ObTextRetrievalDaaTTokenIter);

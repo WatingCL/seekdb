@@ -16,6 +16,7 @@
 
 #define USING_LOG_PREFIX RS
 
+#include "config_bridge.h"
 #include "rootserver/fork_table/ob_fork_table_task.h"
 #include "share/rc/ob_server_runtime.h"
 #include "rootserver/ob_ddl_service.h"
@@ -91,16 +92,12 @@ int ObForkTableTask::init(
                   || nullptr == src_table_schema
                   || nullptr == dst_table_schema)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid argument", K(ret), K(task_id), K(schema_version),
-             K(snapshot_version),
-             KP(src_table_schema), KP(dst_table_schema));
   } else if (OB_ISNULL(local_management_service_ = ::oceanbase::share::server_service<::oceanbase::rootserver::ObLocalManagementService>())) {
     ret = OB_ERR_SYS;
-    LOG_WARN("local_management_service is null", K(ret), KP(local_management_service_));
   } else {
     set_gmt_create(ObTimeUtility::current_time());
     task_type_ = ddl_type;
-
+    
     object_id_ = src_table_schema->get_table_id();
     schema_version_ = schema_version;
     task_id_ = task_id;
@@ -109,7 +106,7 @@ int ObForkTableTask::init(
     task_version_ = 1;
     execution_id_ = -1;
     task_status_ = ObDDLTaskStatus::PREPARE;
-
+    
     dst_schema_version_ = schema_version_;
     snapshot_version_ = snapshot_version;
     data_format_version_ = data_format_version;
@@ -128,19 +125,16 @@ int ObForkTableTask::init(const ObDDLTaskRecord &task_record)
   int64_t pos = 0;
   if (OB_UNLIKELY(is_inited_)) {
     ret = OB_INIT_TWICE;
-    LOG_WARN("ObForkTableTask has already been inited", K(ret));
   } else if (OB_ISNULL(local_management_service_ = ::oceanbase::share::server_service<::oceanbase::rootserver::ObLocalManagementService>())) {
     ret = OB_ERR_SYS;
-    LOG_WARN("local_management_service is null", K(ret), KP(local_management_service_));
   } else if (!task_record.is_valid()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid arguments", K(ret), K(task_record));
   } else if (OB_FAIL(deserialize_params_from_message(task_record.message_.ptr(),
                                                      task_record.message_.length(),
                                                      pos))) {
   } else {
     task_type_ = task_record.ddl_type_;
-
+    
     object_id_ = task_record.object_id_;
     target_object_id_ = task_record.target_object_id_;
     schema_version_ = task_record.schema_version_;
@@ -152,7 +146,7 @@ int ObForkTableTask::init(const ObDDLTaskRecord &task_record)
     execution_id_ = task_record.execution_id_;
     ret_code_ = task_record.ret_code_;
     start_time_ = ObTimeUtility::current_time();
-
+    
     dst_schema_version_ = schema_version_;
 
     if (OB_FAIL(init_ddl_task_monitor_info(target_object_id_))) {
@@ -160,7 +154,7 @@ int ObForkTableTask::init(const ObDDLTaskRecord &task_record)
       is_inited_ = true;
     }
   }
-
+  
   LOG_INFO("init fork table task finished", K(ret), KPC(this));
   return ret;
 }
@@ -170,7 +164,6 @@ int ObForkTableTask::process()
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(!is_inited_)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("fork table task not inited", K(ret));
   } else {
     switch (task_status_) {
       case ObDDLTaskStatus::PREPARE: {
@@ -221,7 +214,6 @@ int ObForkTableTask::process()
         const ObDDLTaskStatus from_status = task_status_;
         if (OB_FAIL(wait_data_complement(ObDDLTaskStatus::SUCCESS))) {
           if (OB_EAGAIN != ret) {
-            LOG_WARN("wait data build complete failed", K(ret));
           }
         } else if (task_status_ == ObDDLTaskStatus::SUCCESS) {
           LOG_INFO("fork table stage enter", K(task_id_),
@@ -246,7 +238,6 @@ int ObForkTableTask::process()
       }
       default: {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("unexpected task status", K(ret), K(task_status_));
         break;
       }
     }
@@ -264,7 +255,6 @@ int ObForkTableTask::serialize_params_to_message(char *buf, const int64_t buf_si
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(nullptr == buf || buf_size <= 0)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid arguments", K(ret), KP(buf), K(buf_size));
   } else if (OB_FAIL(ObDDLTask::serialize_params_to_message(buf, buf_size, pos))) {
   } else if (OB_FAIL(serialization::encode_bool(buf, buf_size, pos, is_data_complement_))) {
   } else if (OB_FAIL(fork_table_arg_.serialize(buf, buf_size, pos))) {
@@ -278,7 +268,6 @@ int ObForkTableTask::deserialize_params_from_message(const char *buf, const int6
   SMART_VAR(obcall::ObForkTableArg, tmp_arg) {
     if (OB_UNLIKELY(nullptr == buf || buf_size <= 0)) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("invalid arguments", K(ret), KP(buf), K(buf_size));
     } else if (OB_FAIL(ObDDLTask::deserialize_params_from_message(buf, buf_size, pos))) {
     } else if (OB_FAIL(serialization::decode_bool(buf, buf_size, pos, &is_data_complement_))) {
     } else if (OB_FAIL(tmp_arg.deserialize(buf, buf_size, pos))) {
@@ -299,7 +288,7 @@ int64_t ObForkTableTask::get_serialize_param_size() const
 int ObForkTableTask::deep_copy_fork_table_arg(const obcall::ObForkTableArg &arg)
 {
   int ret = OB_SUCCESS;
-
+  
   if (OB_FAIL(ob_write_string(allocator_, arg.src_database_name_, fork_table_arg_.src_database_name_))) {
   } else if (OB_FAIL(ob_write_string(allocator_, arg.src_table_name_, fork_table_arg_.src_table_name_))) {
   } else if (OB_FAIL(ob_write_string(allocator_, arg.dst_database_name_, fork_table_arg_.dst_database_name_))) {
@@ -315,9 +304,9 @@ int ObForkTableTask::wait_freeze_end(const ObDDLTaskStatus next_task_status)
 {
   int ret = OB_SUCCESS;
   ObSchemaGetterGuard schema_guard;
-  ObSEArray<ObTabletID, 4> src_tablet_ids;
+  ObSEArray<ObTabletID, 4> src_tablet_ids;  
   const int64_t start_ts = ObTimeUtility::current_time();
-
+  
   if (OB_FAIL(get_schema_guard(schema_guard))) {
   } else if (OB_FAIL(ObForkTableUtil::collect_tablet_ids_from_table(schema_guard, object_id_, src_tablet_ids))) {
   } else if (OB_FAIL(storage::ObTabletForkUtil::freeze_tablets(src_tablet_ids))) {
@@ -329,7 +318,6 @@ int ObForkTableTask::wait_freeze_end(const ObDDLTaskStatus next_task_status)
     if (OB_FAIL(freeze_log.tablet_ids_.assign(src_tablet_ids))) {
     } else if (OB_UNLIKELY(!freeze_log.is_valid())) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("invalid fork freeze log", K(ret), K(freeze_log));
     } else if (OB_FAIL(ObDDLRedoLogWriter::write_auto_fork_log(ObDDLClogType::DDL_TABLE_FORK_FREEZE_LOG,
                                                                logservice::ObReplayBarrierType::NO_NEED_BARRIER,
                                                                freeze_log,
@@ -342,7 +330,6 @@ int ObForkTableTask::wait_freeze_end(const ObDDLTaskStatus next_task_status)
   }
 
   if (OB_SUCC(ret) && OB_FAIL(switch_status(next_task_status, true, ret))) {
-    LOG_WARN("fail to switch task status", K(ret));
   }
 
   return ret;
@@ -364,7 +351,7 @@ int ObForkTableTask::build_data(const ObDDLTaskStatus next_task_status)
   } else if (OB_FAIL(ObForkTableUtil::collect_tablet_ids_from_table(schema_guard, target_object_id_, dst_tablet_ids))) {
   } else if (src_tablet_ids.count() != dst_tablet_ids.count()) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("tablet count mismatch", K(ret),
+    LOG_WARN("tablet count mismatch", K(ret), 
              K(src_tablet_ids.count()), K(dst_tablet_ids.count()));
   } else if (OB_FAIL(build_fork_info(src_tablet_ids, dst_tablet_ids, fork_info))) {
   } else if (OB_FAIL(start_log.fork_info_.assign(fork_info))) {
@@ -381,7 +368,6 @@ int ObForkTableTask::build_data(const ObDDLTaskStatus next_task_status)
   }
 
   if (OB_SUCC(ret) && OB_FAIL(switch_status(next_task_status, true, ret))) {
-    LOG_WARN("fail to switch task status", K(ret));
   }
 
   return ret;
@@ -400,7 +386,6 @@ int ObForkTableTask::wait_data_complement(const ObDDLTaskStatus next_task_status
   } else if (OB_FAIL(schema_guard.get_table_schema( target_object_id_, dst_table_schema))) {
   } else if (OB_ISNULL(dst_table_schema)) {
     ret = OB_TABLE_NOT_EXIST;
-    LOG_WARN("destination table not exist", K(ret), K_(target_object_id));
   } else if (OB_FAIL(rootserver::ObForkTableUtil::collect_tablet_ids_from_table(schema_guard, *dst_table_schema, dst_tablet_ids))) {
   } else if (dst_tablet_ids.empty()) {
     is_data_complement_ = true;
@@ -411,7 +396,6 @@ int ObForkTableTask::wait_data_complement(const ObDDLTaskStatus next_task_status
       const ObTabletID &tablet_id = dst_tablet_ids.at(i);
       bool is_complete = false;
       if (OB_FAIL(storage::ObTabletForkUtil::check_fork_data_complete(tablet_id, is_complete))) {
-        LOG_WARN("fail to check fork data complete", K(ret), K(tablet_id));
         all_complete = false;
         break;
       } else if (!is_complete) {
@@ -422,7 +406,7 @@ int ObForkTableTask::wait_data_complement(const ObDDLTaskStatus next_task_status
         break;
       }
     }
-
+    
     if (OB_SUCC(ret)) {
       is_data_complement_ = all_complete;
       if (all_complete) {
@@ -442,7 +426,7 @@ int ObForkTableTask::wait_data_complement(const ObDDLTaskStatus next_task_status
     if (OB_FAIL(ObForkTableUtil::collect_tablet_ids_from_table(schema_guard, object_id_, src_tablet_ids))) {
     } else if (OB_UNLIKELY(src_tablet_ids.count() != dst_tablet_ids.count())) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("src and dst tablet count mismatch", K(ret),
+      LOG_WARN("src and dst tablet count mismatch", K(ret), 
                K(src_tablet_ids.count()), K(dst_tablet_ids.count()));
     } else {
       storage::ObTableForkInfo fork_info;
@@ -478,7 +462,6 @@ int ObForkTableTask::succ()
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(!is_inited_)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("ObForkTableTask has not been inited", K(ret));
   } else if (OB_FAIL(finish())) {
   } else if (OB_FAIL(cleanup())) {
   }
@@ -490,7 +473,6 @@ int ObForkTableTask::fail()
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(!is_inited_)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("ObForkTableTask has not been inited", K(ret));
   } else if (OB_FAIL(finish())) {
   } else if (OB_FAIL(cleanup())) {
   } else {
@@ -505,7 +487,6 @@ int ObForkTableTask::finish()
   ObSchemaGetterGuard schema_guard;
   if (OB_UNLIKELY(!is_inited_)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("ObForkTableTask has not been inited", K(ret));
   } else if (OB_FAIL(get_schema_guard(schema_guard))) {
   } else if (snapshot_version_ > 0) {
     ObSEArray<uint64_t, 1> table_ids;
@@ -522,14 +503,12 @@ int ObForkTableTask::cleanup_impl()
   ObString unused_str;
   if (OB_UNLIKELY(!is_inited_)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("not init", K(ret));
   } else if (OB_FAIL(report_error_code(unused_str))) {
   }
 
   if (OB_SUCC(ret) && OB_INVALID_ID != object_id_) {
     if (OB_ISNULL(GCTX.sql_proxy_) || OB_ISNULL(GCTX.schema_service_)) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("invalid argument", KR(ret), KP(GCTX.sql_proxy_), KP(GCTX.schema_service_));
     } else {
       ObSchemaGetterGuard schema_guard;
       const ObTableSchema *src_table_schema = nullptr;
@@ -538,21 +517,18 @@ int ObForkTableTask::cleanup_impl()
       ObTableLockOwnerID lock_owner;
       ObMySQLTransaction trans;
       ObTimeoutCtx ctx;
-
+      
       if (OB_FAIL(GCTX.schema_service_->get_runtime_schema_guard(schema_guard))) {
       } else if (OB_FAIL(schema_guard.get_table_schema( object_id_, src_table_schema))) {
       } else if (OB_ISNULL(src_table_schema)) {
         ret = OB_TABLE_NOT_EXIST;
-        LOG_WARN("source table not exist", K(ret), K(object_id_));
       } else if (OB_FAIL(schema_guard.get_table_schema( target_object_id_, dst_table_schema))) {
       } else if (OB_ISNULL(dst_table_schema)) {
         ret = OB_TABLE_NOT_EXIST;
-        LOG_WARN("destination table not exist", K(ret), K_(target_object_id));
       } else if (OB_FAIL(trans.start(GCTX.sql_proxy_))) {
-      } else if (OB_FAIL(ObShareUtil::set_default_timeout_ctx(ctx, GCONF.rpc_timeout))) {
+      } else if (OB_FAIL(ObShareUtil::set_default_timeout_ctx(ctx, config::rpc_timeout()))) {
       } else if (OB_ISNULL(conn = trans.get_connection())) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("conn_ is NULL", KR(ret));
       } else {
         ObLockObjRequest lock_arg;
         lock_arg.obj_type_ = ObLockOBJType::OBJ_TYPE_RUNTIME;
@@ -578,12 +554,11 @@ int ObForkTableTask::cleanup_impl()
         } else if (OB_FAIL(trans.write(sql_string.ptr(), affected_rows))) {
         } else if (OB_UNLIKELY(affected_rows < 0)) {
           ret = OB_ERR_UNEXPECTED;
-          LOG_WARN("unexpected affected_rows", K(ret), K(affected_rows));
         } else {
           need_retry_ = false;  // clean succ, stop the task
         }
       }
-
+      
       if (trans.is_started()) {
         bool commit = (OB_SUCCESS == ret);
         int tmp_ret = trans.end(commit);
@@ -608,7 +583,6 @@ int ObForkTableTask::get_schema_guard(share::schema::ObSchemaGetterGuard &schema
   int ret = OB_SUCCESS;
   if (OB_ISNULL(local_management_service_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("local management service is null", K(ret));
   } else if (OB_FAIL(local_management_service_->get_ddl_service().get_runtime_schema_guard_with_version_in_inner_table(
       schema_guard))) {
   }
@@ -633,10 +607,9 @@ int ObForkTableTask::build_fork_info(
         data_format_version_,
         src_tablet_ids,
         dst_tablet_ids);
-
+    
     if (OB_UNLIKELY(!fork_info.is_valid())) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("invalid fork info", K(ret), K(fork_info));
     }
   }
   return ret;

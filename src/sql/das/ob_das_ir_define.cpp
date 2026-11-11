@@ -110,7 +110,7 @@ OB_DEF_DESERIALIZE(ObDASIRScanCtDef)
   LST_DO_CODE(OB_UNIS_DECODE,
     flags_,
     search_text_,
-    inv_scan_domain_id_col_, // FARM COMPAT WHITELIST
+    inv_scan_domain_id_col_, // FARM COMPAT WHITELIST 
     inv_scan_doc_length_col_,
     match_filter_,
     relevance_expr_,
@@ -210,7 +210,6 @@ int ObDocIdExt::hash(uint64_t &hash_val) const
   int ret = common::OB_SUCCESS;
   if (OB_ISNULL(datum_.ptr_)) {
     ret = common::OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected nullptr", K(ret), KP(datum_.ptr_));
   } else {
     hash_val = murmurhash(datum_.ptr_, datum_.len_, 0);
   }

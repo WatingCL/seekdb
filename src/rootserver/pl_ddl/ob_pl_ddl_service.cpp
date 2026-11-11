@@ -43,7 +43,7 @@ int ObPLDDLService::create_routine(const obcall::ObCreateRoutineArg &arg,
   } else {
     ObRoutineInfo routine_info = arg.routine_info_;
     const ObRoutineInfo* old_routine_info = NULL;
-
+    
     ObString database_name = arg.db_name_;
     bool is_or_replace = arg.is_need_alter_;
     bool is_inner = arg.is_or_replace_;
@@ -54,10 +54,8 @@ int ObPLDDLService::create_routine(const obcall::ObCreateRoutineArg &arg,
       LOG_USER_ERROR(OB_ERR_BAD_DATABASE, database_name.length(), database_name.ptr());
     } else if (!is_inner && db_schema->is_in_recyclebin()) {
       ret = OB_ERR_OPERATION_ON_RECYCLE_OBJECT;
-      LOG_WARN("Can't not create routine of db in recyclebin", K(ret), K(arg), K(*db_schema));
     } else if (OB_INVALID_ID == db_schema->get_database_id()) {
       ret = OB_ERR_BAD_DATABASE;
-      LOG_WARN("database id is invalid", K(*db_schema), K(ret));
     } else {
       routine_info.set_database_id(db_schema->get_database_id());
     }
@@ -75,7 +73,6 @@ int ObPLDDLService::create_routine(const obcall::ObCreateRoutineArg &arg,
                                                                   routine_info.get_routine_name(), old_routine_info))) {
           } else if (OB_ISNULL(old_routine_info)) {
             ret = OB_ERR_UNEXPECTED;
-            LOG_WARN("old routine info is NULL", K(ret));
           }
         }
       } else {
@@ -90,7 +87,6 @@ int ObPLDDLService::create_routine(const obcall::ObCreateRoutineArg &arg,
                                                                 routine_info.get_routine_name(), old_routine_info))) {
           } else if (OB_ISNULL(old_routine_info)) {
             ret = OB_ERR_UNEXPECTED;
-            LOG_WARN("old routine info is NULL", K(ret));
           }
         }
       }
@@ -125,7 +121,7 @@ int ObPLDDLService::create_routine(ObRoutineInfo &routine_info,
   CK((replace && OB_NOT_NULL(old_routine_info)) || (!replace && OB_ISNULL(old_routine_info)));
   CK (OB_NOT_NULL(ddl_service.schema_service_) && OB_NOT_NULL(ddl_service.sql_proxy_));
   if (OB_SUCC(ret)) {
-
+    
     ObDDLSQLTransaction trans(ddl_service.schema_service_);
     ObPLDDLOperator pl_operator(*ddl_service.schema_service_, *ddl_service.sql_proxy_);
 
@@ -160,7 +156,6 @@ int ObPLDDLService::create_routine(ObRoutineInfo &routine_info,
       if (OB_FAIL(schema_guard.get_system_variable(SYS_VAR_AUTOMATIC_SP_PRIVILEGES, sys_var))) {
       } else if (OB_ISNULL(sys_var)) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("sys variable schema is null", KR(ret));
       } else if (OB_FAIL(sys_var->get_value(&alloc, NULL, val))) {
       } else {
         bool grant_priv = val.get_bool();
@@ -170,9 +165,8 @@ int ObPLDDLService::create_routine(ObRoutineInfo &routine_info,
           if (OB_FAIL(schema_guard.get_database_schema( db_id, database_schema))) {
           } else if (OB_ISNULL(database_schema)) {
             ret = OB_ERR_UNEXPECTED;
-            LOG_WARN("database schema should not be null", K(ret));
           } else {
-            ObRoutinePrivSortKey routine_key(routine_info.get_owner_id(),
+            ObRoutinePrivSortKey routine_key(routine_info.get_owner_id(), 
                                               database_schema->get_database_name_str(), 
                                               routine_info.get_routine_name(), routine_info.is_procedure() ? 
                                               ObRoutineType::ROUTINE_PROCEDURE_TYPE : ObRoutineType::ROUTINE_FUNCTION_TYPE);
@@ -184,7 +178,6 @@ int ObPLDDLService::create_routine(ObRoutineInfo &routine_info,
                                                    user_info))) {
             } else if (OB_ISNULL(user_info)) {
               ret = OB_ERR_PARALLEL_DDL_CONFLICT;
-              LOG_WARN("user info is null, may be parallel ddl conflict", K(ret));
             } else if (OB_FAIL(pl_operator.grant_routine(routine_key,
                                                           priv_set,
                                                           trans,
@@ -221,11 +214,10 @@ int ObPLDDLService::alter_routine(const obcall::ObCreateRoutineArg &arg,
   } else {
     ObErrorInfo error_info = arg.error_info_;
     const ObRoutineInfo *routine_info = NULL;
-
+    
     if (OB_FAIL(schema_guard.get_routine_info( arg.routine_info_.get_routine_id(), routine_info))) {
     } else if (OB_ISNULL(routine_info)) {
       ret = OB_ERR_SP_DOES_NOT_EXIST;
-      LOG_WARN("routine info is not exist!", K(ret), K(arg.routine_info_));
     }
     if (OB_FAIL(ret)) {
     } else if (arg.is_need_alter_) {
@@ -248,9 +240,8 @@ int ObPLDDLService::alter_routine(const ObRoutineInfo &routine_info,
   int ret = OB_SUCCESS;
   if (OB_ISNULL(ddl_service.schema_service_) || OB_ISNULL(ddl_service.sql_proxy_)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("argument is NULL", K(ret));
   } else {
-
+    
     ObDDLSQLTransaction trans(ddl_service.schema_service_);
     ObPLDDLOperator pl_operator(*ddl_service.schema_service_, *ddl_service.sql_proxy_);
     int64_t refreshed_schema_version = 0;
@@ -283,9 +274,8 @@ int ObPLDDLService::drop_routine(const ObDropRoutineArg &arg,
   int ret = OB_SUCCESS;
   if (!arg.is_valid()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid arg", K(arg), K(ret));
   } else {
-
+    
     const ObString &db_name = arg.db_name_;
     const ObString &routine_name = arg.routine_name_;
     ObRoutineType routine_type = arg.routine_type_;
@@ -303,7 +293,6 @@ int ObPLDDLService::drop_routine(const ObDropRoutineArg &arg,
      */
     if (db_name.empty()) {
       ret = OB_ERR_NO_DB_SELECTED;
-      LOG_WARN("no database selected", K(ret), K(db_name));
     } else if (OB_FAIL(ddl_service.get_runtime_schema_guard_with_version_in_inner_table(schema_guard))) {
     } else if (OB_FAIL(ddl_service.check_parallel_ddl_conflict(schema_guard, arg))) {
     } else if (OB_FAIL(schema_guard.get_database_schema( db_name, db_schema))) {
@@ -312,10 +301,8 @@ int ObPLDDLService::drop_routine(const ObDropRoutineArg &arg,
       LOG_USER_ERROR(OB_ERR_BAD_DATABASE, db_name.length(), db_name.ptr());
     } else if (db_schema->is_in_recyclebin()) {
       ret = OB_ERR_OPERATION_ON_RECYCLE_OBJECT;
-      LOG_WARN("Can't not create procedure of db in recyclebin", K(ret), K(arg), K(*db_schema));
     } else if (OB_INVALID_ID == db_schema->get_database_id()) {
       ret = OB_ERR_BAD_DATABASE;
-      LOG_WARN("database id is invalid", K(*db_schema), K(ret));
     }
 
     if (OB_SUCC(ret)) {
@@ -368,7 +355,6 @@ int ObPLDDLService::drop_routine(const ObDropRoutineArg &arg,
         LOG_USER_ERROR(OB_ERR_SP_DOES_NOT_EXIST, "FUNCTION (UDF)",
                       db_name.length(), db_name.ptr(),
                       routine_name.length(), routine_name.ptr());
-        LOG_WARN("FUNCTION (UDF) does not exists", K(ret), K(routine_name), K(db_name));
       }
     }
   }
@@ -384,9 +370,8 @@ int ObPLDDLService::drop_routine(const ObRoutineInfo &routine_info,
   int ret = OB_SUCCESS;
   if (OB_ISNULL(ddl_service.schema_service_) || OB_ISNULL(ddl_service.sql_proxy_)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("argument is NULL", K(ret));
   } else {
-
+    
     ObDDLSQLTransaction trans(ddl_service.schema_service_);
     ObPLDDLOperator pl_operator(*ddl_service.schema_service_, *ddl_service.sql_proxy_);
     int64_t refreshed_schema_version = 0;
@@ -404,7 +389,6 @@ int ObPLDDLService::drop_routine(const ObRoutineInfo &routine_info,
       if (OB_FAIL(schema_guard.get_system_variable(SYS_VAR_AUTOMATIC_SP_PRIVILEGES, sys_var))) {
       } else if (OB_ISNULL(sys_var)) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("sys variable schema is null", KR(ret));
       } else if (OB_FAIL(sys_var->get_value(&alloc, NULL, val))) {
       } else if (val.get_bool()) {
         const int64_t db_id = routine_info.get_database_id();
@@ -413,14 +397,12 @@ int ObPLDDLService::drop_routine(const ObRoutineInfo &routine_info,
         if (OB_FAIL(schema_guard.get_database_schema(db_id, database_schema))) {
         } else if (OB_ISNULL(database_schema)) {
           ret = OB_ERR_UNEXPECTED;
-          LOG_WARN("database schema is null", K(ret));
         } else if (OB_FAIL(schema_guard.get_user_infos_by_id(user_infos))) {
         }
         for (int64_t i = 0; OB_SUCC(ret) && i < user_infos.count(); ++i) {
           const ObUserInfo *user_info = user_infos.at(i);
           if (OB_ISNULL(user_info)) {
             ret = OB_ERR_UNEXPECTED;
-            LOG_WARN("unexpected null user info", K(ret));
           } else {
             ObRoutinePrivSortKey routine_key(
                 user_info->get_user_id(),
@@ -464,7 +446,7 @@ int ObPLDDLService::create_package(const obcall::ObCreatePackageArg &arg,
   } else {
     ObPackageInfo new_package_info;
     const ObPackageInfo *old_package_info = NULL;
-
+    
     ObString database_name = arg.db_name_;
     const ObDatabaseSchema *db_schema = NULL;
     if (OB_FAIL(new_package_info.assign(arg.package_info_))) {
@@ -474,10 +456,8 @@ int ObPLDDLService::create_package(const obcall::ObCreatePackageArg &arg,
       LOG_USER_ERROR(OB_ERR_BAD_DATABASE, database_name.length(), database_name.ptr());
     } else if (db_schema->is_in_recyclebin()) {
       ret = OB_ERR_OPERATION_ON_RECYCLE_OBJECT;
-      LOG_WARN("Can't not create package of db in recyclebin", K(ret), K(arg), K(*db_schema));
     } else if (OB_INVALID_ID == db_schema->get_database_id()) {
       ret = OB_ERR_BAD_DATABASE;
-      LOG_WARN("database id is invalid", K(*db_schema), K(ret));
     } else {
       new_package_info.set_database_id(db_schema->get_database_id());
     }
@@ -545,9 +525,8 @@ int ObPLDDLService::create_package(ObSchemaGetterGuard &schema_guard,
   int ret = OB_SUCCESS;
   if (OB_ISNULL(ddl_service.schema_service_) || OB_ISNULL(ddl_service.sql_proxy_)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("argument is NULL", K(ret));
   } else {
-
+    
     ObDDLSQLTransaction trans(ddl_service.schema_service_);
     ObPLDDLOperator pl_operator(*ddl_service.schema_service_, *ddl_service.sql_proxy_);
     int64_t refreshed_schema_version = 0;
@@ -585,7 +564,7 @@ int ObPLDDLService::drop_package(const obcall::ObDropPackageArg &arg,
   ObSchemaGetterGuard schema_guard;
   if (OB_FAIL(check_env_before_ddl(schema_guard, arg, ddl_service))) {
   } else {
-
+    
     const ObString &db_name = arg.db_name_;
     const ObString &package_name = arg.package_name_;
     ObPackageType package_type = arg.package_type_;
@@ -596,10 +575,8 @@ int ObPLDDLService::drop_package(const obcall::ObDropPackageArg &arg,
       LOG_USER_ERROR(OB_ERR_BAD_DATABASE, db_name.length(), db_name.ptr());
     } else if (db_schema->is_in_recyclebin()) {
       ret = OB_ERR_OPERATION_ON_RECYCLE_OBJECT;
-      LOG_WARN("Can't not create package of db in recyclebin", K(ret), K(arg), K(*db_schema));
     } else if (OB_INVALID_ID == db_schema->get_database_id()) {
       ret = OB_ERR_BAD_DATABASE;
-      LOG_WARN("database id is invalid", K(*db_schema), K(ret));
     }
     if (OB_SUCC(ret)) {
       bool exist = false;
@@ -636,9 +613,8 @@ int ObPLDDLService::drop_package(share::schema::ObSchemaGetterGuard &schema_guar
   int ret = OB_SUCCESS;
   if (OB_ISNULL(ddl_service.schema_service_) || OB_ISNULL(ddl_service.sql_proxy_)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("argument is NULL", K(ret));
   } else {
-
+    
     ObDDLSQLTransaction trans(ddl_service.schema_service_);
     ObPLDDLOperator pl_operator(*ddl_service.schema_service_, *ddl_service.sql_proxy_);
     int64_t refreshed_schema_version = 0;
@@ -685,7 +661,7 @@ int ObPLDDLService::alter_trigger(const obcall::ObAlterTriggerArg &arg,
 {
   int ret = OB_SUCCESS;
   ObSchemaGetterGuard schema_guard;
-
+  
   bool is_enable = false;
   int64_t refreshed_schema_version = 0;
   OZ (check_env_before_ddl(schema_guard, arg, ddl_service));
@@ -741,7 +717,7 @@ int ObPLDDLService::drop_trigger(const obcall::ObDropTriggerArg &arg,
 {
   int ret = OB_SUCCESS;
   ObSchemaGetterGuard schema_guard;
-
+  
   uint64_t trigger_database_id = OB_INVALID_ID;
   const ObString &trigger_database = arg.trigger_database_;
   const ObString &trigger_name = arg.trigger_name_;
@@ -753,8 +729,6 @@ int ObPLDDLService::drop_trigger(const obcall::ObDropTriggerArg &arg,
     ret = OB_ERR_TRIGGER_NOT_EXIST;
   } else if (trigger_info->is_in_recyclebin()) {
     ret = OB_ERR_OPERATION_ON_RECYCLE_OBJECT;
-    LOG_WARN("trigger is in recyclebin", K(ret),
-             K(trigger_info->get_trigger_id()), K(trigger_info->get_trigger_name()));
   } else if (OB_FAIL(drop_trigger_in_trans(*trigger_info, &arg.ddl_stmt_str_, schema_guard, ddl_service))) {
   }
   if (OB_ERR_TRIGGER_NOT_EXIST == ret || OB_ERR_BAD_DATABASE == ret) {
@@ -765,7 +739,6 @@ int ObPLDDLService::drop_trigger(const obcall::ObDropTriggerArg &arg,
     } else {
       LOG_MYSQL_USER_ERROR(OB_ERR_TRIGGER_NOT_EXIST);
     }
-    LOG_WARN("trigger not exist", K(arg.trigger_database_), K(arg.trigger_name_), K(ret));
   }
   return ret;
 }
@@ -780,7 +753,7 @@ int ObPLDDLService::create_trigger(const obcall::ObCreateTriggerArg &arg,
   //in_second_stage_ is false, Indicates that the trigger is created normally
   //true Indicates that the error message is inserted into the system table after the trigger is created
   //So the following steps can be skipped
-
+  
   uint64_t trigger_database_id = OB_INVALID_ID;
   uint64_t base_object_id = OB_INVALID_ID;
   ObSchemaType base_object_type = static_cast<ObSchemaType>(arg.trigger_info_.get_base_object_type());
@@ -811,7 +784,6 @@ int ObPLDDLService::create_trigger(const obcall::ObCreateTriggerArg &arg,
     int64_t table_schema_version = OB_INVALID_VERSION;
     if (OB_ISNULL(res)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("res is NULL", K(ret));
     } else if (OB_FAIL(create_trigger_in_trans(new_trigger_info,
                                                const_cast<ObErrorInfo &>(arg.error_info_),
                                                const_cast<ObSArray<ObDependencyInfo> &>(arg.dependency_infos_),
@@ -840,9 +812,8 @@ int ObPLDDLService::create_trigger_in_trans(share::schema::ObTriggerInfo &trigge
   int ret = OB_SUCCESS;
   if (OB_ISNULL(ddl_service.schema_service_) || OB_ISNULL(ddl_service.sql_proxy_)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("argument is NULL", K(ret));
   } else {
-
+    
     ObDDLSQLTransaction trans(ddl_service.schema_service_);
     ObPLDDLOperator pl_operator(*ddl_service.schema_service_, *ddl_service.sql_proxy_);
     int64_t refreshed_schema_version = 0;
@@ -876,9 +847,8 @@ int ObPLDDLService::drop_trigger_in_trans(const share::schema::ObTriggerInfo &tr
   int ret = OB_SUCCESS;
   if (OB_ISNULL(ddl_service.schema_service_) || OB_ISNULL(ddl_service.sql_proxy_)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("argument is NULL", K(ret));
   } else {
-
+    
     ObDDLSQLTransaction trans(ddl_service.schema_service_);
     ObPLDDLOperator pl_operator(*ddl_service.schema_service_, *ddl_service.sql_proxy_);
     int64_t refreshed_schema_version = 0;
@@ -933,7 +903,7 @@ int ObPLDDLService::rebuild_trigger_on_rename(share::schema::ObSchemaGetterGuard
   const ObDatabaseSchema *database_schema = NULL;
   const ObString *database_name = NULL;
   const ObString &table_name = table_schema.get_table_name_str();
-
+  
   OZ (schema_guard.get_database_schema( table_schema.get_database_id(), database_schema),
       table_schema.get_database_id());
   OV (OB_NOT_NULL(database_schema), OB_ERR_UNEXPECTED, table_schema.get_database_id());
@@ -981,7 +951,7 @@ int ObPLDDLService::create_trigger_for_truncate_table(share::schema::ObSchemaGet
   new_table_schema.get_trigger_list().reset();
   bool is_update_table_schema_version = false;
   const ObDatabaseSchema *db_schema = NULL;
-
+  
   ObPLDDLOperator pl_operator(ddl_operator.get_multi_schema_service(), ddl_operator.get_sql_proxy());
   OZ (schema_guard.get_database_schema(
                                        new_table_schema.get_database_id(),
@@ -1113,7 +1083,7 @@ int ObPLDDLService::recursive_alter_ref_trigger(share::schema::ObSchemaGetterGua
                                                 int64_t action_order)
 {
   int ret = OB_SUCCESS;
-
+  
   const ObTriggerInfo *trg_info = NULL;
   int64_t new_action_order = 0;
   for (int64_t i = 0; OB_SUCC(ret) && i < trigger_list.count(); i++) {
@@ -1146,7 +1116,7 @@ int ObPLDDLService::recursive_check_trigger_ref_cyclic(share::schema::ObSchemaGe
                                                         const ObString &generate_cyclic_name)
 {
   int ret = OB_SUCCESS;
-
+  
   const ObTriggerInfo *trg_info = NULL;
   for (int64_t i = 0; OB_SUCC(ret) && i < trigger_list.count(); i++) {
     OZ (schema_guard.get_trigger_info( trigger_list.at(i), trg_info));
@@ -1156,8 +1126,6 @@ int ObPLDDLService::recursive_check_trigger_ref_cyclic(share::schema::ObSchemaGe
         if (0 == trg_info->get_ref_trg_name().case_compare(ref_trigger_info.get_trigger_name())) {
           if (0 == trg_info->get_trigger_name().case_compare(generate_cyclic_name)) {
             ret = OB_ERR_REF_CYCLIC_IN_TRG;
-            LOG_WARN("cyclic trigger dependency is not allowed", K(ret),
-                     K(generate_cyclic_name), KPC(trg_info));
           }
           OZ (SMART_CALL(recursive_check_trigger_ref_cyclic(schema_guard,
                                                             *trg_info,
@@ -1179,7 +1147,7 @@ int ObPLDDLService::drop_trigger_in_drop_table(ObMySQLTransaction &trans,
   int ret = OB_SUCCESS;
   uint64_t trigger_id = OB_INVALID_ID;
   const ObTriggerInfo *trigger_info = NULL;
-
+  
   const ObIArray<uint64_t> &trigger_id_list = table_schema.get_trigger_list();
   ObPLDDLOperator pl_operator(ddl_operator.get_multi_schema_service(), ddl_operator.get_sql_proxy());
   for (int64_t i = 0; OB_SUCC(ret) && i < trigger_id_list.count(); i++) {
@@ -1209,7 +1177,7 @@ int ObPLDDLService::restore_trigger(const share::schema::ObTableSchema &table_sc
                                       ObDDLOperator &ddl_operator)
 {
   int ret = OB_SUCCESS;
-
+  
   const ObIArray<uint64_t> &trigger_id_list = table_schema.get_trigger_list();
   const ObTriggerInfo *trigger_info = NULL;
   ObPLDDLOperator pl_operator(ddl_operator.get_multi_schema_service(), ddl_operator.get_sql_proxy());
@@ -1239,14 +1207,11 @@ int ObPLDDLService::get_object_info(ObSchemaGetterGuard &schema_guard,
                                                     object_name, false, table_schema))) {
     } else if (OB_ISNULL(table_schema)) {
       ret = OB_ERR_BAD_TABLE;
-      LOG_WARN("table schema is invalid", K(ret), K(object_name), K(object_name));
     } else if (table_schema->is_in_recyclebin()) {
       ret = OB_ERR_OPERATION_ON_RECYCLE_OBJECT;
-      LOG_WARN("table is in recyclebin", K(ret), K(object_name), K(object_name));
     } else if (!table_schema->is_user_table() && !table_schema->is_user_view()) {
       ret = OB_NOT_SUPPORTED;
       LOG_USER_ERROR(OB_NOT_SUPPORTED, "not create on user table or user view in trigger now");
-      LOG_WARN("trigger only support create on user table or user view now", K(ret));
     } else {
       object_type = table_schema->is_user_table() ? TABLE_SCHEMA : VIEW_SCHEMA;
       object_id = table_schema->get_table_id();
@@ -1257,13 +1222,11 @@ int ObPLDDLService::get_object_info(ObSchemaGetterGuard &schema_guard,
     if (OB_FAIL(schema_guard.get_user_info(object_name, host_name, user_info))) {
     } else if (OB_ISNULL(user_info)) {
       ret = OB_ERR_BAD_TABLE;
-      LOG_WARN("user_info is NULL", K(ret), K(object_name));
     } else {
       object_id = user_info->get_user_id();
     }
   } else {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("object_type is invalid", K(ret), K(object_type));
   }
   return ret;
 }
@@ -1334,7 +1297,6 @@ int ObPLDDLService::check_env_before_ddl(share::schema::ObSchemaGetterGuard &sch
   int ret = OB_SUCCESS;
   if (!arg.is_valid()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid arg", K(arg), K(ret));
   } else if (OB_FAIL(ddl_service.check_inner_stat())) {
   } else if (OB_FAIL(ddl_service.get_runtime_schema_guard_with_version_in_inner_table(schema_guard))) {
   } else if (OB_FAIL(ddl_service.check_parallel_ddl_conflict(schema_guard, arg))) {

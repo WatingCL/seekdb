@@ -18,7 +18,7 @@
 
 #include "lib/ob_define.h"
 #include "lib/container/ob_iarray.h"
-#include "share/storage/ob_sqlite_connection_pool.h"
+#include "share/inner_table/local_table_schema.h"
 #include <functional>
 
 namespace oceanbase
@@ -28,7 +28,7 @@ namespace share
 
 struct ObDeadlockEventHistoryEntry
 {
-
+  
   uint64_t event_id_;
   uint64_t detector_id_;
   int64_t report_time_;
@@ -72,7 +72,7 @@ struct ObDeadlockEventHistoryEntry
   {}
 
   void reset() {
-
+    
     event_id_ = 0;
     detector_id_ = 0;
     report_time_ = 0;
@@ -102,17 +102,15 @@ public:
   ObDeadlockEventHistoryTableStorage();
   virtual ~ObDeadlockEventHistoryTableStorage();
 
-  int init(ObSQLiteConnectionPool *pool);
-  bool is_inited() const { return nullptr != pool_; }
+  int init(LocalStore *store);
+  bool is_inited() const { return nullptr != store_; }
 
   int insert(const ObDeadlockEventHistoryEntry &entry);
   int insert_all(const ObIArray<ObDeadlockEventHistoryEntry> &entries);
   int delete_expired(int64_t report_time_before, int64_t limit);
 
 private:
-  int create_table_if_not_exists();
-
-  ObSQLiteConnectionPool *pool_;
+  LocalStore *store_;
   DISALLOW_COPY_AND_ASSIGN(ObDeadlockEventHistoryTableStorage);
 };
 

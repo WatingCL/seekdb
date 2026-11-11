@@ -23,7 +23,7 @@
 namespace oceanbase {
 namespace common {
 
-static inline bool is_blank_str(const ObString& text)
+static inline bool is_blank_str(const ObString& text) 
 {
   bool res = true;
   const char* str = text.ptr();
@@ -37,9 +37,9 @@ static inline bool is_blank_str(const ObString& text)
 
 // ObXmlParserBase
 
-ObXmlNode* ObXmlParserBase::get_last_child(ObXmlNode* cur_node)
+ObXmlNode* ObXmlParserBase::get_last_child(ObXmlNode* cur_node) 
 {
-
+  
   ObXmlNode* last_child = nullptr;
   if (OB_NOT_NULL(cur_node) && cur_node->size() > 0) {
     last_child = cur_node->at(cur_node->size() - 1);
@@ -48,7 +48,7 @@ ObXmlNode* ObXmlParserBase::get_last_child(ObXmlNode* cur_node)
 }
 
 // if last child of current node  is text, then merge
-int ObXmlParserBase::add_or_merge_text(const ObString& text)
+int ObXmlParserBase::add_or_merge_text(const ObString& text) 
 {
   INIT_SUCC(ret);
   ObIAllocator* allocator = nullptr;
@@ -60,7 +60,6 @@ int ObXmlParserBase::add_or_merge_text(const ObString& text)
     // empty string, do nothing
   } else if (OB_ISNULL(allocator = this->get_allocator())) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("allocator is null", K(ret));
   } else {
     last_child = get_last_child(cur_node_);
     if (OB_NOT_NULL(text_node = ObXmlUtil::xml_node_cast<ObXmlText>(last_child, ObMulModeNodeType::M_TEXT))) {
@@ -72,7 +71,6 @@ int ObXmlParserBase::add_or_merge_text(const ObString& text)
       int64_t new_len = old_len + text.length();
       if (OB_ISNULL(str = static_cast<char*>(allocator->alloc(new_len)))) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
-        LOG_WARN("alloc failed", K(ret), K(text.length()), K(old_len));
       } else {
         MEMCPY(str, old_str, old_len);
         MEMCPY(str + old_len, text.ptr(), text.length());
@@ -83,10 +81,8 @@ int ObXmlParserBase::add_or_merge_text(const ObString& text)
     } else {
       if (OB_ISNULL(text_node = OB_NEWx(ObXmlText, allocator, ObMulModeNodeType::M_TEXT, ctx_))) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
-        LOG_WARN("alloc failed", K(ret));
       } else if (OB_ISNULL(str = static_cast<char*>(allocator->alloc(text.length())))) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
-        LOG_WARN("alloc failed", K(ret), K(text.length()));
       } else {
         MEMCPY(str, text.ptr(), text.length());
         text_node->set_value(ObString(text.length(), str));
@@ -100,12 +96,12 @@ int ObXmlParserBase::add_or_merge_text(const ObString& text)
 
 // remove prev slibing node if is empty text
 // and no contine plain text node when parse
-int ObXmlParserBase::remove_prev_empty_text()
+int ObXmlParserBase::remove_prev_empty_text() 
 {
   INIT_SUCC(ret);
   ObXmlText* text_node = nullptr;
   if (! is_ignore_space()) {
-  } else if (OB_NOT_NULL(text_node =
+  } else if (OB_NOT_NULL(text_node = 
       ObXmlUtil::xml_node_cast<ObXmlText>(get_last_child(cur_node_),
       ObMulModeNodeType::M_TEXT))) {
     // remove first alone empty text node if necessary
@@ -127,55 +123,51 @@ int ObXmlParserBase::remove_prev_empty_text()
 
 // currently M_TEXT text node will be merge before
 // and can not happen there are two continuely M_TEXT type text node
-int ObXmlParserBase::add_text_node(ObXmlText* node)
+int ObXmlParserBase::add_text_node(ObXmlText* node) 
 {
   INIT_SUCC(ret);
   if (OB_ISNULL(cur_node_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("current node is null", K(ret));
   } else if (OB_FAIL(remove_prev_empty_text())) {
   } else if (OB_FAIL(cur_node_->append(node))) {
   }
   return ret;
 }
 
-int ObXmlParserBase::comment(ObXmlText* node)
+int ObXmlParserBase::comment(ObXmlText* node) 
 {
   INIT_SUCC(ret);
   if (OB_ISNULL(cur_node_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("current node is null", K(ret));
   } else if (OB_FAIL(remove_prev_empty_text())) {
   } else if (OB_FAIL(cur_node_->append(node))) {
   }
   return ret;
 }
 
-int ObXmlParserBase::processing_instruction(ObXmlAttribute* node)
+int ObXmlParserBase::processing_instruction(ObXmlAttribute* node) 
 {
   INIT_SUCC(ret);
   if (OB_ISNULL(cur_node_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("current node is null", K(ret));
   } else if (OB_FAIL(remove_prev_empty_text())) {
   } else if (OB_FAIL(cur_node_->append(node))) {
   }
   return ret;
 }
 
-int ObXmlParserBase::cdata_block(ObXmlText* node)
+int ObXmlParserBase::cdata_block(ObXmlText* node) 
 {
   INIT_SUCC(ret);
   if (OB_ISNULL(cur_node_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("current node is null", K(ret));
   } else if (OB_FAIL(remove_prev_empty_text())) {
   } else if (OB_FAIL(cur_node_->append(node))) {
   }
   return ret;
 }
 
-int ObXmlParserBase::start_document(ObXmlDocument* node)
+int ObXmlParserBase::start_document(ObXmlDocument* node) 
 {
   INIT_SUCC(ret);
   this->document_ = node;
@@ -183,31 +175,28 @@ int ObXmlParserBase::start_document(ObXmlDocument* node)
   return ret;
 }
 
-int ObXmlParserBase::end_document()
+int ObXmlParserBase::end_document() 
 {
   INIT_SUCC(ret);
   if (OB_ISNULL(cur_node_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("current node is null", K(ret));
   } else if (OB_FAIL(remove_prev_empty_text())) {
   }
   return ret;
 }
 
-bool ObXmlParserBase::reach_max_depth()
+bool ObXmlParserBase::reach_max_depth() 
 {
   return depth_ > OB_XML_PARSER_MAX_DEPTH;
 }
 
-int ObXmlParserBase::start_element(ObXmlElement* node)
+int ObXmlParserBase::start_element(ObXmlElement* node) 
 {
   INIT_SUCC(ret);
   if (reach_max_depth()) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("reach max parse depth", K(ret), K(depth_));
   } else if (OB_ISNULL(cur_node_)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("current node is null", K(ret));
   } else if (OB_FAIL(remove_prev_empty_text())) {
   } else if (OB_FAIL(cur_node_->append(node))) {
   } else {
@@ -217,12 +206,11 @@ int ObXmlParserBase::start_element(ObXmlElement* node)
   return ret;
 }
 
-int ObXmlParserBase::end_element()
+int ObXmlParserBase::end_element() 
 {
   INIT_SUCC(ret);
   if (OB_NOT_NULL(cur_node_)) {
     if (cur_node_->size() > 1 && OB_FAIL(remove_prev_empty_text())) {
-      LOG_WARN("remove_prev_empty_text failed", K(ret));
     } else {
       --depth_;
       cur_node_ = cur_node_->get_parent();
@@ -235,26 +223,25 @@ int ObXmlParserBase::end_element()
 
 
 // ObXmlParserUtils
-int ObXmlParserUtils::parse_document_text(ObMulModeMemCtx* ctx, const ObString& xml_text, ObXmlDocument*&node, int64_t option)
+int ObXmlParserUtils::parse_document_text(ObMulModeMemCtx* ctx, const ObString& xml_text, ObXmlDocument*&node, int64_t option) 
 {
   INIT_SUCC(ret);
   ObXmlParser parser(ctx);
-
+  
   if (OB_FAIL(parser.parse_document(xml_text))) {
   } else {
     node = parser.document();
     if (OB_ISNULL(node)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("node can not be null", K(ret));
     } else if (!(option & OB_XML_PARSE_CONTAINER_LAZY_SORT)) {
       if (OB_FAIL(node->alter_member_sort_policy(true))) {
       }
     }
   }
-  return ret;
+  return ret;  
 }
 
-int ObXmlParserUtils::parse_content_text(ObMulModeMemCtx* ctx, const ObString& xml_text, ObXmlDocument*&node, int64_t option)
+int ObXmlParserUtils::parse_content_text(ObMulModeMemCtx* ctx, const ObString& xml_text, ObXmlDocument*&node, int64_t option) 
 {
   INIT_SUCC(ret);
   ObXmlParser parser(ctx);
@@ -264,13 +251,12 @@ int ObXmlParserUtils::parse_content_text(ObMulModeMemCtx* ctx, const ObString& x
     node = parser.document();
     if (OB_ISNULL(node)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("node can not be null", K(ret));
     } else if (!(option & OB_XML_PARSE_CONTAINER_LAZY_SORT)) {
       if (OB_FAIL(node->alter_member_sort_policy(true))) {
       }
     }
   }
-  return ret;
+  return ret;  
 }
 
 
@@ -370,10 +356,9 @@ int ObXmlParserUtils::escape_xml_text(const ObString &src, ObString &dst)
     switch (c) {
       case ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_AMP_SYMBOL : {
         if (OB_UNLIKELY(ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_AMP_LEN != dst.write(
-            ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_AMP,
+            ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_AMP, 
             ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_AMP_LEN))) {
           ret = OB_SIZE_OVERFLOW;
-          LOG_WARN("write amp char failed", K(ret), K(c));
         }
         break;
       }
@@ -382,7 +367,6 @@ int ObXmlParserUtils::escape_xml_text(const ObString &src, ObString &dst)
             ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_LT,
             ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_LT_LEN))) {
           ret = OB_SIZE_OVERFLOW;
-          LOG_WARN("write lt char failed", K(ret), K(c));
         }
         break;
       }
@@ -391,7 +375,6 @@ int ObXmlParserUtils::escape_xml_text(const ObString &src, ObString &dst)
             ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_GT,
             ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_GT_LEN))) {
           ret = OB_SIZE_OVERFLOW;
-          LOG_WARN("write gt char failed", K(ret), K(c));
         }
         break;
       }
@@ -400,7 +383,6 @@ int ObXmlParserUtils::escape_xml_text(const ObString &src, ObString &dst)
             ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_QUOT,
             ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_QUOT_LEN))) {
           ret = OB_SIZE_OVERFLOW;
-          LOG_WARN("append quot char failed", K(ret), K(c));
         }
         break;
       }
@@ -409,14 +391,12 @@ int ObXmlParserUtils::escape_xml_text(const ObString &src, ObString &dst)
           ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_APOS,
           ObXmlParserBase::OB_XML_PREDEFINED_ENTITY_APOS_LEN))) {
           ret = OB_SIZE_OVERFLOW;
-          LOG_WARN("write apos char failed", K(ret), K(c));
         }
         break;
       }
       default : {
         if (OB_UNLIKELY(1 != dst.write(ptr + i, 1))) {
           ret = OB_SIZE_OVERFLOW;
-          LOG_WARN("write normal char failed", K(ret), K(c));
         }
         break;
       }
@@ -425,7 +405,7 @@ int ObXmlParserUtils::escape_xml_text(const ObString &src, ObString &dst)
   return ret;
 }
 
-bool ObXmlParserUtils::has_xml_decl(const ObString& xml_text)
+bool ObXmlParserUtils::has_xml_decl(const ObString& xml_text) 
 {
   const char* str = xml_text.ptr();
   int length = xml_text.length();
@@ -459,7 +439,7 @@ static int parse_name_value(const char* str,
                             const ObString& name,
                             const char*& value_pos,
                             int& value_len,
-                            bool& has_value)
+                            bool& has_value) 
 {
   INIT_SUCC(ret);
   OB_PARSE_XML_DECL_SKIP_SPACE
@@ -506,13 +486,13 @@ static int parse_name_value(const char* str,
 }
 
 
-int ObXmlParserUtils::parse_xml_decl(const ObString& xml_decl,
+int ObXmlParserUtils::parse_xml_decl(const ObString& xml_decl, 
                                      ObString& version,
                                      bool &has_version_value,
                                      ObString& encoding,
                                      bool &has_encoding_value,
                                      ObString& standalone,
-                                     bool &has_standalone_value)
+                                     bool &has_standalone_value) 
 {
   INIT_SUCC(ret);
   const char* str = xml_decl.ptr();
@@ -549,12 +529,10 @@ int ObXmlParserUtils::parse_xml_decl(const ObString& xml_decl,
         standalone.assign_ptr(standalone_start, standalone_len);
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("not invalid xml decl", K(ret), K(xml_decl));
       }
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("not invalid xml decl", K(ret), K(xml_decl));
   }
   return ret;
 }
@@ -577,7 +555,7 @@ ObXmlStandaloneType ObXmlParserUtils::get_standalone_type(const ObString& src_st
  *
  * [5NS] NCName ::= (Letter | '_') (NCNameChar)*
 */
-int ObXmlParserUtils::check_local_name_legality(const ObString& localname)
+int ObXmlParserUtils::check_local_name_legality(const ObString& localname) 
 {
   INIT_SUCC(ret);
   uint64_t letter_count = 0;
@@ -599,7 +577,6 @@ int ObXmlParserUtils::check_local_name_legality(const ObString& localname)
           // do nothing
         } else {
           ret = OB_ERR_PARSER_SYNTAX;
-          LOG_WARN("ns is invalid", K(ret), K(localname));
         }
       } else if (((IS_LETTER(codepoint)) || (IS_DIGIT(codepoint)) ||
 		             (codepoint == 0x2e) || (codepoint == 0x2d) || // '.', '-'
@@ -609,14 +586,13 @@ int ObXmlParserUtils::check_local_name_legality(const ObString& localname)
         // do nothing
       } else {
         ret = OB_ERR_PARSER_SYNTAX;
-        LOG_WARN("ns is invalid", K(ret), K(localname));
       }
     }
   }
   return ret;
 }
 
-int ObXmlParserUtils::get_prefix_and_localname(const ObString& qname, ObString& prefix, ObString& localname)
+int ObXmlParserUtils::get_prefix_and_localname(const ObString& qname, ObString& prefix, ObString& localname) 
 {
   INIT_SUCC(ret);
   const char* str = qname.ptr();
@@ -641,7 +617,7 @@ int ObXmlParserUtils::get_prefix_and_localname(const ObString& qname, ObString& 
   return ret;
 }
 
-bool ObXmlParserUtils::is_namespace_attribute(ObXmlAttribute* attr)
+bool ObXmlParserUtils::is_namespace_attribute(ObXmlAttribute* attr) 
 {
   bool res = false;
   if (OB_NOT_NULL(attr)) {

@@ -21,15 +21,15 @@
 #include "share/json/ob_json_helper.h"
 #include "lib/encode/ob_base64_encode.h"
 
-namespace oceanbase
+namespace oceanbase 
 {
-namespace common
+namespace common 
 {
 
-class ObOpenAIUtils
+class ObOpenAIUtils 
 {
 public:
-  class ObOpenAIComplete : public ObAIFuncIComplete
+  class ObOpenAIComplete : public ObAIFuncIComplete 
   {
   public:
     ObOpenAIComplete() {}
@@ -38,7 +38,7 @@ public:
                            common::ObString &api_key,
                            common::ObArray<ObString> &headers) override;
     virtual int get_body(common::ObIAllocator &allocator,
-                         common::ObString &model,
+                         common::ObString &model, 
                          common::ObString &prompt,
                          common::ObString &content,
                          common::ObJsonObject *config,
@@ -53,7 +53,7 @@ public:
     DISALLOW_COPY_AND_ASSIGN(ObOpenAIComplete);
   };
 
-  class ObOpenAIEmbed : public ObAIFuncIEmbed
+  class ObOpenAIEmbed : public ObAIFuncIEmbed 
   {
   public:
     ObOpenAIEmbed() {}
@@ -62,7 +62,7 @@ public:
                            common::ObString &api_key,
                            common::ObArray<ObString> &headers) override;
     virtual int get_body(common::ObIAllocator &allocator,
-                         common::ObString &model,
+                         common::ObString &model, 
                          common::ObArray<ObString> &contents,
                          common::ObJsonObject *config,
                          common::ObJsonObject *&body) override;
@@ -79,10 +79,10 @@ private:
   DISALLOW_COPY_AND_ASSIGN(ObOpenAIUtils);
 };
 
-class ObOllamaUtils
+class ObOllamaUtils 
 {
 public:
-  class ObOllamaComplete : public ObAIFuncIComplete
+  class ObOllamaComplete : public ObAIFuncIComplete 
   {
   public:
     ObOllamaComplete() {}
@@ -91,7 +91,7 @@ public:
                            common::ObString &api_key,
                            common::ObArray<ObString> &headers) override;
     virtual int get_body(common::ObIAllocator &allocator,
-                         common::ObString &model,
+                         common::ObString &model, 
                          common::ObString &prompt,
                          common::ObString &content,
                          common::ObJsonObject *config,
@@ -104,7 +104,7 @@ public:
     DISALLOW_COPY_AND_ASSIGN(ObOllamaComplete);
   };
 
-  class ObOllamaEmbed : public ObAIFuncIEmbed
+  class ObOllamaEmbed : public ObAIFuncIEmbed 
   {
   public:
     ObOllamaEmbed() {}
@@ -127,10 +127,10 @@ public:
   DISALLOW_COPY_AND_ASSIGN(ObOllamaUtils);
 };
 
-class ObDashscopeUtils
+class ObDashscopeUtils 
 {
 public:
-  class ObDashscopeComplete : public ObAIFuncIComplete
+  class ObDashscopeComplete : public ObAIFuncIComplete 
   {
   public:
     ObDashscopeComplete() {}
@@ -139,7 +139,7 @@ public:
                            common::ObString &api_key,
                            common::ObArray<ObString> &headers) override;
     virtual int get_body(common::ObIAllocator &allocator,
-                         common::ObString &model,
+                         common::ObString &model, 
                          common::ObString &prompt,
                          common::ObString &content,
                          common::ObJsonObject *config,
@@ -153,7 +153,7 @@ public:
   private:
     DISALLOW_COPY_AND_ASSIGN(ObDashscopeComplete);
   };
-  class ObDashscopeEmbed : public ObAIFuncIEmbed
+  class ObDashscopeEmbed : public ObAIFuncIEmbed 
   {
   public:
     ObDashscopeEmbed() {}
@@ -162,7 +162,7 @@ public:
                            common::ObString &api_key,
                            common::ObArray<ObString> &headers) override;
     virtual int get_body(common::ObIAllocator &allocator,
-                         common::ObString &model,
+                         common::ObString &model, 
                          common::ObArray<ObString> &contents,
                          common::ObJsonObject *config,
                          common::ObJsonObject *&body) override;
@@ -172,7 +172,7 @@ public:
   private:
     DISALLOW_COPY_AND_ASSIGN(ObDashscopeEmbed);
   };
-  class ObDashscopeRerank : public ObAIFuncIRerank
+  class ObDashscopeRerank : public ObAIFuncIRerank 
   {
   public:
     ObDashscopeRerank() {}
@@ -201,10 +201,10 @@ private:
   DISALLOW_COPY_AND_ASSIGN(ObDashscopeUtils);
 };
 
-class ObSiliconflowUtils
+class ObSiliconflowUtils 
 {
 public:
-  class ObSiliconflowRerank : public ObAIFuncIRerank
+  class ObSiliconflowRerank : public ObAIFuncIRerank 
   {
   public:
     ObSiliconflowRerank() {}
@@ -230,7 +230,7 @@ public:
 private:
   DISALLOW_COPY_AND_ASSIGN(ObSiliconflowUtils);
 };
-class ObAIFuncJsonUtils
+class ObAIFuncJsonUtils 
 {
 public:
   ObAIFuncJsonUtils() {}
@@ -245,17 +245,11 @@ public:
   static int get_json_object_form_str(ObIAllocator &allocator, ObString &str, ObJsonObject *&obj_node);
   static int print_json_to_str(ObIAllocator &allocator, ObIJsonBase *base_node, ObString &str);
   static int compact_json_object(ObIAllocator &allocator, ObJsonObject *obj_node, ObJsonObject *compact_obj);
-  // 校验 embedding 结果: 结果个数与输入个数一致, 向量维度正确且元素均为数值
-  static int validate_embedding_result(ObIAllocator &allocator, ObIJsonBase *result,
-                                       int64_t input_count, int64_t dimension);
-  // 校验并归一化 rerank 结果: index 必须落在 [0, input_count) 且不重复, 结果按相关度降序
-  static int normalize_rerank_result(ObIAllocator &allocator, ObIJsonBase *result,
-                                     int64_t input_count, ObJsonArray *&sorted);
 private:
   DISALLOW_COPY_AND_ASSIGN(ObAIFuncJsonUtils);
 };
 
-class ObAIFuncPromptUtils
+class ObAIFuncPromptUtils 
 {
 public:
   ObAIFuncPromptUtils() {}
@@ -264,7 +258,7 @@ public:
   DISALLOW_COPY_AND_ASSIGN(ObAIFuncPromptUtils);
 };
 
-class ObAIFuncProviderUtils
+class ObAIFuncProviderUtils 
 {
 public:
   ObAIFuncProviderUtils() {}
@@ -282,11 +276,9 @@ private:
   DISALLOW_COPY_AND_ASSIGN(ObAIFuncProviderUtils);
 };
 
-class ObAIFuncUtils
+class ObAIFuncUtils 
 {
 public:
-  // float 能表示的最大值, 用于校验 embedding 元素的取值范围
-  static constexpr double OB_AI_FUNC_MAX_FLOAT_VALUE = 3.40282346638528860e+38;
   ObAIFuncUtils() {}
   virtual ~ObAIFuncUtils() {}
   static bool is_completion_type(const ObAIFuncExprInfo *info) {return info->type_ == share::EndpointType::COMPLETION;}
@@ -303,36 +295,36 @@ public:
                         const ObAIFuncExprInfo &info,
                         const share::ObAiModelEndpointInfo &endpoint_info,
                         ObArray<ObString> &headers);
-  static int get_complete_body(ObIAllocator &allocator,
+  static int get_complete_body(ObIAllocator &allocator, 
                                const ObAIFuncExprInfo &info,
                                const share::ObAiModelEndpointInfo &endpoint_info,
                                ObString &prompt,
-                               ObString &content,
+                               ObString &content, 
                                ObJsonObject *config,
                                ObJsonObject *&body);
   static int set_json_format_config(ObIAllocator &allocator, const ObString &provider, ObJsonObject *config);
-  static int get_embed_body(ObIAllocator &allocator,
+  static int get_embed_body(ObIAllocator &allocator, 
                             const ObAIFuncExprInfo &info,
                             const share::ObAiModelEndpointInfo &endpoint_info,
                             ObArray<ObString> &contents,
                             ObJsonObject *config,
                             ObJsonObject *&body);
-  static int get_rerank_body(ObIAllocator &allocator,
+  static int get_rerank_body(ObIAllocator &allocator, 
                              const ObAIFuncExprInfo &info,
                              const share::ObAiModelEndpointInfo &endpoint_info,
                              ObString &query,
                              ObJsonArray *document_array,
                              ObJsonObject *config,
                              ObJsonObject *&body);
-  static int parse_complete_output(ObIAllocator &allocator,
+  static int parse_complete_output(ObIAllocator &allocator, 
                                    const share::ObAiModelEndpointInfo &endpoint_info,
                                    ObJsonObject *http_response,
                                    ObIJsonBase *&result);
-  static int parse_embed_output(ObIAllocator &allocator,
+  static int parse_embed_output(ObIAllocator &allocator, 
                                 const share::ObAiModelEndpointInfo &endpoint_info,
                                 ObJsonObject *http_response,
                                 ObIJsonBase *&result);
-  static int parse_rerank_output(ObIAllocator &allocator,
+  static int parse_rerank_output(ObIAllocator &allocator, 
                                  const share::ObAiModelEndpointInfo &endpoint_info,
                                  ObJsonObject *http_response,
                                  ObIJsonBase *&result);
@@ -360,7 +352,7 @@ public:
   {}
    virtual ~ObAIFuncModel() {}
    // completion
-   int call_completion(ObString &prompt, ObJsonObject *config, ObString &result, const ObString &system_hint = ObString());
+   int call_completion(ObString &prompt, ObJsonObject *config, ObString &result);
    int call_completion_vector(ObArray<ObString> &prompts, ObJsonObject *config, ObArray<ObString> &results);
    // dense_embedding
    int call_dense_embedding(ObString &content, ObJsonObject *config, ObString &result);
@@ -385,12 +377,10 @@ public:
   ObAIFuncPromptObjectUtils() {}
   virtual ~ObAIFuncPromptObjectUtils() {}
   static bool is_valid_prompt_object(ObJsonObject* prompt_object);
-  static int replace_all_str_args_in_template(ObIAllocator &allocator, ObJsonObject* prompt_object,
-                                              ObString& replaced_prompt_str, int64_t depth = 0);
+  static int replace_all_str_args_in_template(ObIAllocator &allocator, ObJsonObject* prompt_object, ObString& replaced_prompt_str);
   static int construct_prompt_object(ObIAllocator &allocator, ObString &template_str, ObJsonArray *args_array, ObJsonObject *&prompt_object);
   static constexpr char prompt_template_key[20] = "template";
   static constexpr char prompt_args_key[20] = "args";
-  static constexpr int64_t MAX_PROMPT_NEST_DEPTH = 16;
 private:
   DISALLOW_COPY_AND_ASSIGN(ObAIFuncPromptObjectUtils);
 };

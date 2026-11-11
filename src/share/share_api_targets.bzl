@@ -65,7 +65,7 @@ _EXISTING_SEMANTIC_API_TARGETS = [
     "scn_interface",
     "semistruct",
     "sequence_option",
-    "sqlite_storage_interface",
+    "local_storage_interface",
     "srs_provider_interface",
     "statement_type",
     "storage_cache_policy",
@@ -104,7 +104,8 @@ _SHARE_SEMANTIC_HEADER_TARGETS = {
             ":config",
             ":core_types",
             ":scn_interface",
-            ":sqlite_storage_interface",
+            ":local_storage_interface",
+            ":local_table_schema",
             ":tablet_replica_types",
             ":tenant_runtime",
             ":timezone_runtime",
@@ -118,7 +119,8 @@ _SHARE_SEMANTIC_HEADER_TARGETS = {
     "admin_job_storage_interface": struct(
         hdrs = ["storage/ob_admin_job_table_storage.h"],
         deps = [
-            ":sqlite_storage_interface",
+            ":local_storage_interface",
+            ":local_table_schema",
             "//src/oblib:oblib_foundation",
         ],
     ),
@@ -188,7 +190,8 @@ _SHARE_SEMANTIC_HEADER_TARGETS = {
             ":schema_model_interface",
             ":schema_registry",
             ":scn_interface",
-            ":sqlite_storage_interface",
+            ":local_storage_interface",
+            ":local_table_schema",
             ":tablet_replica_types",
             "//src/oblib:oblib_foundation",
         ],
@@ -204,6 +207,8 @@ _SHARE_SEMANTIC_HEADER_TARGETS = {
             "ob_snapshot_table_proxy.h",
         ],
         deps = [
+            ":local_storage_interface",
+            ":local_table_schema",
             ":cluster_version_interface",
             ":core_types",
             ":schema_model_interface",
@@ -525,7 +530,10 @@ _SHARE_SEMANTIC_HEADER_TARGETS = {
         ],
     ),
     "runtime_context": struct(
-        hdrs = ["ob_server_struct.h"],
+        hdrs = [
+            "ob_cpu_share_calculator.h",
+            "ob_server_struct.h",
+        ],
         deps = [
             ":cluster_topology",
             ":config",
@@ -582,7 +590,6 @@ _SHARE_SEMANTIC_HEADER_TARGETS = {
     "schema_persistence": struct(
         hdrs = [
             "schema/ob_ai_model_sql_service.h",
-            "ai_service/ai_column_task.h",
             "schema/ob_database_sql_service.h",
             "schema/ob_ddl_sql_service.h",
             "schema/ob_outline_sql_service.h",
@@ -705,7 +712,8 @@ _SHARE_SEMANTIC_HEADER_TARGETS = {
         ],
         deps = [
             ":compaction_runtime",
-            ":sqlite_storage_interface",
+            ":local_storage_interface",
+            ":local_table_schema",
             ":tablet_replica_types",
             "//src/oblib:oblib_foundation",
         ],
@@ -749,16 +757,13 @@ _SHARE_SEMANTIC_HEADER_TARGETS = {
             "ob_check_stop_provider.h",
             "ob_occam_thread_pool.h",
             "ob_occam_time_guard.h",
-            "ob_occam_timer.h",
             "ob_shared_timer.h",
             "ob_throttling_utils.h",
         ],
         deps = [
             ":core_types",
-            ":delegate_interface",
             ":tenant_runtime",
             ":thread_pool_interface",
-            ":time_wheel",
             "//src/oblib:oblib_foundation",
         ],
     ),

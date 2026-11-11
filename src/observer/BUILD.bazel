@@ -36,7 +36,7 @@ load(
 package(default_visibility = ["//visibility:private"])
 
 _OBSERVER_GENERATED_SOURCE_REPLACEMENTS = {
-    "src/observer/virtual_table/ob_all_virtual_sqlite_tables.cpp": "//src/share:generated_sqlite_virtual_table_source",
+    "src/observer/virtual_table/ob_all_virtual_local_tables.cpp": "//src/share:generated_local_virtual_table_source",
 }
 
 observer_validate_source_inventory(
@@ -53,7 +53,7 @@ observer_validate_source_inventory(
             "**/*.cpp",
             "**/*.cxx",
         ],
-        exclude = ["virtual_table/ob_all_virtual_sqlite_tables.cpp"],
+        exclude = ["virtual_table/ob_all_virtual_local_tables.cpp"],
         allow_empty = True,
     ),
     OBSERVER_IGNORED_SOURCES,
@@ -74,7 +74,7 @@ observer_validate_header_inventory(
             "**/*.ipp",
             "**/*.tcc",
         ],
-        exclude = ["virtual_table/ob_all_virtual_sqlite_tables.h"],
+        exclude = ["virtual_table/ob_all_virtual_local_tables.h"],
         allow_empty = True,
     ),
 )
@@ -132,7 +132,8 @@ _OBSERVER_NATIVE_DEPS = [
     "//src/rootserver:major_freeze_coordinator_adapter",
     "//src/rootserver:max_id_cache_adapter",
     "//src/share:_generated_inner_table_headers",
-    "//src/share:_generated_sqlite_virtual_table_headers",
+    "//src/share:_generated_local_virtual_table_headers",
+    "//src/share:local_table_schema",
     "//src/share:ai_endpoint_interface",
     "//src/share:admin_job_storage_interface",
     "//src/share:autoincrement_runtime",
@@ -182,13 +183,14 @@ _OBSERVER_NATIVE_DEPS = [
     "//src/share:scn_interface",
     "//src/share:sequence_runtime",
     "//src/share:sql_persistence_support",
-    "//src/share:sqlite_storage_interface",
+    "//src/share:local_storage_interface",
     "//src/share:srs_provider_interface",
     "//src/share:storage_cache_policy",
     "//src/share:system_variable_metadata",
     "//src/share:table_load_protocol",
     "//src/share:table_runtime",
     "//src/share:tablet_metadata",
+    "//src/share:seekdb_runtime_foundation",
     "//src/share:tablet_replica_types",
     "//src/share:tenant_module_init",
     "//src/share:tenant_runtime",
@@ -219,7 +221,6 @@ _OBSERVER_NATIVE_DEPS = [
     "@seekdb_3rd_headers//:rapidjson_headers",
     "@seekdb_3rd_headers//:roaring_headers",
     "@seekdb_3rd_headers//:s2_headers",
-    "@seekdb_3rd_headers//:sqlite_headers",
     "@seekdb_3rd_headers//:vsag_headers",
     "@seekdb_3rd_headers//:zlib_headers",
 ]
@@ -284,6 +285,7 @@ seekdb_semantic_unity_cc_library(
     source_replacements = _OBSERVER_GENERATED_SOURCE_REPLACEMENTS,
     implementation_deps = [
         ":observer_internal_interface",
+        "//rust:config_headers",
     ] + _OBSERVER_NON_OBLIB_NATIVE_DEPS,
     group_implementation_deps = observer_runtime_group_oblib_deps(
         _OBSERVER_RUNTIME_UNITY_GROUPS,
@@ -519,6 +521,13 @@ _SEEKDB_GRPC_ABSL_ARCHIVE_NAMES = [
 
 _SEEKDB_ORDERED_LINK_FILES = [
     "//rust:sql_nio_archive",
+    "//rust:config_archive",
+] + select({
+    "//bazel:sanity_enabled": [
+        "//deps/external:jemalloc_archive",
+    ],
+    "//conditions:default": [],
+}) + [
     "@seekdb_3rd_headers//:lib/libxml2.a",
     "@seekdb_3rd_headers//:lib/liblzma.a",
     "@seekdb_3rd_headers//:lib/vsag_lib/libcpuinfo.a",
@@ -584,7 +593,6 @@ _SEEKDB_ORDERED_LINK_FILES = [
         "@seekdb_3rd_headers//:lib/libunwind.a",
     ],
 }) + [
-    "@seekdb_3rd_headers//:lib/sqlite/libsqlite3.a",
     "@seekdb_3rd_headers//:lib/libz.a",
     "@seekdb_3rd_headers//:lib/libicui18n.a",
     "@seekdb_3rd_headers//:lib/libicustubdata.a",
@@ -641,6 +649,29 @@ _SEEKDB_EXECUTABLE_LINKOPTS = select({
     ],
 })
 
+_SEEKDB_SANITY_LINKOPTS = select({
+    "//bazel:sanity_enabled": [
+        "-Wl,--wrap=memcpy",
+        "-Wl,--wrap=memmove",
+        "-Wl,--wrap=memset",
+        "-Wl,--wrap=bzero",
+        "-Wl,--wrap=memcmp",
+        "-Wl,--wrap=strlen",
+        "-Wl,--wrap=strnlen",
+        "-Wl,--wrap=strcpy",
+        "-Wl,--wrap=strncpy",
+        "-Wl,--wrap=strcmp",
+        "-Wl,--wrap=strncmp",
+        "-Wl,--wrap=strcasecmp",
+        "-Wl,--wrap=strncasecmp",
+        "-Wl,--wrap=vsprintf",
+        "-Wl,--wrap=vsnprintf",
+        "-Wl,--wrap=sprintf",
+        "-Wl,--wrap=snprintf",
+    ],
+    "//conditions:default": [],
+})
+
 _SEEKDB_SHARED_LINKOPTS = select({
     "@platforms//os:macos": [
         "-Wl,-framework,Security",
@@ -674,7 +705,7 @@ seekdb_final_link(
     ordered_link_files = _SEEKDB_ORDERED_LINK_FILES,
     extra_inputs = _SEEKDB_EXTRA_LINK_INPUTS,
     system_libs = _SEEKDB_SYSTEM_LIBS,
-    linkopts = _SEEKDB_EXECUTABLE_LINKOPTS,
+    linkopts = _SEEKDB_EXECUTABLE_LINKOPTS + _SEEKDB_SANITY_LINKOPTS,
     out = "seekdb",
     tags = ["manual"],
     visibility = ["//visibility:public"],
@@ -702,7 +733,7 @@ seekdb_final_link(
     ordered_link_files = _SEEKDB_ORDERED_LINK_FILES,
     extra_inputs = _SEEKDB_EXTRA_LINK_INPUTS,
     system_libs = _SEEKDB_SYSTEM_LIBS,
-    linkopts = _SEEKDB_SHARED_LINKOPTS,
+    linkopts = _SEEKDB_SHARED_LINKOPTS + _SEEKDB_SANITY_LINKOPTS,
     out = "liboceanbase.so",
     shared = True,
     tags = ["manual"],

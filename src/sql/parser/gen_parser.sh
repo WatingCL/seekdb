@@ -5,7 +5,6 @@
 # DESCRIPTION:
 #
 set +x
-set -e
 CURDIR="$(dirname $(readlink -f "$0"))"
 ITEM_TYPE_HEADER="$CURDIR/../../query/api/query/parser/ob_item_type.h"
 #export PATH=/usr/local/bin:$PATH
@@ -13,7 +12,6 @@ export PATH=$CURDIR/../../../deps/3rd/usr/local/oceanbase/devtools/bin/:$PATH
 export BISON_PKGDATADIR=$CURDIR/../../../deps/3rd/usr/local/oceanbase/devtools/share/bison
 CACHE_MD5_FILE=$CURDIR/_MD5
 TEMP_FILE=$(mktemp)
-trap 'rm -f "$TEMP_FILE"' EXIT
 
 # Detect OS and set sed inplace option for compatibility between Linux and Mac
 # Mac requires sed -i '' while Linux requires sed -i
@@ -39,8 +37,6 @@ fi
 cat ../../../src/sql/parser/sql_parser_mysql_mode.y >> $TEMP_FILE
 cat ../../../src/sql/parser/sql_parser_mysql_mode.l >> $TEMP_FILE
 cat "$ITEM_TYPE_HEADER" >> $TEMP_FILE
-cat "$CURDIR/ftsparser.y" "$CURDIR/ftsblex.l" \
-    "$CURDIR/gen_parser.sh" "$CURDIR/gen_type_name.sh" >> "$TEMP_FILE"
 
 md5sum_value=$(md5sum "$TEMP_FILE" | awk '{ print $1 }')
 
@@ -64,12 +60,9 @@ outputs_missing() {
 }
 
 bison_parser() {
-if BISON_OUTPUT="$(bison -v -Werror -d "$1" -o "$2" 2>&1)"; then
-  BISON_RETURN=0
-else
-  BISON_RETURN=$?
-fi
-printf '%s\n' "$BISON_OUTPUT"
+BISON_OUTPUT="$(bison -v -Werror -d $1 -o $2 2>&1)"
+BISON_RETURN="$?"
+echo $BISON_OUTPUT
 if [ $BISON_RETURN -ne 0 ]
   then
   >&2 echo "Compile error: $BISON_OUTPUT, abort."
@@ -89,35 +82,30 @@ bison_parser ../../../src/sql/parser/ftsparser.y ../../../src/sql/parser/ftspars
 flex -Cfa -B -8 -o ../../../src/sql/parser/ftsblex_lex.c ../../../src/sql/parser/ftsblex.l ../../../src/sql/parser/ftsparser_tab.h
 
 sed_inplace '/This var may be unused depending upon options./d' ../../../src/sql/parser/ftsblex_lex.c
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/int i/d;}" ../../../src/sql/parser/ftsblex_lex.c
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/for ( i = 0; i < _yybytes_len; ++i )/d;}" ../../../src/sql/parser/ftsblex_lex.c
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{s/\tbuf\[i\] = yybytes\[i\]/memcpy(buf, yybytes, _yybytes_len)/g;}" ../../../src/sql/parser/ftsblex_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/int i/d}" ../../../src/sql/parser/ftsblex_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/for ( i = 0; i < _yybytes_len; ++i )/d}" ../../../src/sql/parser/ftsblex_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{s/\tbuf\[i\] = yybytes\[i\]/memcpy(buf, yybytes, _yybytes_len)/g}" ../../../src/sql/parser/ftsblex_lex.c
 
 # generate mysql sql_parser
 bison_parser ../../../src/sql/parser/sql_parser_mysql_mode.y ../../../src/sql/parser/sql_parser_mysql_mode_tab.c
 flex -Cfa -B -8 -o ../../../src/sql/parser/sql_parser_mysql_mode_lex.c ../../../src/sql/parser/sql_parser_mysql_mode.l ../../../src/sql/parser/sql_parser_mysql_mode_tab.h
 
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/int i/d;}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/for ( i = 0; i < _yybytes_len; ++i )/d;}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{s/\tbuf\[i\] = yybytes\[i\]/memcpy(buf, yybytes, _yybytes_len)/g;}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
-sed_inplace "/obsql_mysql_yylex_init is special because it creates the scanner itself/,/Initialization is the same as for the non-reentrant scanner/{s/return 1/return errno/g;}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/int i/d}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/for ( i = 0; i < _yybytes_len; ++i )/d}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{s/\tbuf\[i\] = yybytes\[i\]/memcpy(buf, yybytes, _yybytes_len)/g}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
+sed_inplace "/obsql_mysql_yylex_init is special because it creates the scanner itself/,/Initialization is the same as for the non-reentrant scanner/{s/return 1/return errno/g}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
 
 
 # generate type name
 ./gen_type_name.sh "$ITEM_TYPE_HEADER" > type_name.c
 
-echo "$md5sum_value" > "$CACHE_MD5_FILE"
+echo "$md5sum_value" > $CACHE_MD5_FILE
 }
 
 if [[ -n "$NEED_PARSER_CACHE" && "$NEED_PARSER_CACHE" == "ON" ]]; then
     echo "generate sql parser with cache"
-    # A fresh checkout has no cache stamp. Under set -e, reading the missing
-    # file would abort before generate_parser can create it.
-    origin_md5sum_value=""
-    if [[ -f "$CACHE_MD5_FILE" && -r "$CACHE_MD5_FILE" ]]; then
-      origin_md5sum_value=$(<"$CACHE_MD5_FILE")
-    fi
-    if [[ "$md5sum_value" == "$origin_md5sum_value" ]] && ! outputs_missing; then
+    origin_md5sum_value=$(<$CACHE_MD5_FILE)
+    if [[ "$md5sum_value" == "$origin_md5sum_value" ]] && ! outputs_missing; then 
       echo "hit the md5 cache"
     else
       generate_parser
@@ -126,3 +114,5 @@ else
     echo "generate sql parser without cache"
     generate_parser
 fi
+
+rm -rf $TEMP_FILE

@@ -71,19 +71,17 @@ private:
     INIT_SUCC(ret);
     if (ctx.get_val_count() < 1) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("invalid context argument count", K(ret), K(ctx.get_val_count()));
     } else if (OB_ISNULL(ctx.get_allocator())) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("invalid context without allocator", K(ret));
     }
     return ret;
   }
 
   // cartisan
   template <typename GeomTreeType, typename GeomIType>
-  static int eval_buffer_cartisan(const ObGeometry *g,
-                                  const ObGeoEvalCtx &context,
-                                  const ObGeoBufferStrategy &strategy,
+  static int eval_buffer_cartisan(const ObGeometry *g,  
+                                  const ObGeoEvalCtx &context, 
+                                  const ObGeoBufferStrategy &strategy, 
                                   ObGeometry *&result,
                                   bool is_tree)
   {
@@ -91,7 +89,7 @@ private:
     uint32_t srid = g->get_srid();
 
     // init buffer context for cartisan
-    bg::strategy::buffer::distance_symmetric<double> distance_s(strategy.distance_val_);
+    bg::strategy::buffer::distance_symmetric<double> distance_s(strategy.distance_val_); 
     bg::strategy::buffer::side_straight side_s;
 
     bg::strategy::buffer::join_round join_round_s(strategy.join_round_val_);
@@ -120,7 +118,6 @@ private:
     ObCartesianMultipolygon *geo_res =  OB_NEWx(ObCartesianMultipolygon , allocator, srid, *allocator);
     if (OB_ISNULL(geo_tree) || OB_ISNULL(geo_res)) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("failed to allocate memory", K(ret), KP(geo_tree), KP(geo_res));
     } else {
       switch (ObGeoBufferStrategyStateType(strategy.state_num_)) {
         case ObGeoBufferStrategyStateType::JR_ER_PC: {
@@ -157,7 +154,6 @@ private:
         }
         default: {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("invalid strategy state num", K(ret), K(strategy.state_num_));
           break;
         }
       }
@@ -167,17 +163,15 @@ private:
         // empty result
         if ((strategy.distance_val_ < 0)
             && (ObGeoType::POLYGON == geo_tree->type() || ObGeoType::MULTIPOLYGON == geo_tree->type())) {
-          ObCartesianGeometrycollection *empty_res =
+          ObCartesianGeometrycollection *empty_res = 
             OB_NEWx(ObCartesianGeometrycollection, allocator, srid, *allocator);
           if (OB_ISNULL(empty_res)) {
             ret = OB_ALLOCATE_MEMORY_FAILED;
-            LOG_WARN("failed to allocate memory", K(ret));
           } else {
-            result = empty_res;
+            result = empty_res;           
           }
         } else {
           ret = OB_ERR_GIS_UNKNOWN_ERROR;
-          LOG_WARN("invalid buffer distance", K(ret), K(strategy.distance_val_), K(geo_tree->type()));
         }
       } else if (OB_FAIL(unwrap_geometry_tree(geo_res, result))) {
       } else {
@@ -187,8 +181,8 @@ private:
     return ret;
   }
 
-  static int eval_buffer_cartisan_collection (const ObGeometry *g,
-                                              const ObGeoEvalCtx &context,
+  static int eval_buffer_cartisan_collection (const ObGeometry *g,  
+                                              const ObGeoEvalCtx &context, 
                                               ObGeometry *&result,
                                               bool is_tree)
   {
@@ -219,42 +213,33 @@ private:
       is_empty_res = true;
     } else if ((srid != 0) && OB_ISNULL(srs)) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("invalid strategy for cartisan collection with null srs", K(srid), K(ret));
     } else if (OB_FAIL(ObGeoFuncUtils::ob_gc_prepare<ObCartesianGeometrycollection>(context, const_cast<ObGeometry *>(g), mpt, ml, mpo))) {
     } else if (OB_ISNULL(mpt) || OB_ISNULL(ml) || OB_ISNULL(mpo)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("unexpected null geometry collection union", K(ret), KP(mpt), KP(ml), KP(mpo));
     } else if (OB_ISNULL(strategy = context.get_val_arg(0)->strategy_)) {
       ret = OB_INVALID_ARGUMENT;
     } else if (strategy->distance_val_ < 0 && !(mpt->empty() && ml->empty())) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("negative distance is only permitted for geometry collection with only (multi)polygon", K(ret));
     } else if (OB_NOT_NULL(mpt)
         && (dedup_pt_ptr = reinterpret_cast<ObGeometry *>(mpt))
         && OB_FAIL(ObGeoTypeUtil::remove_duplicate_geo(dedup_pt_ptr, context.get_mem_ctx(), srs, false))) {
-      LOG_WARN("failed to deduplicate points", K(ret));
     } else if (OB_NOT_NULL(ml) && (dedup_ml_ptr = reinterpret_cast<ObGeometry *>(ml))
         && OB_FAIL(ObGeoTypeUtil::remove_duplicate_geo(dedup_ml_ptr, context.get_mem_ctx(), srs, false))) {
-      LOG_WARN("failed to deduplicate lines", K(ret));
     } else if (OB_NOT_NULL(mpo) && (dedup_mpo_ptr = reinterpret_cast<ObGeometry *>(mpo))
         && OB_FAIL(ObGeoTypeUtil::remove_duplicate_geo(dedup_mpo_ptr, context.get_mem_ctx(), srs, false))) {
-      LOG_WARN("failed to deduplicate polygons", K(ret));
     } else if (OB_ISNULL(mpt_res = OB_NEWx(ObCartesianMultipolygon, &tmp_allocator, srid, tmp_allocator))) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("failed to allocate memory", K(ret));
     } else if (OB_ISNULL(ml_res = OB_NEWx(ObCartesianMultipolygon, &tmp_allocator, srid, tmp_allocator))) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("failed to allocate memory", K(ret));
     } else if (OB_ISNULL(mpo_res = OB_NEWx(ObCartesianMultipolygon, &tmp_allocator, srid, tmp_allocator))) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("failed to allocate memory", K(ret));
     } else {
       mpt = reinterpret_cast<ObCartesianMultipoint *>(dedup_pt_ptr);
       ml = reinterpret_cast<ObCartesianMultilinestring *>(dedup_ml_ptr);
       mpo = reinterpret_cast<ObCartesianMultipolygon *>(dedup_mpo_ptr);
 
       // param 1, 2
-      bg::strategy::buffer::distance_symmetric<double> distance_s(strategy->distance_val_);
+      bg::strategy::buffer::distance_symmetric<double> distance_s(strategy->distance_val_); 
       bg::strategy::buffer::side_straight side_s;
       // param 3
       bg::strategy::buffer::join_round join_round_s(strategy->join_round_val_);
@@ -317,7 +302,6 @@ private:
         }
         default: {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("error strategy state number", K(ret), K(strategy->state_num_));
           break;
         }
       }
@@ -328,7 +312,6 @@ private:
         result = OB_NEWx(ObCartesianGeometrycollection, allocator, srid, *allocator);
         if (OB_ISNULL(result)) {
           ret = OB_ALLOCATE_MEMORY_FAILED;
-          LOG_WARN("failed to allocate memory for empty result", K(ret), K(srid), KP(result));
         }
       } else {
         ObGeometry *temp_geo = NULL;
@@ -345,7 +328,6 @@ private:
             result = OB_NEWx(ObCartesianGeometrycollection, allocator, srid, *allocator);
             if (OB_ISNULL(result)) {
               ret = OB_ALLOCATE_MEMORY_FAILED;
-              LOG_WARN("failed to allocate memory for empty result", K(ret), K(srid), KP(result));
             }
           } else if (OB_FAIL(unwrap_geometry_tree(temp_geo, result))) {
           } else {
@@ -358,8 +340,8 @@ private:
   }
 
   template <typename GeomTreeType, typename GeomIType>
-  static int eval_buffer_geographic(const ObGeometry *g,
-                                    const ObGeoEvalCtx &context,
+  static int eval_buffer_geographic(const ObGeometry *g,  
+                                    const ObGeoEvalCtx &context, 
                                     ObGeometry *&result,
                                     bool is_collection)
   {
@@ -376,7 +358,7 @@ private:
       ObGeometry *wgs84_geo = NULL;
       ObString buffered_proj_wkb;
       bool is_empty_res = false;
-
+      
       if (g->is_empty()) {
         is_empty_res = true;
       } else if (OB_FAIL(transfrom_proj_context.append_geo_arg(g))) {
@@ -387,8 +369,8 @@ private:
         if (!is_collection) {
           projected_geo->set_srid(strategy->srs_proj_->get_srid());
           ret = eval_buffer_cartisan<GeomTreeType, GeomIType>(projected_geo,
-                                                              context,
-                                                              *strategy,
+                                                              context, 
+                                                              *strategy, 
                                                               projected_result,
                                                               true);
         } else {
@@ -405,9 +387,8 @@ private:
         result = OB_NEWx(ObGeographPolygon, allocator, OB_GEO_DEFAULT_GEOGRAPHY_SRID, *allocator);
         if (OB_ISNULL(result)) {
           ret = OB_ALLOCATE_MEMORY_FAILED;
-          LOG_WARN("failed to allocate memory for empty geographic result", K(ret), KP(result));
         }
-      } else if (OB_FAIL(ObGeoTypeUtil::to_wkb(*allocator, *projected_result,
+      } else if (OB_FAIL(ObGeoTypeUtil::to_wkb(*allocator, *projected_result, 
           strategy->srs_proj_, buffered_proj_wkb))) {
       } else if (OB_FAIL(ObGeoTypeUtil::create_geo_by_wkb(*allocator, buffered_proj_wkb,
           strategy->srs_proj_, projected_bin, false))) {
@@ -435,9 +416,6 @@ OB_GEO_UNARY_FUNC_BEGIN(ObGeoFuncBufferImpl, ObWkbGeomPoint, ObGeometry *)
                                   ObIWkbGeomPoint>(g, context, *strategy, result, false);
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("validate strategy for cartisan point failed",
-        K(ret), K(strategy->distance_val_), K(strategy->has_point_s_),
-        K(strategy->has_join_s_), K(strategy->has_end_s_));
     }
   }
   return ret;
@@ -453,9 +431,6 @@ OB_GEO_UNARY_FUNC_BEGIN(ObGeoFuncBufferImpl, ObWkbGeomLineString, ObGeometry *)
                                   ObIWkbGeomLineString>(g, context, *strategy, result, false);
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("validate strategy for cartisan linestring failed",
-        K(ret), K(strategy->distance_val_), K(strategy->has_point_s_),
-        K(strategy->has_join_s_), K(strategy->has_end_s_));
     }
   }
   return ret;
@@ -471,9 +446,6 @@ OB_GEO_UNARY_FUNC_BEGIN(ObGeoFuncBufferImpl, ObWkbGeomPolygon, ObGeometry *)
                                   ObIWkbGeomPolygon>(g, context, *strategy, result, false);
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("validate strategy for cartisan polygon failed",
-        K(ret), K(strategy->distance_val_), K(strategy->has_point_s_),
-        K(strategy->has_join_s_), K(strategy->has_end_s_));
     }
   }
   return ret;
@@ -489,9 +461,6 @@ OB_GEO_UNARY_FUNC_BEGIN(ObGeoFuncBufferImpl, ObWkbGeomMultiPoint, ObGeometry *)
                                   ObIWkbGeomMultiPoint>(g, context, *strategy, result, false);
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("validate strategy for cartisan multipoint failed",
-        K(ret), K(strategy->distance_val_), K(strategy->has_point_s_),
-        K(strategy->has_join_s_), K(strategy->has_end_s_));
     }
   }
   return ret;
@@ -507,9 +476,6 @@ OB_GEO_UNARY_FUNC_BEGIN(ObGeoFuncBufferImpl, ObWkbGeomMultiLineString, ObGeometr
                                   ObIWkbGeomMultiLineString>(g, context, *strategy, result, false);
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("validate strategy for cartisan multilinestring failed",
-        K(ret), K(strategy->distance_val_), K(strategy->has_point_s_),
-        K(strategy->has_join_s_), K(strategy->has_end_s_));
     }
   }
   return ret;
@@ -525,9 +491,6 @@ OB_GEO_UNARY_FUNC_BEGIN(ObGeoFuncBufferImpl, ObWkbGeomMultiPolygon, ObGeometry *
                                   ObIWkbGeomMultiPolygon>(g, context, *strategy, result, false);
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("validate strategy for cartisan multipolygon failed",
-        K(ret), K(strategy->distance_val_), K(strategy->has_point_s_),
-        K(strategy->has_join_s_), K(strategy->has_end_s_));
     }
   }
   return ret;
@@ -560,16 +523,12 @@ OB_GEO_UNARY_FUNC_BEGIN(ObGeoFuncBufferImpl, ObWkbGeogPoint, ObGeometry *)
     const ObSrsItem *srs = context.get_srs();
     if (OB_UNLIKELY(!is_valid_for_geogpoint(*strategy))) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("validate strategy for geographic point failed",
-        K(ret), K(strategy->distance_val_), K(strategy->has_point_s_),
-        K(strategy->has_join_s_), K(strategy->has_end_s_));
     } else if (OB_ISNULL(srs)) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("invalid strategy for geographic point with null srs", K(ret));
     }else {
       common::ObIAllocator *allocator = context.get_allocator();
       // init buffer context for graphical point
-      bg::strategy::buffer::distance_symmetric<double> distance_s(strategy->distance_val_);
+      bg::strategy::buffer::distance_symmetric<double> distance_s(strategy->distance_val_); 
       bg::strategy::buffer::side_straight side_s;
       bg::strategy::buffer::join_round join_round_s(strategy->join_round_val_);
       bg::strategy::buffer::end_round end_round_s(strategy->end_round_val_);
@@ -582,23 +541,19 @@ OB_GEO_UNARY_FUNC_BEGIN(ObGeoFuncBufferImpl, ObWkbGeogPoint, ObGeometry *)
 
       ObGeoToTreeVisitor visitor(allocator);
       ObIWkbGeogPoint *i_geo = const_cast<ObIWkbGeogPoint *>(reinterpret_cast<const ObIWkbGeogPoint *>(g));
-      ObGeographMultipolygon *geo_res = OB_NEWx(ObGeographMultipolygon , allocator, g->get_srid(), *allocator);
+      ObGeographMultipolygon *geo_res = OB_NEWx(ObGeographMultipolygon , allocator, g->get_srid(), *allocator); 
       if (OB_FAIL(i_geo->do_visit(visitor))) {
       } else {
         ObGeographPoint *geo_tree = static_cast<ObGeographPoint *>(visitor.get_geometry());
         // returning is a multipolygon
         if (OB_ISNULL(geo_tree) || OB_ISNULL(geo_res)) {
           ret = OB_ALLOCATE_MEMORY_FAILED;
-          LOG_WARN("failed to allocate memory", K(ret), KP(geo_tree), KP(geo_res));
         } else {
           // input should be ObWkbGeogInnerPoint
           bg::buffer(geo_tree->data(), *geo_res, distance_s, side_s, join_round_s, end_round_s, point_circle_s);
           if (geo_res->is_empty()) {
-            //
+            // 
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("error buffer result for geographic point", K(ret), KP(geo_tree), KP(geo_res),
-              K(strategy->distance_val_), K(strategy->has_point_s_),
-              K(strategy->has_join_s_), K(strategy->has_end_s_));
           } else {
             result = reinterpret_cast<ObGeometry *>(&((*geo_res)[0]));
             // normalize longititude range
@@ -659,9 +614,6 @@ OB_GEO_UNARY_TREE_FUNC_BEGIN(ObGeoFuncBufferImpl, ObCartesianPolygon, ObGeometry
                                   ObIWkbGeomPolygon>(g, context, *strategy, result, true);
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("validate strategy for cartisan polygon failed",
-        K(ret), K(strategy->distance_val_), K(strategy->has_point_s_),
-        K(strategy->has_join_s_), K(strategy->has_end_s_));
     }
   }
   return ret;
@@ -744,7 +696,6 @@ int ObGeoFuncBufferImpl::unwrap_geometry_tree(ObGeometry *geo_in,
       }
       default : {
         ret = OB_NOT_IMPLEMENT;
-        LOG_WARN("unexpected crs type", K(ret), K(geo_in->crs()));
         break;
       }
     }

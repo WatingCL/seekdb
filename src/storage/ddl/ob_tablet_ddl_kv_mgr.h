@@ -75,16 +75,16 @@ public:
   static bool need_check_block_checksum(const ObDirectLoadType direct_load_type);
   static int calc_block_checksum(const ObDDLMacroBlockType block_type,
                                  const ObDirectLoadType direct_load_type,
-                                 const char *buf,
-                                 const int64_t buf_size,
+                                 const char *buf, 
+                                 const int64_t buf_size, 
                                  int64_t &checksum);
-  int check_block_exist(const ObDDLMacroBlockType block_type,
+  int check_block_exist(const ObDDLMacroBlockType block_type, 
                         const ObDirectLoadType direct_load_type,
                         const blocksstable::ObLogicMacroBlockId &logic_id,
                         const int64_t checksum,
                         const ObITable::TableType table_type,
                         bool &is_marco_block_already_exist);
-  int set_block_checksum(const ObDDLMacroBlockType block_type,
+  int set_block_checksum(const ObDDLMacroBlockType block_type, 
                          const ObDirectLoadType direct_load_type,
                          const blocksstable::ObLogicMacroBlockId &logic_id,
                          const int64_t checksum,
@@ -108,11 +108,6 @@ public:
   int register_to_tablet(ObDDLKvMgrHandle &kv_mgr_handle);
   int init(const common::ObTabletID &tablet_id); // init before memtable mgr
   int set_max_freeze_scn(const share::SCN &checkpoint_scn);
-  int get_or_create_local_ddl_kv(
-      const share::SCN &macro_redo_scn,
-      const share::SCN &macro_redo_start_scn,
-      ObTabletDirectLoadMgrHandle &direct_load_mgr_handle,
-      ObDDLKVHandle &kv_handle);
   int get_or_create_idem_ddl_kv(
       const share::SCN &macro_redo_scn,
       const share::SCN &macro_redo_start_scn,
@@ -132,11 +127,6 @@ public:
       const ObDDLKVType ddl_kv_type = ObDDLKVType::DDL_KV_FULL);
   int release_ddl_kvs(const ObDDLKVType ddl_kv_type, const share::SCN &rec_scn); // release persistent ddl kv, used in ddl merge task for free ddl kv
   int check_has_effective_ddl_kv(bool &has_ddl_kv); // used in ddl log handler for checkpoint
-  int try_flush_ddl_commit_scn(
-      ObLS *ls,
-      const ObTabletHandle &tablet_handle,
-      const ObTabletDirectLoadMgrHandle &direct_load_mgr_handle,
-      const share::SCN &commit_scn);
   int check_has_freezed_ddl_kv(bool &has_freezed_ddl_kv);
   int64_t get_count();
   void set_ddl_kv(const int64_t idx, ObDDLKVHandle &kv_handle); //for unittest

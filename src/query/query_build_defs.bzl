@@ -17,7 +17,6 @@ QUERY_SQL_EXPRESSION_INTERFACE_HEADERS = [
 ]
 
 QUERY_API_INTERFACE_HEADERS = [
-    "api/query/ai/ai_column_runtime.h",
     "api/query/das/ob_block_max_spec_access.h",
     "api/query/das/ob_das_id_protocol.h",
     "api/query/das/ob_das_iter_access.h",

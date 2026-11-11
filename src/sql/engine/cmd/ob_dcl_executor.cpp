@@ -37,7 +37,7 @@ int ObGrantExecutor::execute(ObExecContext &ctx, ObGrantStmt &stmt)
   int ret = OB_SUCCESS;
   ObSqlExecutorCtx *task_exec_ctx = NULL;
   ObSQLSessionInfo *session_info = NULL;
-
+  
   const ObStrings &users = stmt.get_users();
   ObIAllocator &allocator = ctx.get_allocator();
   obcall::ObGrantArg &arg = static_cast<obcall::ObGrantArg &>(stmt.get_ddl_arg());
@@ -53,7 +53,6 @@ int ObGrantExecutor::execute(ObExecContext &ctx, ObGrantStmt &stmt)
     LOG_WARN("Get my session error");
   } else if (OB_ISNULL(GCTX.schema_service_)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("get schema service failed", K(ret));
   } else if (!is_role) {
     ObString user_name;
     ObString host_name;
@@ -62,8 +61,6 @@ int ObGrantExecutor::execute(ObExecContext &ctx, ObGrantStmt &stmt)
     //i += 4, each with user_name, pwd, need_enc
     if (OB_UNLIKELY(users.count() <= 0) || OB_UNLIKELY(0 != users.count() % 4)) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("Resolve users error. Users should have user and pwd",
-               "ObStrings count", users.count(), K(ret));
     }
     for (int64_t i = 0; OB_SUCC(ret) && i < users.count(); i += 4) {
       if (OB_FAIL(users.get_string(i, user_name))) {
@@ -100,9 +97,8 @@ int ObGrantExecutor::execute(ObExecContext &ctx, ObGrantStmt &stmt)
     // do nothing.
   } else if (OB_ISNULL(stmt.get_query_ctx())) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("query ctx is null", K(ret));
   } else {
-
+    
     arg.db_ = stmt.get_database_name();
     arg.table_ = stmt.get_table_name();
     arg.priv_set_ = stmt.get_priv_set();
@@ -120,7 +116,6 @@ int ObGrantExecutor::execute(ObExecContext &ctx, ObGrantStmt &stmt)
         || OB_FAIL(append(arg.ins_col_ids_, stmt.get_ins_col_ids()))
         || OB_FAIL(append(arg.upd_col_ids_, stmt.get_upd_col_ids()))
         || OB_FAIL(append(arg.ref_col_ids_, stmt.get_ref_col_ids()))) {
-        LOG_WARN("append failed", K(ret));
     } else if (arg.object_type_ == ObObjectType::TABLE
                 && arg.column_names_priv_.count() > 0) {
       if (arg.object_id_ == OB_INVALID_ID) {
@@ -129,7 +124,6 @@ int ObGrantExecutor::execute(ObExecContext &ctx, ObGrantStmt &stmt)
                   && OB_FAIL(arg.based_schema_object_infos_.push_back(ObBasedSchemaObjectInfo(arg.object_id_,
                                                                             TABLE_SCHEMA,
                                                                             stmt.get_table_schema_version())))) {
-        LOG_WARN("push back failed", K(ret));
       }
     }
     if (OB_FAIL(ret)) {
@@ -138,7 +132,6 @@ int ObGrantExecutor::execute(ObExecContext &ctx, ObGrantStmt &stmt)
                                                   user_info))) {
     } else if (OB_ISNULL(user_info)) {
       // ignore ret
-      LOG_WARN("user info is unexpected null", K(ret));
     } else if (OB_FAIL(ob_write_string(allocator, user_info->get_user_name_str(), arg.grantor_))) {
     } else if (OB_FAIL(ob_write_string(allocator, user_info->get_host_name_str(), arg.grantor_host_))) {
     }
@@ -204,7 +197,7 @@ int ObRevokeExecutor::revoke_user(ObRevokeStmt &stmt, ObExecContext &ctx)
 {
   int ret = OB_SUCCESS;
   obcall::ObRevokeUserArg &arg = static_cast<obcall::ObRevokeUserArg &>(stmt.get_ddl_arg());
-
+  
   const ObIArray<uint64_t> &user_ids = stmt.get_users();
   const bool is_role = arg.role_ids_.count() > 0;
   if (is_role) {
@@ -216,7 +209,6 @@ int ObRevokeExecutor::revoke_user(ObRevokeStmt &stmt, ObExecContext &ctx)
     }
   } else if (0 == user_ids.count()) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("User ids is empty, resolver may be error", K(ret));
   } else {
     arg.revoke_all_ = stmt.get_revoke_all();
     arg.priv_set_ = stmt.get_priv_set();
@@ -234,13 +226,12 @@ int ObRevokeExecutor::revoke_db(ObRevokeStmt &stmt, ObExecContext &ctx)
 {
   int ret = OB_SUCCESS;
   obcall::ObRevokeDBArg &arg = static_cast<obcall::ObRevokeDBArg &>(stmt.get_ddl_arg());
-
+  
   arg.priv_set_ = stmt.get_priv_set();
   arg.db_ = stmt.get_database_name();
   const ObIArray<uint64_t> &user_ids = stmt.get_users();
   if (0 == user_ids.count()) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("User ids is empty, resolver may be error", K(ret));
   } else {
     for (int i = 0; OB_SUCC(ret) && i < user_ids.count(); i++) {
       arg.user_id_ = user_ids.at(i);
@@ -261,13 +252,12 @@ int ObRevokeExecutor::revoke_table(ObRevokeStmt &stmt,
   const ObUserInfo *user_info = NULL;
   if (OB_ISNULL(GCTX.schema_service_)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("Input argument error", K(ret));
   } else if (OB_ISNULL(session_info = ctx.get_my_session())) {
     ret = OB_NOT_INIT;
     LOG_WARN("Get my session error");
   } else {
     obcall::ObRevokeTableArg &arg = static_cast<obcall::ObRevokeTableArg &>(stmt.get_ddl_arg());
-
+    
     arg.priv_set_ = stmt.get_priv_set();
     arg.db_ = stmt.get_database_name();
     arg.table_ = stmt.get_table_name();
@@ -285,7 +275,6 @@ int ObRevokeExecutor::revoke_table(ObRevokeStmt &stmt,
                 OB_FAIL(arg.based_schema_object_infos_.push_back(ObBasedSchemaObjectInfo(arg.obj_id_,
                                                                             TABLE_SCHEMA,
                                                                             stmt.get_table_schema_version())))) {
-        LOG_WARN("push back failed", K(ret));
       }
     } else {
       //todo: pl routine and others
@@ -296,7 +285,6 @@ int ObRevokeExecutor::revoke_table(ObRevokeStmt &stmt,
                                                   user_info))) {
     } else if (OB_ISNULL(user_info)) {
       // ignore ret
-      LOG_WARN("user info is unexpected null", K(ret));
     } else if (OB_FAIL(ob_write_string(ctx.get_allocator(), user_info->get_user_name_str(), arg.grantor_))) {
     } else if (OB_FAIL(ob_write_string(ctx.get_allocator(), user_info->get_host_name_str(), arg.grantor_host_))) {
     }
@@ -311,7 +299,6 @@ int ObRevokeExecutor::revoke_table(ObRevokeStmt &stmt,
     if (OB_FAIL(ret)) {
     } else if (0 == user_ids.count()) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("User ids is empty, resolver may be error", K(ret));
     } else {
       for (int i = 0; OB_SUCC(ret) && i < user_ids.count(); i++) {
         arg.user_id_ = user_ids.at(i);
@@ -336,7 +323,7 @@ int ObRevokeExecutor::revoke_routine(ObRevokeStmt &stmt,
     LOG_WARN("Get my session error");
   } else {
     obcall::ObRevokeRoutineArg &arg = static_cast<obcall::ObRevokeRoutineArg &>(stmt.get_ddl_arg());
-
+    
     arg.priv_set_ = stmt.get_priv_set();
     arg.db_ = stmt.get_database_name();
     arg.routine_ = stmt.get_table_name();
@@ -350,7 +337,6 @@ int ObRevokeExecutor::revoke_routine(ObRevokeStmt &stmt,
                                                   user_info))) {
     } else if (OB_ISNULL(user_info)) {
       // ignore ret
-      LOG_WARN("user info is unexpected null", K(ret));
     } else if (OB_FAIL(ob_write_string(ctx.get_allocator(), user_info->get_user_name_str(), arg.grantor_))) {
     } else if (OB_FAIL(ob_write_string(ctx.get_allocator(), user_info->get_host_name_str(), arg.grantor_host_))) {
     }
@@ -365,7 +351,6 @@ int ObRevokeExecutor::revoke_routine(ObRevokeStmt &stmt,
     if (OB_FAIL(ret)) {
     } else if (0 == user_ids.count()) {
       ret = OB_ERR_UNEXPECTED;
-      LOG_WARN("User ids is empty, resolver may be error", K(ret));
     } else {
       for (int i = 0; OB_SUCC(ret) && i < user_ids.count(); i++) {
         arg.user_id_ = user_ids.at(i);

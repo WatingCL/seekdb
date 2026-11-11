@@ -23,7 +23,9 @@
 #include "rpc/obmysql/ob_sql_sock_session.h"
 #include "nio.h"
 
-void OB_WEAK_SYMBOL request_finish_callback();
+// The storage module supplies the strong implementation when linked.
+void OB_WEAK_SYMBOL request_finish_callback()
+{}
 
 namespace oceanbase
 {
@@ -37,7 +39,7 @@ ObSqlRequestOperator::get_sql_session(ObRequest *req) {
   return &sess->conn_;
 }
 
-nio_connection_handle *
+NioConnectionHandle *
 ObSqlRequestOperator::get_nio_connection_handle(const ObRequest *req) {
   obmysql::ObSqlSockSession *sess = static_cast<obmysql::ObSqlSockSession *>(
       req->get_server_handle_context());
@@ -53,7 +55,7 @@ int ObSqlRequestOperator::get_sql_tls_info(const ObRequest *req,
   } else {
     obmysql::ObSqlSockSession *sess =
         static_cast<obmysql::ObSqlSockSession *>(req->get_server_handle_context());
-    nio_tls_session_info ffi_info = {};
+    NioTlsSessionInfo ffi_info = {};
     if (0 != nio_get_tls_session_info(
                   sess, req->get_nio_request_generation(), &ffi_info)) {
       ret = OB_ERR_UNEXPECTED;

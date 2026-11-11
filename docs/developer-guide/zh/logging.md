@@ -118,34 +118,34 @@ LOG_INFO("start stmt", K(ret),
 上面示例代码的一个输出：
 
 ```textile
-[2023-12-11 18:00:55.711877] INFO  [SQL.EXE] start_stmt (ob_sql_trans_control.cpp:619)
-[99178][T1004_TeRec][T1003][YD9F97F000001-00060C36119D4757-0-0] [lt=15]
-start stmt(ret=0, auto_commit=true, session_id=1,
-snapshot={this:0x7f3184fca0e8, valid:true, source:2,
-core:{version:{val:1702288855549635029, v:0}, tx_id:{txid:167035},
-scn:1702288855704049}, uncertain_bound:0, snapshot_lsid:{id:1},
-snapshot_ls_role:0, parts:[{left:{id:1}, right:491146514786417}]},
-savepoint=1702288855704049, tx_desc={this:0x7f31df697420,
-tx_id:{txid:167035}, state:2, addr:"127.0.0.1:55801", tenant_id:1003,
+[2023-12-11 18:00:55.711877] INFO  [SQL.EXE] start_stmt (ob_sql_trans_control.cpp:619) 
+[99178][TeRec][T1003][YD9F97F000001-00060C36119D4757-0-0] [lt=15]
+start stmt(ret=0, auto_commit=true, session_id=1, 
+snapshot={this:0x7f3184fca0e8, valid:true, source:2, 
+core:{version:{val:1702288855549635029, v:0}, tx_id:{txid:167035}, 
+scn:1702288855704049}, uncertain_bound:0, snapshot_lsid:{id:1}, 
+snapshot_ls_role:0, parts:[{left:{id:1}, right:491146514786417}]}, 
+savepoint=1702288855704049, tx_desc={this:0x7f31df697420, 
+tx_id:{txid:167035}, state:2, addr:"127.0.0.1:55801", tenant_id:1003, 
 session_id:1, assoc_session_id:1, access_mode:0, tx_consistency_type:0,
-isolation:1, snapshot_version:{val:18446744073709551615, v:3},
-snapshot_scn:0, active_scn:1702288855704040, op_sn:6, alloc_ts:1702288855706134,
-active_ts:1702288855706134, commit_ts:-1, finish_ts:-1, timeout_us:29999942,
-lock_timeout_us:-1, expire_ts:1702288885706076, coord_id:{id:-1},
-parts:[{id:{id:1}, addr:"127.0.0.1:55801", epoch:491146514786417,
-first_scn:1702288855704043, last_scn:1702288855704048, last_touch_ts:1702288855704044}],
-exec_info_reap_ts:1702288855704043, commit_version:{val:18446744073709551615, v:3},
+isolation:1, snapshot_version:{val:18446744073709551615, v:3}, 
+snapshot_scn:0, active_scn:1702288855704040, op_sn:6, alloc_ts:1702288855706134, 
+active_ts:1702288855706134, commit_ts:-1, finish_ts:-1, timeout_us:29999942, 
+lock_timeout_us:-1, expire_ts:1702288885706076, coord_id:{id:-1}, 
+parts:[{id:{id:1}, addr:"127.0.0.1:55801", epoch:491146514786417, 
+first_scn:1702288855704043, last_scn:1702288855704048, last_touch_ts:1702288855704044}], 
+exec_info_reap_ts:1702288855704043, commit_version:{val:18446744073709551615, v:3}, 
 commit_times:0, commit_cb:null, data_version:4295163904,
-flags_.SHADOW:false, flags_.INTERRUPTED:false, flags_.BLOCK:false,
-flags_.REPLICA:false, can_elr:true, cflict_txs:[], abort_cause:0,
-commit_expire_ts:0, commit_task_.is_registered():false, ref:2},
-plan_type=1, stmt_type=5, has_for_update=false, query_start_time=1702288855711692,
-use_das=false, nested_level=0, session={this:0x7f31de2521a0, id:1,
-deser:false, tenant:"sys", tenant_id:1, effective_tenant:"sys",
-effective_tenant_id:1003, database:"oceanbase", user:"root@%",
-consistency_level:3, session_state:0, autocommit:true, tx:0x7f31df697420},
-plan=0x7f31565ba050, consistency_level_in_plan_ctx=3,
-trans_result={incomplete:false, parts:[], touched_ls_list:[],
+flags_.SHADOW:false, flags_.INTERRUPTED:false, flags_.BLOCK:false, 
+flags_.REPLICA:false, can_elr:true, cflict_txs:[], abort_cause:0, 
+commit_expire_ts:0, commit_task_.is_registered():false, ref:2}, 
+plan_type=1, stmt_type=5, has_for_update=false, query_start_time=1702288855711692, 
+use_das=false, nested_level=0, session={this:0x7f31de2521a0, id:1, 
+deser:false, tenant:"sys", tenant_id:1, effective_tenant:"sys", 
+effective_tenant_id:1003, database:"oceanbase", user:"root@%", 
+consistency_level:3, session_state:0, autocommit:true, tx:0x7f31df697420}, 
+plan=0x7f31565ba050, consistency_level_in_plan_ctx=3, 
+trans_result={incomplete:false, parts:[], touched_ls_list:[], 
 cflict_txs:[]})
 ```
 
@@ -160,7 +160,7 @@ cflict_txs:[]})
 | 模块       | [SQL.EXE]                            | 日志打印模块                              |
 | 函数名称     | start_stmt                           | 打印日志的函数名称                           |
 | 代码位置信息   | (ob_sql_trans_control.cpp:619)       | 打印日志的代码位置。包含文件名和行号                  |
-| 线程标识     | [99178][T1004_TeRec]                 | 打印日志的线程号、线程名称                       |
+| 线程标识     | [99178][TeRec]                       | 打印日志的线程号、线程名称                       |
 | 租户信息     | [T1003]                              | 租户信息                                |
 | Trace ID | [YD9F97F000001-00060C36119D4757-0-0] | 某个请求的全局唯一标识。通常可以通过这个标识获取所有当前请求的所有日志 |
 | 打印日志时间   | [lt=15]                              | 当前线程打印上一条日志花费的时间，单位微秒               |
@@ -284,9 +284,7 @@ seekdb 的日志时间是当前本地时间的微秒数。
 当前会记录两个线程相关的信息：
 
 - 线程号：系统调用 `__NR_gettid` 返回的信息（系统调用比较低效，这个值会缓存下来）；
-- 线程名称：线程名称字段中可能会包含租户ID、线程池类型和线程池中的编号。seekdb的线程号是通过 `set_thread_name` 函数设置的，还会显示在 `top` 命令中。
-
-> NOTE：线程名称是由创建的线程决定的，由于创建线程的租户可能与此线程后续运行的租户不同，所以线程名称中的租户可能不对。
+- 线程名称：线程名称字段包含线程池类型，也可能包含线程池中的编号。seekdb 通过 `set_thread_name` 函数设置线程名称，该名称也会显示在 `top` 命令中。
 
 ### 日志限速
 

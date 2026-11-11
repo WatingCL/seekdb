@@ -279,7 +279,7 @@ OBSERVER_UNITY_GROUPS = [
             "src/observer/virtual_table/ob_all_virtual_ddl_sim_point_stat.cpp",
             "src/observer/virtual_table/ob_all_virtual_tablet_info.cpp",
             "src/observer/virtual_table/ob_all_virtual_server.cpp",
-            "src/observer/virtual_table/ob_all_virtual_sqlite_tables.cpp",
+            "src/observer/virtual_table/ob_all_virtual_local_tables.cpp",
             "src/observer/virtual_table/ob_all_virtual_tablet_compaction_history.cpp",
             "src/observer/virtual_table/ob_all_virtual_tablet_compaction_progress.cpp",
             "src/observer/virtual_table/ob_all_virtual_io_status.cpp",
@@ -408,6 +408,8 @@ OBSERVER_STANDALONE_SOURCES = [
 ]
 
 OBSERVER_IGNORED_SOURCES = [
+    "ios/driver/seekdb_lifecycle.cpp",
+    "ios/seekdb_ios.cpp",
     "report/ob_tablet_meta_checker.cpp",
     "vector_index/ob_vector_index_async_task_scheduler.cpp",
     "virtual_table/ob_all_virtual_all_tables.cpp",

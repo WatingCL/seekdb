@@ -176,7 +176,6 @@ int ObMemoryDump::init()
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(is_inited_)) {
     ret = OB_INIT_TWICE;
-    LOG_WARN("init twice", K(ret));
   } else if (OB_FAIL(cond_.init(ObWaitEventIds::DEFAULT_COND_WAIT))) {
   } else {
     MemoryContext context;// = nullptr;
@@ -185,12 +184,11 @@ int ObMemoryDump::init()
     if (OB_FAIL(ret)) {
     } else if (OB_ISNULL(pre_mem = (PreAllocMemory*)context->allocp(sizeof(PreAllocMemory)))) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("alloc mem failed", K(ret));
     } else {
       LOG_INFO("pre memory size", K(sizeof(PreAllocMemory)));
       print_buf_ = pre_mem->print_buf_;
       array_ = pre_mem->array_buf_;
-
+      
       print_buf_ = pre_mem->print_buf_;
       if (OB_FAIL(lmap_.create(1000, ObMemAttr("MemDumpMap", ObCtxIds::DEFAULT_CTX_ID, OB_HIGH_ALLOC)))) {
       } else {
@@ -285,7 +283,7 @@ void ObMemoryDump::print_malloc_sample_info()
     ret = vector.insert(&(*it), pos, ObMallocSamplePairCmp());
   }
   int64_t log_pos = 0;
-
+  
   int64_t ctx_id = ObCtxIds::DEFAULT_CTX_ID;
   const char *label = "";
   int64_t bt_cnt = 0;
@@ -538,7 +536,6 @@ int label_stat(AChunk *chunk, ABlock *block, AObject *object,
     } else {
       if (item_used >= item_cap) {
         ret = OB_SIZE_OVERFLOW;
-        LOG_WARN("label cnt too large", K(ret), K(item_cap), K(item_used));
       } else {
         litem = &items[item_used++];
         STRNCPY(litem->str_, object->label_, sizeof(litem->str_));
@@ -563,7 +560,7 @@ int malloc_sample_stat(uint64_t ctx_id,
   int ret = OB_SUCCESS;
   if (object->in_use_ && object->on_malloc_sample_) {
     ObMallocSampleKey key;
-
+    
     key.ctx_id_ = ctx_id;
     MEMCPY((char*)key.bt_, object->bt(), AOBJECT_BACKTRACE_SIZE);
     STRNCPY(key.label_, object->label_, sizeof(key.label_));
@@ -590,7 +587,6 @@ void ObMemoryDump::handle(void *task)
 
   if (OB_UNLIKELY(!is_inited_)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("not inited", K(ret));
   } else if (STAT_LABEL == m_task->type_) {
     w_stat_->tcr_cnt_ = 0;
     w_stat_->malloc_sample_map_.clear();
@@ -658,7 +654,7 @@ void ObMemoryDump::handle(void *task)
         } // iter chunk end
         if (OB_SUCC(ret)) {
           auto &tcr = w_stat_->tcrs_[w_stat_->tcr_cnt_++];
-
+          
           tcr.ctx_id_ = ctx_id;
           tcr.start_ = orig_item_used;
           tcr.end_ = item_used;

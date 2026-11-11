@@ -47,7 +47,7 @@ public:
   virtual uint64_t hash() const { return 0; }
   virtual int equal(const ObIKVCacheKey &other, bool &equal) const { equal = *this == other; return OB_SUCCESS; }
   virtual int hash(uint64_t &hash_value) const  { hash_value = hash(); return OB_SUCCESS; }
-
+  
   virtual int64_t size() const = 0;
   virtual int deep_copy(char *buf, const int64_t buf_len, ObIKVCacheKey *&key) const = 0;
 };
@@ -188,13 +188,13 @@ public:
   const ObKVCacheConfig *config_;
   ObPCNonAtomicCounter total_put_cnt_;
   ObPCNonAtomicCounter total_hit_cnt_;
+  ObPCNonAtomicCounter total_miss_cnt_;
   int64_t kv_cnt_;
   int64_t store_size_;
   int64_t retired_size_;
   int64_t lru_mb_cnt_;
   int64_t lfu_mb_cnt_;
   int64_t last_hit_cnt_;
-  int64_t total_miss_cnt_;
   double base_mb_score_;
 };
 

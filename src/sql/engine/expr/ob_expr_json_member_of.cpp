@@ -68,7 +68,6 @@ int ObExprJsonMemberOf::check_json_member_of_array(const ObIJsonBase *json_a,
 
   if (OB_ISNULL(json_a) || OB_ISNULL(json_b)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("param is null", K(ret), KP(json_a), KP(json_b));
   } else {
     int cmp_res = 0;
     uint64_t b_len = json_b->element_count();
@@ -91,7 +90,7 @@ int ObExprJsonMemberOf::eval_json_member_of(const ObExpr &expr, ObEvalCtx &ctx, 
   ObIJsonBase *json_a = NULL;
   ObIJsonBase *json_b = NULL;
   ObEvalCtx::TempAllocGuard tmp_alloc_g(ctx);
-
+  
   MultimodeAlloctor temp_allocator(tmp_alloc_g.get_allocator());
   lib::ObMallocHookAttrGuard malloc_guard(lib::ObMemAttr("JSONModule"));
   bool is_null_result = (expr.args_[0]->datum_meta_.type_ == ObNullType);

@@ -42,3 +42,8 @@ use_repo(
 )
 
 register_toolchains("@local_config_cc_toolchains//:all")
+
+# Read the same C++ export declarations used by CMake; no Cargo execution is
+# needed during repository discovery or Bazel analysis.
+cargo_exports_repository = use_repo_rule("//bazel:cargo.bzl", "cargo_exports_repository")
+cargo_exports_repository(name = "cargo_exports", manifest = "//rust:exports.json")

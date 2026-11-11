@@ -17,11 +17,7 @@
 #ifndef _OB_MACRO_UTILS_H_
 #define _OB_MACRO_UTILS_H_
 
-#ifdef _WIN32
-#define OB_WEAK_SYMBOL
-#else
 #define OB_WEAK_SYMBOL __attribute__((weak))
-#endif
 
 #define SELECT150_(_0, _1, _2, _3, _4, _5, _6, _7, _8, _9,           \
                    _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, \
@@ -704,19 +700,15 @@ for (__typeof__((c).at(0)) *it = ((extra_condition) && (c).count() > 0 ? &(c).at
     } \
   } while (false)
 
-#ifdef NDEBUG
-#define OB_ASSERT(x) (void)(x)
-#else
+// Evaluate once and remain fatal in both Debug and Release builds.
 #define OB_ASSERT(x)                                    \
   do{                                                   \
-    bool v=(x);                                         \
-    if(OB_UNLIKELY(!(v))) {                             \
+    if(OB_UNLIKELY(!(x))) {                             \
       _OB_LOG_RET(ERROR, oceanbase::common::OB_ERROR, "assert fail, exp=%s", #x);        \
       BACKTRACE_RET(ERROR, oceanbase::common::OB_ERROR, 1, "assert fail");               \
-      assert(v);                                        \
+      ob_abort();                                       \
     }                                                   \
   } while(false)
-#endif
 
 #ifndef ENABLE_DEBUG_LOG
 #define OB_SAFE_ASSERT(x)                                                                   \

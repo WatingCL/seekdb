@@ -96,7 +96,7 @@ ObJsonPathNodeType ObJsonPathNode::get_node_type() const
 ObJsonPathNode::~ObJsonPathNode()
 {}
 
-int ObJsonPathBasicNode::get_first_array_index(uint64_t array_length, ObJsonArrayIndex &array_index) const
+int ObJsonPathBasicNode::get_first_array_index(uint64_t array_length, ObJsonArrayIndex &array_index) const 
 {
   INIT_SUCC(ret);
   switch (node_type_) {
@@ -112,14 +112,13 @@ int ObJsonPathBasicNode::get_first_array_index(uint64_t array_length, ObJsonArra
     }
     default: {
       ret = OB_ERR_INTERVAL_INVALID;
-      LOG_WARN("wrong node type.", K(ret), K(node_type_));
       break;
     }
   }
   return ret;
 }
 
-int ObJsonPathBasicNode::get_last_array_index(uint64_t array_length, ObJsonArrayIndex &array_index) const
+int ObJsonPathBasicNode::get_last_array_index(uint64_t array_length, ObJsonArrayIndex &array_index) const 
 {
   INIT_SUCC(ret);
   if (node_type_ == JPN_ARRAY_RANGE) {
@@ -127,7 +126,6 @@ int ObJsonPathBasicNode::get_last_array_index(uint64_t array_length, ObJsonArray
         node_content_.array_range_.is_last_index_from_end_, array_length);
   } else {
     ret = OB_ERR_INTERVAL_INVALID;
-    LOG_WARN("fail to get_first_array_index, node_type should be array_cell or array_range", K(ret), K(node_type_));
   }
   return ret;
 }
@@ -153,7 +151,6 @@ int ObJsonPathBasicNode::get_array_range(uint64_t array_length, ObArrayRange &ar
     }
   } else {
     ret = OB_ERR_INTERVAL_INVALID;
-    LOG_WARN("wrong node type.", K(ret), K(node_type_));
   }
 
   return ret;
@@ -180,13 +177,12 @@ int ObJsonPathBasicNode::get_multi_array_range(uint32_t idx, uint64_t array_leng
     array_range.array_end_ = last.is_within_bounds() ? last.get_array_index() + 1 : last.get_array_index();
   } else {
     ret = OB_ERR_INTERVAL_INVALID;
-    LOG_WARN("wrong node type.", K(ret), K(node_type_));
   }
 
   return ret;
 }
 
-bool ObJsonPathBasicNode::is_autowrap() const
+bool ObJsonPathBasicNode::is_autowrap() const 
 {
   bool is_autowrap = false;
   switch (node_type_) {
@@ -218,7 +214,7 @@ bool ObJsonPathBasicNode::is_autowrap() const
   return is_autowrap;
 }
 
-bool ObJsonPathBasicNode::is_multi_array_autowrap() const
+bool ObJsonPathBasicNode::is_multi_array_autowrap() const 
 {
   bool is_autowrap = false;
   switch (node_type_) {
@@ -232,7 +228,7 @@ bool ObJsonPathBasicNode::is_multi_array_autowrap() const
       uint64_t array_size = get_multi_array_size();
       for (uint64_t array_idx = 0; array_idx < array_size && !is_autowrap; ++array_idx) {
         // when array_cell is '0' or 'last', set within_bounds true
-        if (node_content_.multi_array_[array_idx]->first_index_ == 0
+        if (node_content_.multi_array_[array_idx]->first_index_ == 0 
             || node_content_.multi_array_[array_idx]->last_index_ == 0) {
           is_autowrap = true;
         }
@@ -249,14 +245,14 @@ bool ObJsonPathBasicNode::is_multi_array_autowrap() const
   return is_autowrap;
 }
 
-// Function node
-inline bool ObJsonPathFuncNode::is_autowrap() const
+// Function node 
+inline bool ObJsonPathFuncNode::is_autowrap() const 
 {
   return false;
 }
 
 // Filter node
-inline bool ObJsonPathFilterNode::is_autowrap() const
+inline bool ObJsonPathFilterNode::is_autowrap() const 
 {
   return false;
 }
@@ -276,7 +272,6 @@ int ObJsonPathBasicNode::init(ObJsonPathNodeType cur_node_type, bool is_mysql)
       }
       default: {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("invalid argument, should be '[*]', '.*' or '**'!", K(ret), K(cur_node_type));
         break;
       }
     }
@@ -291,7 +286,6 @@ int ObJsonPathBasicNode::init(ObJsonPathNodeType cur_node_type, bool is_mysql)
       }
       default: {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("invalid argument, should be '[*]', '.*' or '..'!", K(ret), K(cur_node_type));
         break;
       }
     }
@@ -341,7 +335,7 @@ ObJsonPathBasicNode::ObJsonPathBasicNode(ObIAllocator *allocator, uint64_t first
   node_type_ = JPN_ARRAY_RANGE;
 }
 
-ObJsonPathBasicNode::ObJsonPathBasicNode(ObIAllocator *allocator, uint64_t first_idx,
+ObJsonPathBasicNode::ObJsonPathBasicNode(ObIAllocator *allocator, uint64_t first_idx, 
                                         bool is_first_from_end,
                                          uint64_t last_idx, bool is_last_from_end)
 : ObJsonPathNode(allocator)
@@ -399,7 +393,6 @@ int ObJsonPathFuncNode::init(const char* name, uint64_t len)
     node_type_ = JPN_UPPER;
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN( "not function name", K(ret), K(name));
   }
 
   return ret;
@@ -436,7 +429,6 @@ int ObJsonPathFilterNode::init_right_comp_path(ObJsonPath* spath)
     }
     default: {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN( "not compare type", K(ret), K(node_type_));
       break;
     }
   }
@@ -473,7 +465,6 @@ int ObJsonPathFilterNode::init_right_scalar(char* str, uint64_t len)
     }
     default: {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN( "not compare type", K(ret), K(node_type_));
       break;
     }
   }
@@ -510,7 +501,6 @@ int ObJsonPathFilterNode::init_right_var(char* str, uint64_t len)
     }
     default: {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN( "not compare type", K(ret), K(node_type_));
       break;
     }
   }
@@ -549,10 +539,9 @@ int ObJsonPathFilterNode::init_comp_type(ObJsonPathNodeType comp_type)
     }
     default: {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN( "not compare type", K(ret), K(node_type_));
       break;
     }
-  }
+  }  
   return ret;
 }
 
@@ -573,7 +562,6 @@ int ObJsonPathFilterNode:: init_cond_right(ObJsonPathFilterNode* node)
     }
     default: {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN( "not condition type", K(ret), K(node_type_));
       break;
     }
   }
@@ -592,7 +580,6 @@ int ObJsonPathFilterNode::init_cond_type(ObJsonPathNodeType cond_type)
     }
     default: {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN( "not condition type", K(ret), K(node_type_));
       break;
     }
   }
@@ -700,14 +687,14 @@ bool ObJsonPath::path_not_str()
         break;
       }
     }
-  }
+  } 
   return ret_bool;
 }
 
-int ObJsonPath::get_path_item_method_str(common::ObIAllocator &allocator,
-                                                    ObString &str,
-                                                    char*& res,
-                                                    uint64_t &len,
+int ObJsonPath::get_path_item_method_str(common::ObIAllocator &allocator, 
+                                                    ObString &str, 
+                                                    char*& res, 
+                                                    uint64_t &len, 
                                                     bool &has_fun)
 {
   INIT_SUCC(ret);
@@ -743,7 +730,6 @@ int ObJsonPath::get_path_item_method_str(common::ObIAllocator &allocator,
     res = static_cast<char*> (allocator.alloc(len));
     if (OB_ISNULL(res)) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("fail to allocate memory for member_name.",K(ret), K(len),K(start_ptr));
     } else {
       MEMCPY(res, start_ptr, len);
     }
@@ -762,17 +748,16 @@ int ObJsonPath::append(ObJsonPathNode* json_node)
   INIT_SUCC(ret);
   if (OB_ISNULL(json_node)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN( "fail to append, the json_node is null", K(ret));
   } else if (path_node_cnt() >= ObJsonPathUtil::MAX_PATH_NODE_CNT) {
     ret = OB_ERR_DATA_TOO_LONG;
-    LOG_WARN("there may not have more than 100 path node",
+    LOG_WARN("there may not have more than 100 path node", 
     K(ret), K(expression_), K(path_node_cnt()));
   } else if (OB_FAIL(path_nodes_.push_back(json_node))) {
   }
   return ret;
 }
 
-bool ObJsonPath::can_match_many() const
+bool ObJsonPath::can_match_many() const 
 {
   bool ret_bool = false;
   for (uint32_t i = 0; i < path_nodes_.size() && ret_bool == false; ++i) {
@@ -803,7 +788,7 @@ ObJsonPathBasicNode* ObJsonPath::path_node(int index)
   return static_cast<ObJsonPathBasicNode*>(path_nodes_[index]);
 }
 
-ObJsonPathBasicNode* ObJsonPath::last_path_node()
+ObJsonPathBasicNode* ObJsonPath::last_path_node() 
 {
   return (path_nodes_.size() > 1 ? path_node(path_nodes_.size() - 1): path_node(0));
 }
@@ -835,7 +820,6 @@ int ObJsonPathCache::find_and_add_cache(ObJsonPath*& res_path, ObString& path_st
       }
     } else {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("fail to alloc path.", K(ret));
     }
   } else {
     res_path = path_at(arg_idx);
@@ -851,7 +835,6 @@ int ObJsonPathCache::fill_empty(size_t reserve_size)
     if (OB_FAIL(path_arr_ptr_.reserve(reserve_size))) {
     } else if (OB_FAIL(stat_arr_.reserve(reserve_size))) {
     } else if (path_arr_ptr_.size() != stat_arr_.size()) {
-      LOG_WARN("Length is not equals.", K(ret), K(reserve_size));
     }
     for (size_t cur = path_arr_ptr_.size(); OB_SUCC(ret) && cur < reserve_size; ++cur) {
       if (OB_FAIL(path_arr_ptr_.push_back(NULL))) {
@@ -862,7 +845,7 @@ int ObJsonPathCache::fill_empty(size_t reserve_size)
   return ret;
 }
 
-ObPathParseStat ObJsonPathCache::path_stat_at(size_t idx)
+ObPathParseStat ObJsonPathCache::path_stat_at(size_t idx) 
 {
   ObPathParseStat stat = UNINITIALIZED;
   if (idx < stat_arr_.size()) {
@@ -880,13 +863,13 @@ ObJsonPath* ObJsonPathCache::path_at(size_t idx)
   return ptr;
 }
 
-void ObJsonPathCache::reset()
+void ObJsonPathCache::reset() 
 {
   stat_arr_.clear();
   path_arr_ptr_.clear();
 }
 
-size_t ObJsonPathCache::size()
+size_t ObJsonPathCache::size() 
 {
   return path_arr_ptr_.size();
 }
@@ -897,7 +880,6 @@ int ObJsonPathCache::set_path(ObJsonPath* path, ObPathParseStat stat, int arg_id
   if (OB_FAIL(fill_empty(arg_idx + 1))) {
   } else if (index >= path_arr_ptr_.size()) {
     ret = OB_ERROR_OUT_OF_RANGE;
-    LOG_WARN("index out of range.", K(ret), K(index), K(path_arr_ptr_.size()));
   } else {
     path_arr_ptr_[index] = path;
     stat_arr_[index] = ObPathCacheStat(stat, arg_idx);
@@ -910,7 +892,7 @@ common::ObIAllocator* ObJsonPathCache::get_allocator()
 {
   return allocator_;
 }
-
+ 
 int ObJsonPathUtil::append_array_index(uint64_t index, bool from_end, ObJsonBuffer& str)
 {
   INIT_SUCC(ret);
@@ -918,7 +900,7 @@ int ObJsonPathUtil::append_array_index(uint64_t index, bool from_end, ObJsonBuff
   if (from_end) {
     if (OB_FAIL(str.append("last"))) {
     } else {
-      // if index > 0, it should have '-' after 'last'
+      // if index > 0, it should have '-' after 'last' 
       // such as: $[last-3 to last-1]
       if (index > 0) {
         if (OB_FAIL(str.append("-"))) {
@@ -936,7 +918,6 @@ int ObJsonPathUtil::append_array_index(uint64_t index, bool from_end, ObJsonBuff
       char* ptr = nullptr;
       if (OB_ISNULL(ptr = ObCharset::lltostr(index, res_ptr, 10, 1))) {
           ret = OB_BAD_NULL_ERROR;
-          LOG_WARN("fail to transform the index(lltostr)", K(ret), K(index));
       } else {
         if (OB_FAIL(str.append(res_ptr, static_cast<int32_t>(ptr - res_ptr)))) {
         }
@@ -1002,7 +983,7 @@ int ObJsonPathBasicNode::mysql_to_string(ObJsonBuffer& str)
     }
     // MEMBER, add .name
     // need to check is_ecmascript_identifier
-    // if check is_ecmascript_identifier false, should do double_quote
+    // if check is_ecmascript_identifier false, should do double_quote 
     case JPN_MEMBER: {
       if (OB_FAIL(str.append("."))) {
       } else {
@@ -1030,7 +1011,7 @@ int ObJsonPathBasicNode::mysql_to_string(ObJsonBuffer& str)
     // JPN_ARRAY_CELL, add [index]. If from_end is true, add last
     case JPN_ARRAY_CELL: {
       if (OB_FAIL(str.append("["))) {
-      } else if (OB_FAIL(ObJsonPathUtil::append_array_index(node_content_.array_cell_.index_,
+      } else if (OB_FAIL(ObJsonPathUtil::append_array_index(node_content_.array_cell_.index_, 
                                                             node_content_.array_cell_.is_index_from_end_,
                                                             str))) {
       } else if (OB_FAIL(str.append("]"))) {
@@ -1040,12 +1021,12 @@ int ObJsonPathBasicNode::mysql_to_string(ObJsonBuffer& str)
     // JPN_ARRAY_CELL, add [idx1 to idx2]. If from_end is true, add last
     case JPN_ARRAY_RANGE: {
       if (OB_FAIL(str.append("["))) {
-      } else if (OB_FAIL(ObJsonPathUtil::append_array_index(node_content_.array_range_.first_index_,
-                                                            node_content_.array_range_.is_first_index_from_end_,
+      } else if (OB_FAIL(ObJsonPathUtil::append_array_index(node_content_.array_range_.first_index_, 
+                                                            node_content_.array_range_.is_first_index_from_end_, 
                                                             str))) {
       } else if (OB_FAIL(str.append(" to "))) {
-      } else if (OB_FAIL(ObJsonPathUtil::append_array_index(node_content_.array_range_.last_index_,
-                                                            node_content_.array_range_.is_last_index_from_end_,
+      } else if (OB_FAIL(ObJsonPathUtil::append_array_index(node_content_.array_range_.last_index_, 
+                                                            node_content_.array_range_.is_last_index_from_end_, 
                                                             str))) {
       } else if (OB_FAIL(str.append("]"))) {
       }
@@ -1054,7 +1035,6 @@ int ObJsonPathBasicNode::mysql_to_string(ObJsonBuffer& str)
 
     default: {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("fail to transfrom PathNode to string, wrong type", K(ret), K(node_type_));
       break;
     }
   }
@@ -1091,7 +1071,7 @@ int ObJsonPathBasicNode::sql_json_to_string(ObJsonBuffer& str, bool is_next_arra
 
     // MEMBER, add .name
     // need to check is_ecmascript_identifier
-    // if check is_ecmascript_identifier false, should do double_quote
+    // if check is_ecmascript_identifier false, should do double_quote 
     case JPN_MEMBER: {
       if (OB_FAIL(str.append("."))) {
       } else {
@@ -1127,23 +1107,22 @@ int ObJsonPathBasicNode::sql_json_to_string(ObJsonBuffer& str, bool is_next_arra
         // first index to sting
         if (OB_ISNULL(tmp)) {
           ret = OB_BAD_NULL_ERROR;
-          LOG_WARN("ArrayRange is null", K(ret));
-        } else if (OB_FAIL(ObJsonPathUtil::append_array_index(tmp->first_index_,
+        } else if (OB_FAIL(ObJsonPathUtil::append_array_index(tmp->first_index_, 
                                                        tmp->is_first_index_from_end_,
                                                        str))) {
-        } else if ((tmp->first_index_ != tmp->last_index_)
+        } else if ((tmp->first_index_ != tmp->last_index_) 
                   || (tmp->is_first_index_from_end_ != tmp->is_last_index_from_end_)) {
           if (OB_FAIL(str.append(" to "))) {
-          } else if ( OB_FAIL(ObJsonPathUtil::append_array_index(tmp->last_index_,
+          } else if ( OB_FAIL(ObJsonPathUtil::append_array_index(tmp->last_index_, 
                                                                    tmp->is_last_index_from_end_,
                                                                    str))) {
           }
-        }
+        } 
         if (OB_SUCC(ret) && (i + 1 < size)) {
           if (OB_FAIL(str.append(", "))) {
           }
         }
-
+        
         ++i;
       }
       if (OB_SUCC(ret)) {
@@ -1155,7 +1134,6 @@ int ObJsonPathBasicNode::sql_json_to_string(ObJsonBuffer& str, bool is_next_arra
 
     default: {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("fail to transfrom PathNode to string, wrong type", K(ret), K(node_type_));
       break;
     }
   }
@@ -1195,7 +1173,7 @@ int ObJsonPathFuncNode::node_to_string(ObJsonBuffer& str, bool is_mysql, bool is
   return ret;
 }
 
-int ObJsonPathFilterNode::comp_half_to_string(ObJsonBuffer& str, bool is_left)
+int ObJsonPathFilterNode::comp_half_to_string(ObJsonBuffer& str, bool is_left) 
 {
   INIT_SUCC(ret);
   ObCompContent* half_comp = nullptr;
@@ -1227,9 +1205,8 @@ int ObJsonPathFilterNode::comp_half_to_string(ObJsonBuffer& str, bool is_left)
     }
 
     case ObJsonPathNodeType::JPN_SUB_PATH: {
-      if (OB_ISNULL(half_comp->filter_path_)
+      if (OB_ISNULL(half_comp->filter_path_) 
         || OB_FAIL(half_comp->filter_path_->to_string(str))) {
-        LOG_WARN("sub_path fail to string ", K(ret));
       }
       break;
     }
@@ -1254,7 +1231,6 @@ int ObJsonPathFilterNode::comp_half_to_string(ObJsonBuffer& str, bool is_left)
 
     default: {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("fail to transfrom PathNode to string, wrong type", K(ret), K(node_type_));
       break;
     }
   }
@@ -1277,7 +1253,7 @@ static constexpr char* comp_str_map[JPN_EXISTS - JPN_BEGIN_FILTER_FLAG] = {
   const_cast<char*>("exists(")
 };
 
-int ObJsonPathFilterNode::comp_to_string(ObJsonBuffer& str)
+int ObJsonPathFilterNode::comp_to_string(ObJsonBuffer& str) 
 {
   INIT_SUCC(ret);
 
@@ -1287,8 +1263,8 @@ int ObJsonPathFilterNode::comp_to_string(ObJsonBuffer& str)
     if (OB_FAIL(comp_half_to_string(str, is_left))) {
     }
   }
-
-  if (OB_SUCC(ret)
+  
+  if (OB_SUCC(ret) 
   && node_type_ > JPN_BEGIN_FILTER_FLAG && node_type_ <= JPN_EXISTS) {
     if (OB_FAIL(str.append(comp_str_map[node_type_ - JPN_BEGIN_FILTER_FLAG - 1]))) {
     }
@@ -1298,7 +1274,7 @@ int ObJsonPathFilterNode::comp_to_string(ObJsonBuffer& str)
   is_left = false;
   if (OB_SUCC(ret)) {
     if (OB_FAIL(comp_half_to_string(str, is_left))) {
-    } else if (node_type_ == ObJsonPathNodeType::JPN_EXISTS
+    } else if (node_type_ == ObJsonPathNodeType::JPN_EXISTS 
       || node_type_ == ObJsonPathNodeType::JPN_NOT_EXISTS) {
       if (OB_FAIL(str.append(")"))) {
       }
@@ -1307,7 +1283,7 @@ int ObJsonPathFilterNode::comp_to_string(ObJsonBuffer& str)
   return ret;
 }
 
-int ObJsonPathFilterNode::cond_to_string(ObJsonBuffer& str)
+int ObJsonPathFilterNode::cond_to_string(ObJsonBuffer& str) 
 {
   INIT_SUCC(ret);
 
@@ -1315,7 +1291,6 @@ int ObJsonPathFilterNode::cond_to_string(ObJsonBuffer& str)
   if (node_type_ != ObJsonPathNodeType::JPN_NOT_COND) {
     if (OB_ISNULL(node_content_.cond_.cond_left_)) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("argument is null", K(ret), K(node_type_));
     } else {
       if (OB_FAIL(node_content_.cond_.cond_left_->node_to_string(str, false, false))) {
       }
@@ -1342,7 +1317,6 @@ int ObJsonPathFilterNode::cond_to_string(ObJsonBuffer& str)
       }
       default: {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("fail to transfrom PathNode to string, wrong type", K(ret), K(node_type_));
         break;
       }
     }
@@ -1352,7 +1326,6 @@ int ObJsonPathFilterNode::cond_to_string(ObJsonBuffer& str)
   if (OB_SUCC(ret)) {
     if (OB_ISNULL(node_content_.cond_.cond_right_)) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("argument is null", K(ret), K(node_type_));
     } else {
       if (OB_FAIL(node_content_.cond_.cond_right_->node_to_string(str, false, false))) {
       } else {
@@ -1411,7 +1384,7 @@ int ObJsonPath::to_string(ObJsonBuffer& str)
           LOG_WARN("shouldn't end up with ellipsis node", K(i));
           break;
         } else {
-          if (path_nodes_[i + 1]->get_node_type() == ObJsonPathNodeType::JPN_ARRAY_CELL_WILDCARD
+          if (path_nodes_[i + 1]->get_node_type() == ObJsonPathNodeType::JPN_ARRAY_CELL_WILDCARD 
             || path_nodes_[i + 1]->get_node_type() == ObJsonPathNodeType::JPN_MULTIPLE_ARRAY) {
             is_next_array = true;
           }
@@ -1473,15 +1446,13 @@ int ObJsonPath::parse_mysql_path()
     if (index_ >= len || (expression_[index_] != ObJsonPathItem::ROOT)) {
       ret = OB_INVALID_ARGUMENT;
       bad_index_ = 1;
-      LOG_WARN("An path expression begins with a dollar sign ($)", K(ret));
     } else {
-      ++index_;
+      ++index_; 
       ObJsonPathUtil::skip_whitespace(expression_, index_);
 
       while (index_ < len && OB_SUCC(ret)) {
         if (OB_FAIL(parse_mysql_path_node())) {
-          bad_index_ =  index_;
-          LOG_WARN("fail to parse JSON Path Expression!", K(ret), K(index_));
+          bad_index_ =  index_; 
         } else {
           ObJsonPathUtil::skip_whitespace(expression_, index_);
         }
@@ -1489,10 +1460,9 @@ int ObJsonPath::parse_mysql_path()
     }
 
     // make sure the last node isn't JPN_WILDCARD_ELLIPSIS
-    if (OB_SUCC(ret) && path_node_cnt() > 0
+    if (OB_SUCC(ret) && path_node_cnt() > 0 
         && path_nodes_[path_node_cnt() - 1]->get_node_type() == JPN_WILDCARD_ELLIPSIS) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong path expression, shouldn't end up with **!", K(ret));
     }
 
     if (OB_SUCC(ret)) {
@@ -1500,9 +1470,8 @@ int ObJsonPath::parse_mysql_path()
         // do nothing
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("wrong path expression!", K(ret), K(bad_index_));
       }
-    }
+    } 
   }
 
   return ret;
@@ -1516,7 +1485,6 @@ int ObJsonPath::parse_mysql_path_node()
 
   if (index_ >= expression_.length()) {
     ret = OB_ARRAY_OUT_OF_RANGE;
-    LOG_WARN("wrong path expression", K(ret), K(index_));
   } else {
     // JPN_ARRAY_CELL,JPN_ARRAY_RANGE,JPN_ARRAY_CELL_WILDCARD begin with '['
     // JPN_MEMBER,JPN_MEMBER_WILDCARD begin with '.'
@@ -1539,17 +1507,14 @@ int ObJsonPath::parse_mysql_path_node()
       }
       default: {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("wrong path expression, should be '[', '.' or '*'.",
-        K(ret), K(index_), K(expression_));
         break;
       }
     }
   }
 
-  if (OB_SUCC(ret) && path_node_cnt() > 0
+  if (OB_SUCC(ret) && path_node_cnt() > 0 
       && path_nodes_[path_node_cnt() - 1]->get_node_type() == JPN_DOT_ELLIPSIS) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("wrong path expression, shouldn't end up with **!", K(ret));
   }
 
   if (OB_SUCC(ret)) {
@@ -1557,9 +1522,8 @@ int ObJsonPath::parse_mysql_path_node()
       // do nothing
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong path expression!", K(ret), K(bad_index_));
     }
-  }
+  } 
   return ret;
 }
 
@@ -1576,30 +1540,25 @@ int ObJsonPath::parse_wildcard_ellipsis_node()
       ObJsonPathUtil::skip_whitespace(expression_, index_);
     } else {
       ret = OB_INVALID_DATA;
-      LOG_WARN("supposed to be double wildecard!", K(ret), K(index_), K(expression_));
     }
   } else {
     ret = OB_INVALID_DATA;
-    LOG_WARN("supposed to be double wildecards!", K(ret), K(index_), K(expression_));
   }
 
   // if ** is last char or has ***
   if (OB_SUCC(ret)) {
     if (index_ >= expression_.length()) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("may not end up with **!", K(ret), K(index_));
     } else if (expression_[index_] == ObJsonPathItem::WILDCARD) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("may not have three wildcards!", K(ret), K(index_), K(expression_));
     }
   }
 
   if (OB_SUCC(ret)) {
-    ObJsonPathBasicNode* ellipsis_node =
+    ObJsonPathBasicNode* ellipsis_node = 
     static_cast<ObJsonPathBasicNode*> (allocator_->alloc(sizeof(ObJsonPathBasicNode)));
     if (OB_ISNULL(ellipsis_node)) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("allocate row buffer failed at ellipsis_node", K(ret), K(index_), K(expression_));
     } else {
       ellipsis_node = new (ellipsis_node) ObJsonPathBasicNode(allocator_);
       if (OB_FAIL(ellipsis_node->init(JPN_WILDCARD_ELLIPSIS, is_mysql_))) {
@@ -1633,17 +1592,14 @@ int ObJsonPathUtil::get_index_num(const ObString& expression, uint64_t& idx, uin
       // Here should have ']' after digits, return error when reaches the end
       if (idx >= expression.length()) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("digit shouldn't be the end of the expression.", K(ret), K(idx));
       } else {
         end = idx - 1;
       }
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("should be digit.", K(ret), K(idx));
     }
   } else {
     ret = OB_ARRAY_OUT_OF_RANGE;
-    LOG_WARN("index of path expression out of range.", K(ret), K(idx));
   }
 
   if (OB_SUCC(ret)) {
@@ -1654,15 +1610,12 @@ int ObJsonPathUtil::get_index_num(const ObString& expression, uint64_t& idx, uin
       if (err == 0) {
         if (array_idx > ObJsonPathUtil::MAX_LENGTH) {
           ret = OB_DATA_OUT_OF_RANGE;
-          LOG_WARN("index > 4294967295", K(ret), K(array_idx));
         }
       } else {
         ret = OB_ERR_DATA_TOO_LONG;
-        LOG_WARN("input value out of range", K(ret), K(start), K(end));
       }
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("end should bigger than start", K(ret), K(start), K(end));
     }
   }
 
@@ -1685,7 +1638,6 @@ int ObJsonPath::parse_single_array_index(uint64_t& array_index, bool& from_end)
       ObJsonPathUtil::skip_whitespace(expression_, index_);
     } else {
       ret = OB_ERROR;
-      LOG_WARN("should be 'last'.", K(ret), K(index_), K(expression_));
     }
   }
 
@@ -1701,7 +1653,6 @@ int ObJsonPath::parse_single_array_index(uint64_t& array_index, bool& from_end)
 
       if (index_ >= expression_.length()) {
         ret = OB_ARRAY_OUT_OF_RANGE;
-        LOG_WARN("index of path expression out of range.", K(ret), K(index_));
       } else if (OB_FAIL(ObJsonPathUtil::get_index_num(expression_, index_, array_index))) {
       }
     } else {
@@ -1712,7 +1663,6 @@ int ObJsonPath::parse_single_array_index(uint64_t& array_index, bool& from_end)
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("worong path expression.", K(ret), K(index_), K(expression_));
   }
 
   return ret;
@@ -1731,14 +1681,12 @@ int ObJsonPath::parse_single_array_node()
   // begin with '['
   if (index_ >= expression_.length()) {
     ret = OB_ARRAY_OUT_OF_RANGE;
-    LOG_WARN("index out of range!", K(ret), K(index_), K(expression_));
   } else {
     if (expression_[index_] == ObJsonPathItem::BEGIN_ARRAY) {
       ++index_;
       ObJsonPathUtil::skip_whitespace(expression_, index_);
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("array should start with '['!", K(ret), K(index_), K(expression_));
     }
   }
 
@@ -1749,8 +1697,7 @@ int ObJsonPath::parse_single_array_node()
       ++index_;
       if ( OB_FAIL(parse_array_wildcard_node()) ) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("fail to parse the array_wildcard_node!", K(ret), K(index_), K(expression_));
-      }
+      }  
     } else { // range or cell
       // process CELL or RANGE
       // parser first arg
@@ -1779,8 +1726,6 @@ int ObJsonPath::parse_single_array_node()
             }
           } else {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("wrong path expression, should be ' to ' in range_node.",
-                      K(ret), K(index_), K(expression_));
           }
         }// end of 'to'
       }// end of get index
@@ -1796,35 +1741,30 @@ int ObJsonPath::parse_single_array_node()
             }
           } else {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("array should end up whit ']'", K(ret), K(index_), K(expression_));
           }
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("wrong path expression!", K(ret), K(index_), K(expression_));
         }
       }
-    }// end of range or cell
+    }// end of range or cell    
   } else {
     // out of range after '['
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("wrong path expression!", K(ret), K(index_), K(expression_));
   }
-
+  
   return ret;
 }
 
-int ObJsonPath::add_single_array_node(bool is_cell_type, uint64_t& index1, uint64_t& index2,
+int ObJsonPath::add_single_array_node(bool is_cell_type, uint64_t& index1, uint64_t& index2, 
     bool& from_end1, bool& from_end2)
 {
   INIT_SUCC(ret);
   if (is_cell_type) {
-    ObJsonPathBasicNode* cell_node =
+    ObJsonPathBasicNode* cell_node = 
     static_cast<ObJsonPathBasicNode*> (allocator_->alloc(sizeof(ObJsonPathBasicNode)));
     if (OB_ISNULL(cell_node)) {
       // error
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("allocate row buffer failed at cell_node",
-      K(ret), K(index_), K(expression_));
     } else {
       cell_node = new (cell_node) ObJsonPathBasicNode(allocator_, index1, from_end1);
       if (OB_FAIL(append(cell_node))) {
@@ -1832,25 +1772,22 @@ int ObJsonPath::add_single_array_node(bool is_cell_type, uint64_t& index1, uint6
     }
   } else {
     // 6.2 ARRAY_RANGE, check index if valid (mysql)
-    if (from_end1 == from_end2 && ((from_end1 && index1 < index2)
+    if (from_end1 == from_end2 && ((from_end1 && index1 < index2) 
         || (!from_end1 && index2 < index1))) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("wrong range of array!",
-        K(ret), K(index1), K(index2), K(from_end1), K(from_end2), K(expression_));
     }
 
     if (OB_SUCC(ret)) {
-      ObJsonPathBasicNode* range_node =
+      ObJsonPathBasicNode* range_node = 
       static_cast<ObJsonPathBasicNode*> (allocator_->alloc(sizeof(ObJsonPathBasicNode)));
       if (OB_ISNULL(range_node)) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
-        LOG_WARN("allocate row buffer failed at range_node", K(ret), K(index_), K(expression_));
       } else {
         range_node = new (range_node) ObJsonPathBasicNode(allocator_, index1, from_end1, index2, from_end2);
         if (OB_FAIL(append(range_node))) {
         }
       }
-    }
+    } 
   }
 
   return ret;
@@ -1866,7 +1803,6 @@ int ObJsonPath::parse_name_with_rapidjson(char*& str, uint64_t& len)
   if (OB_FAIL(ObJsonParser::parse_json_text(allocator_, str, len, syntaxerr, offset, dom))) {
   } else if (dom->json_type() != ObJsonNodeType::J_STRING) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected json type.", K(ret), KCSTRING(str), K(dom->json_type()));
   } else {
     ObJsonString *val = static_cast<ObJsonString *>(dom);
     len = val->value().length();
@@ -1880,7 +1816,7 @@ int ObJsonPath::parse_name_with_rapidjson(char*& str, uint64_t& len)
       MEMCPY(str, val->value().ptr(), len);
     }
   }
-
+  
   return ret;
 }
 
@@ -1931,13 +1867,11 @@ int ObJsonPath::parse_member_wildcard_node()
   INIT_SUCC(ret);
   // skip '*'
   ++index_;
-  ObJsonPathBasicNode* member_wildcard_node =
+  ObJsonPathBasicNode* member_wildcard_node = 
   static_cast<ObJsonPathBasicNode*> (allocator_->alloc(sizeof(ObJsonPathBasicNode)));
 
   if (OB_ISNULL(member_wildcard_node)) {
     ret = OB_ALLOCATE_MEMORY_FAILED;
-    LOG_WARN("allocate row buffer failed at member_wildcard_node",
-    K(ret), K(index_), K(expression_));
   } else {
     member_wildcard_node = new (member_wildcard_node) ObJsonPathBasicNode(allocator_);
     if (OB_FAIL(member_wildcard_node->init(JPN_MEMBER_WILDCARD, is_mysql_))) {
@@ -1951,22 +1885,20 @@ int ObJsonPath::parse_member_wildcard_node()
 
 // parse [*]
 // @return  the error code.
-int ObJsonPath::parse_array_wildcard_node()
+int ObJsonPath::parse_array_wildcard_node() 
 {
   INIT_SUCC(ret);
   ObJsonPathUtil::skip_whitespace(expression_, index_);
   if (index_ < expression_.length() && expression_[index_] == ObJsonPathItem::END_ARRAY) {
     ++index_;
-    ObJsonPathBasicNode* cell_wildcard_node =
+    ObJsonPathBasicNode* cell_wildcard_node = 
     static_cast<ObJsonPathBasicNode*> (allocator_->alloc(sizeof(ObJsonPathBasicNode)));
     if (OB_ISNULL(cell_wildcard_node)) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("allocate row buffer failed at cell_wildcard_node", K(ret), K(expression_));
     } else {
       cell_wildcard_node = new (cell_wildcard_node) ObJsonPathBasicNode(allocator_);
       if (OB_FAIL(cell_wildcard_node->init(JPN_ARRAY_CELL_WILDCARD, is_mysql_))) {
         allocator_->free(cell_wildcard_node);
-        LOG_WARN("fail to PathBasicNode init with type", K(ret), K(JPN_ARRAY_CELL_WILDCARD));
       } else if (OB_FAIL(append(cell_wildcard_node))) {
       } else {
         is_contained_wildcard_or_ellipsis_ = true;
@@ -1974,7 +1906,6 @@ int ObJsonPath::parse_array_wildcard_node()
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("should end up with ']' !", K(ret), K(index_), K(expression_));
   }
   return ret;
 }
@@ -2011,7 +1942,7 @@ int ObJsonPath::parse_mysql_member_node()
         uint64_t name_len = 0;
         bool is_func = false;
         bool with_escape = false;
-        // get name
+        // get name 
         // add double quote for rapidjson requires
         if (OB_FAIL(get_origin_key_name(name, name_len, is_quoted, is_func, with_escape))) {
         } else {
@@ -2020,17 +1951,14 @@ int ObJsonPath::parse_mysql_member_node()
 
           if (OB_SUCC(ret) && !is_quoted) {
             if (!ObJsonPathUtil::is_ecmascript_identifier(name, name_len)) {
-              LOG_WARN("the key name isn't ECMAScript identifier!",
-                K(ret), KCSTRING(name));
             }
           }
 
           if (OB_SUCC(ret)) {
-            ObJsonPathBasicNode* member_node =
+            ObJsonPathBasicNode* member_node = 
             static_cast<ObJsonPathBasicNode*> (allocator_->alloc(sizeof(ObJsonPathBasicNode)));
             if (OB_ISNULL(member_node)) {
               ret = OB_ALLOCATE_MEMORY_FAILED;
-              LOG_WARN("allocate row buffer failed at member_node", K(ret), K(index_), K(expression_));
             } else {
               member_node = new (member_node) ObJsonPathBasicNode(allocator_, name, name_len);
               if (OB_FAIL(append(member_node) )) {
@@ -2041,16 +1969,12 @@ int ObJsonPath::parse_mysql_member_node()
       } // JPN_MEMBER type
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong path expression, may not end up with '.'!",
-      K(ret), K(index_), K(expression_));
     }
   } else {
     if (index_ < expression_.length()) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("in parse_mysql_member_node(), should start with '.' ", K(ret), K(index_), K(expression_));
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("idx out of range!", K(ret), K(index_), K(expression_));
     }
   }
 
@@ -2125,7 +2049,6 @@ int ObJsonPathUtil::append_character_of_escape(ObJsonBuffer& buf, char ch)
     ret = buf.append("e");
   } else {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("should be escape", K(ch), K(ret));
   }
   return ret;
 }
@@ -2140,7 +2063,7 @@ void ObJsonPathUtil::skip_whitespace(const ObString &path, uint64_t& idx)
 
 /*
 priority_comparison = {
-  // in:     (,    &,   |,   !,   )
+  // in:     (,    &,   |,   !,   )  
      top:
      0:(  {'<', '<', '<', '<', '='},
      1:&  {'<', '>', '>', '<', '>'},
@@ -2160,16 +2083,16 @@ char ObJsonPathUtil::priority(char top, char in) {
       switch (top) {
         case '(': {
           ret_char = '<';
-          break;
-        }
+          break;  
+        }      
         case '&': {
           ret_char = '<';
-          break;
-        }
+          break;  
+        }      
         case '|': {
           ret_char = '<';
-          break;
-        }
+          break; 
+        }      
         case '!': {
           ret_char = '<';
           break;
@@ -2308,8 +2231,8 @@ bool ObJsonPathUtil::is_letter(unsigned codepoint, const char* ori, uint64_t sta
 
   ret_bool = isalpha(codepoint);
   if (ret_bool) {
-  } else if (!ret_bool && (codepoint >= UNICODE_EXTEND_MARK_MIN
-             && codepoint <= UNICODE_EXTEND_MARK_MAX
+  } else if (!ret_bool && (codepoint >= UNICODE_EXTEND_MARK_MIN 
+             && codepoint <= UNICODE_EXTEND_MARK_MAX 
              && ObJsonPathUtil::is_utf8_unicode_charator(ori, start, end - start))) {
     ret_bool = true;
   }
@@ -2360,9 +2283,9 @@ bool ObJsonPathUtil::is_ecmascript_identifier(const char* name, uint64_t length)
   while (ret_bool && (input_stream.Tell() < length)) {
     last_pos = input_stream.Tell();
     bool first_codepoint = (last_pos == 0);
-    if (!rapidjson::UTF8<char>::Decode(input_stream, &codepoint)) {
+    if (!rapidjson::UTF8<char>::Decode(input_stream, &codepoint)) { 
       ret_bool = false;
-      LOG_WARN_RET(OB_ERR_UNEXPECTED, "fail to decode.",
+      LOG_WARN_RET(OB_ERR_UNEXPECTED, "fail to decode.", 
           K(ret_bool), K(codepoint), K(input_stream.Tell()), KCSTRING(name));
     }
 
@@ -2377,7 +2300,7 @@ bool ObJsonPathUtil::is_ecmascript_identifier(const char* name, uint64_t length)
         more possibilities are available for subsequent characters.
       */
       ret_bool = false;
-      LOG_WARN_RET(OB_ERR_UNEXPECTED, "first character must be $, _ or letter.",
+      LOG_WARN_RET(OB_ERR_UNEXPECTED, "first character must be $, _ or letter.", 
           K(ret_bool), K(codepoint), K(input_stream.Tell()), KCSTRING(name));
     } else if (unicode_combining_mark(codepoint) || isdigit(codepoint)
               || is_connector_punctuation(codepoint)
@@ -2448,7 +2371,6 @@ int ObJsonPathUtil::double_quote(ObString &name, ObJsonBuffer* tmp_name)
   INIT_SUCC(ret);
   if (OB_ISNULL(name.ptr())) {
     ret = OB_ERR_NULL_VALUE;
-    LOG_WARN("name_ptr is null", K(ret));
   } else if (OB_FAIL(ObJsonBaseUtil::add_double_quote(*tmp_name, name.ptr(), name.length()))) {
   }
 
@@ -2464,7 +2386,7 @@ int ObJsonPath::parse_sql_json_path()
   if (is_mysql_) {
     ret = OB_INVALID_ARGUMENT;
     LOG_WARN("Should be SQL/JSON Path Expression!");
-  } else {
+  } else {  
 
     // the first non-whitespace character must be $
     int len = expression_.length();
@@ -2484,7 +2406,6 @@ int ObJsonPath::parse_sql_json_path()
           ObJsonPathUtil::skip_whitespace(expression_, index_);
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("An path expression begins with a dollar sign ($)", K(ret));
         }
       } else {
         mode_len = strlen("strict");
@@ -2495,7 +2416,6 @@ int ObJsonPath::parse_sql_json_path()
           ObJsonPathUtil::skip_whitespace(expression_, index_);
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("An path expression begins with a dollar sign ($)", K(ret));
         }
       }
     }
@@ -2504,16 +2424,14 @@ int ObJsonPath::parse_sql_json_path()
       if (index_ >= len || (expression_[index_] != ObJsonPathItem::ROOT)) {
         bad_index_ = 1;
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("An path expression begins with a dollar sign ($)", K(ret));
       } else {
-        ++index_;
+        ++index_; 
         ObJsonPathUtil::skip_whitespace(expression_, index_);
 
         while (index_ < len && OB_SUCC(ret)) {
           if (OB_FAIL(parse_sql_json_path_node())) {
-            bad_index_ =  index_;
+            bad_index_ =  index_; 
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("fail to parse JSON Path Expression!", K(ret), K(index_));
           } else {
             ObJsonPathUtil::skip_whitespace(expression_, index_);
           }
@@ -2526,11 +2444,10 @@ int ObJsonPath::parse_sql_json_path()
       int idx = 0;
       while (idx < path_node_cnt()) {
         ObJsonPathNodeType pnode = path_nodes_[idx]->get_node_type();
-        if (pnode > ObJsonPathNodeType::JPN_BEGIN_FUNC_FLAG
+        if (pnode > ObJsonPathNodeType::JPN_BEGIN_FUNC_FLAG 
             && pnode < ObJsonPathNodeType::JPN_END_FUNC_FLAG) {
           if (idx != path_node_cnt() - 1) {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("Wrong JSON Path Expression, function item should be the end of path expression!", K(ret), K(index_));
           }
         }
         ++idx;
@@ -2538,7 +2455,6 @@ int ObJsonPath::parse_sql_json_path()
 
       if (OB_SUCC(ret) && get_last_node_type() == ObJsonPathNodeType::JPN_DOT_ELLIPSIS) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("wrong path expression, shouldn't end up with ..!", K(ret));
       }
     }
 
@@ -2547,9 +2463,8 @@ int ObJsonPath::parse_sql_json_path()
         // do nothing
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("wrong path expression!", K(ret), K(bad_index_));
       }
-    }
+    } 
   }
 
   return ret;
@@ -2563,7 +2478,6 @@ int ObJsonPath::parse_sql_json_path_node()
 
   if (index_ >= expression_.length()) {
     ret = OB_ARRAY_OUT_OF_RANGE;
-    LOG_WARN("wrong path expression", K(ret), K(index_));
   } else {
     // JPN_MULTIPLE_ARRAY,JPN_ARRAY_CELL_WILDCARD begin with '['
     // the other basic_nodes begin with '.'
@@ -2591,13 +2505,11 @@ int ObJsonPath::parse_sql_json_path_node()
       }
       default: {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("wrong path expression, should be '[', '.' or '*'.",
-        K(ret), K(index_), K(expression_));
         break;
       }
     }
   }
-
+  
   return ret;
 }
 
@@ -2607,25 +2519,21 @@ int ObJsonPath::parse_dot_ellipsis_node()
 
   if (index_ >= expression_.length()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("may not end up with ..!", K(ret), K(index_));
-  } else if ((expression_[index_] != ObJsonPathItem::BEGIN_ARRAY)
-              && ((expression_[index_] != ObJsonPathItem::DOUBLE_QUOTE)
+  } else if ((expression_[index_] != ObJsonPathItem::BEGIN_ARRAY) 
+              && ((expression_[index_] != ObJsonPathItem::DOUBLE_QUOTE) 
               && !(ObJsonPathUtil::letter_or_not(expression_[index_])))) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("'..' must follow a memeber/array node!", K(ret), K(index_), K(expression_));
   }
 
   if (OB_SUCC(ret)) {
-    ObJsonPathBasicNode* ellipsis_node =
+    ObJsonPathBasicNode* ellipsis_node = 
     static_cast<ObJsonPathBasicNode*> (allocator_->alloc(sizeof(ObJsonPathBasicNode)));
     if (OB_ISNULL(ellipsis_node)) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
-      LOG_WARN("allocate row buffer failed at ellipsis_node", K(ret), K(index_), K(expression_));
     } else {
       ellipsis_node = new (ellipsis_node) ObJsonPathBasicNode(allocator_);
       if (OB_FAIL(ellipsis_node->init(JPN_DOT_ELLIPSIS, is_mysql_))) {
         allocator_->free(ellipsis_node);
-        LOG_WARN("fail to init path basic node with type", K(ret), K(JPN_WILDCARD_ELLIPSIS));
       } else if (OB_FAIL(append(ellipsis_node))) {
       } else {
         is_contained_wildcard_or_ellipsis_ = true;
@@ -2648,9 +2556,9 @@ int ObJsonPath::parse_dot_node()
   //   c. keyname JPN_MEMBER without quote
   if (index_ < expression_.length()) {
     // JPN_MEMBER_WILDCARD
-    if ((expression_[index_] == ObJsonPathItem::WILDCARD)
+    if ((expression_[index_] == ObJsonPathItem::WILDCARD) 
         ||(expression_[index_] == ObJsonPathItem::BEGIN_MEMBER)) {
-        // .*
+        // .* 
       if ((expression_[index_]) ==  ObJsonPathItem::WILDCARD) {
         if (OB_FAIL(parse_member_wildcard_node())) {
         }
@@ -2663,17 +2571,16 @@ int ObJsonPath::parse_dot_node()
         if (OB_FAIL(parse_dot_ellipsis_node())) {
         } else {
           // can only be member
-          if (index_ < expression_.length()
+          if (index_ < expression_.length() 
               && ObJsonPathUtil::is_begin_field_name(expression_[index_])) {
             if (OB_FAIL(parse_sql_json_member_node())) {
             }
           } else {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("'..'should follow 'keyname' or 'fun()'", K(ret), K(index_), K(expression_));
-          }
+          } 
         }
       }
-    } else {
+    } else { 
       // only one '.' could be .member or .fun()
       // without '"' then must be fun()
       if (OB_FAIL(parse_sql_json_member_node())) {
@@ -2682,8 +2589,6 @@ int ObJsonPath::parse_dot_node()
   } else {
     // out of range
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("wrong path expression, shouldn't end up with'.'",
-    K(ret), K(index_), K(expression_));
   }
   return ret;
 }
@@ -2699,7 +2604,7 @@ bool ObJsonPathUtil::is_sql_json_keyname(const char* name, uint64_t length)
     if ((letter_or_not(*name)) || (*(name) == '_')) {
       uint64_t idx = 1;
       while (idx < length && ret_bool) {
-        if (!OB_ISNULL(name + idx) && (letter_or_not(*(name + idx))
+        if (!OB_ISNULL(name + idx) && (letter_or_not(*(name + idx)) 
             || is_digit(*(name + idx)) || (*(name + idx) == '_'))) {
           ++idx;
         } else {
@@ -2707,7 +2612,7 @@ bool ObJsonPathUtil::is_sql_json_keyname(const char* name, uint64_t length)
         }
       }
     } else {
-      ret_bool = false;
+      ret_bool = false;  
     }
   }
   return ret_bool;
@@ -2715,7 +2620,7 @@ bool ObJsonPathUtil::is_sql_json_keyname(const char* name, uint64_t length)
 
 // process JPN_MEMBER get keyname
 // @param[in,out] name  Keyname
-// @param[in] is_quoted
+// @param[in] is_quoted 
 // @return  the error code.
 int ObJsonPath::get_origin_key_name(char*& str, uint64_t& length, bool is_quoted, bool& is_func, bool& with_escape)
 {
@@ -2748,17 +2653,14 @@ int ObJsonPath::get_origin_key_name(char*& str, uint64_t& length, bool is_quoted
 
         if (end == 0 && index_ == len) {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("should end with DOUBLE_QUOTE!", K(ret), K(index_), K(expression_));
         }
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("should start with DOUBLE_QUOTE!", K(ret), K(index_), K(expression_));
       }
     } else {
       start = index_;
       if (ObJsonPathUtil::is_digit(expression_[index_])) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("shouldn't start with number!", K(ret), K(index_), K(expression_));
       } else {
          while (index_ < len && end == 0) {
           if (ObJsonPathUtil::is_key_name_terminator(expression_[index_])) {
@@ -2781,13 +2683,11 @@ int ObJsonPath::get_origin_key_name(char*& str, uint64_t& length, bool is_quoted
     }
   } else {
     ret = OB_ARRAY_OUT_OF_RANGE;
-    LOG_WARN("index out of range!", K(ret), K(index_), K(expression_));
   }
 
   if (OB_SUCC(ret)) {
     if (end < start) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("get keyname: end<start", K(ret), K(start), K(end), K(expression_));
     } else {
       len = end - start + 1;
       char* start_ptr = expression_.ptr() + start;
@@ -2797,19 +2697,17 @@ int ObJsonPath::get_origin_key_name(char*& str, uint64_t& length, bool is_quoted
         str = static_cast<char*> (allocator_->alloc(length));
         if (OB_ISNULL(str)) {
           ret = OB_ALLOCATE_MEMORY_FAILED;
-          LOG_WARN("fail to allocate memory for member_name.",K(ret), K(len),K(start_ptr));
         } else {
           str[0] = ObJsonPathItem::DOUBLE_QUOTE;
           MEMCPY(str + 1, start_ptr, len);
           str[len + 1] = ObJsonPathItem::DOUBLE_QUOTE;
         }
       } else {
-      // whit "" or function
+      // whit "" or function 
         length = len;
         str = static_cast<char*> (allocator_->alloc(length));
         if (OB_ISNULL(str)) {
           ret = OB_ALLOCATE_MEMORY_FAILED;
-          LOG_WARN("fail to allocate memory for member_name.",K(ret), K(len),K(start_ptr));
         } else {
           MEMCPY(str, start_ptr, len);
         }
@@ -2832,26 +2730,21 @@ int ObJsonPath::parse_func_node(char*& name, uint64_t& len)
     if ((index_ < expression_.length()) && (expression_[index_] == ')')) {
       ++index_; // skip')'
       ObJsonPathUtil::skip_whitespace(expression_, index_);
-      ObJsonPathFuncNode* func_node =
+      ObJsonPathFuncNode* func_node = 
       static_cast<ObJsonPathFuncNode*> (allocator_->alloc(sizeof(ObJsonPathFuncNode)));
       if (OB_ISNULL(func_node)) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
-        LOG_WARN("allocate row buffer failed at member_node", K(ret), K(index_), K(expression_));
       } else {
         func_node = new (func_node) ObJsonPathFuncNode(allocator_);
         if ((OB_FAIL(func_node->init(name, len))) || OB_FAIL(append(func_node) )) {
           allocator_->free(func_node);
-          LOG_WARN("fail to append JsonPathNode(member_node)!",
-          K(ret), K(index_), K(expression_));
         }
       }
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("there should be a ')'",K(ret), K(index_), K(expression_),K(name));
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("a '(' should followed by the funcname",K(ret), K(index_), K(expression_),K(name));
   }
   return ret;
 }
@@ -2895,24 +2788,21 @@ int ObJsonPath::parse_sql_json_member_node()
 
     char* name = nullptr;
     uint64_t name_len = 0;
-    // get name
+    // get name 
     // add double quote for rapidjson requires
     if (OB_FAIL(get_origin_key_name(name, name_len, is_quoted, is_func, with_escape))) {
     } else if (is_quoted || (!is_func)) {
       if (OB_FAIL(parse_name_with_rapidjson(name, name_len))) {
       } else if (!is_quoted) {
         if (!ObJsonPathUtil::is_ecmascript_identifier(name, name_len)) {
-          LOG_WARN("the key name isn't ECMAScript identifier!",
-            K(ret), KCSTRING(name));
         }
       }
 
       if (OB_SUCC(ret)) {
-        ObJsonPathBasicNode* member_node =
+        ObJsonPathBasicNode* member_node = 
         static_cast<ObJsonPathBasicNode*> (allocator_->alloc(sizeof(ObJsonPathBasicNode)));
         if (OB_ISNULL(member_node)) {
           ret = OB_ALLOCATE_MEMORY_FAILED;
-          LOG_WARN("allocate row buffer failed at member_node", K(ret), K(index_), K(expression_));
         } else {
           member_node = new (member_node) ObJsonPathBasicNode(allocator_, name, name_len);
           if (OB_FAIL(append(member_node) )) {
@@ -2928,13 +2818,12 @@ int ObJsonPath::parse_sql_json_member_node()
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("shouldn't end up with '.'",K(ret), K(index_), K(expression_));
   }
-  return ret;
+  return ret;  
 }
 
 int ObJsonPath::parse_multiple_array_index(uint64_t& index1, uint64_t& index2,
-      bool& from_end1, bool& from_end2)
+      bool& from_end1, bool& from_end2) 
 {
   INIT_SUCC(ret);
 
@@ -2957,8 +2846,6 @@ int ObJsonPath::parse_multiple_array_index(uint64_t& index1, uint64_t& index2,
         }
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("wrong path expression, should be ' to ' in range_node.",
-                  K(ret), K(index_), K(expression_));
       }
     } else {
       index2 = index1;
@@ -2966,7 +2853,7 @@ int ObJsonPath::parse_multiple_array_index(uint64_t& index1, uint64_t& index2,
     }
   }// end of get index
 
-  return ret;
+  return ret; 
 }
 
 int ObJsonPath::init_multi_array(ObPathArrayRange* o_array,uint64_t index1, uint64_t index2,
@@ -3020,8 +2907,8 @@ int ObJsonPath::parse_multiple_array_node()
     if (expression_[index_] == ObJsonPathItem::WILDCARD) {
       ++index_;
       if ( OB_FAIL(parse_array_wildcard_node()) ) {
-      }
-    } else {
+      }  
+    } else { 
       // range or cell
       // process CELL or RANGE
       // parser first arg
@@ -3029,15 +2916,14 @@ int ObJsonPath::parse_multiple_array_node()
       uint64_t index1 = 0, index2 = 0;
       bool from_end1 = false, from_end2 = false;
       bool the_first = true;
-      ObJsonPathBasicNode* multi_array_node =
+      ObJsonPathBasicNode* multi_array_node = 
         static_cast<ObJsonPathBasicNode*> (allocator_->alloc(sizeof(ObJsonPathBasicNode)));
       if (OB_ISNULL(multi_array_node)) {
         // error
           ret = OB_ALLOCATE_MEMORY_FAILED;
-          LOG_WARN("allocate row buffer failed at cell_node",K(ret), K(index_), K(expression_));
       } else {
         do {
-          // skip ','
+          // skip ',' 
           // init the args
           if (!the_first) {
             ++index_;
@@ -3051,12 +2937,11 @@ int ObJsonPath::parse_multiple_array_node()
           }
           if (OB_FAIL(parse_multiple_array_index(index1, index2, from_end1, from_end2))) {
           } else {
-            ObPathArrayRange* o_array =
+            ObPathArrayRange* o_array = 
             static_cast<ObPathArrayRange*> (allocator_->alloc(sizeof(ObPathArrayRange)));
             if (OB_ISNULL(o_array)) {
             // error
               ret = OB_ALLOCATE_MEMORY_FAILED;
-              LOG_WARN("allocate row buffer failed at multi_array", K(ret), K(index_), K(expression_));
             } else {
               // init array
               init_multi_array(o_array, index1, index2, from_end1, from_end2);
@@ -3082,21 +2967,18 @@ int ObJsonPath::parse_multiple_array_node()
               }
             } else {
               ret = OB_INVALID_ARGUMENT;
-              LOG_WARN("array should end up whit ']'", K(ret), K(index_), K(expression_));
             }
           } else {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("wrong path expression!", K(ret), K(index_), K(expression_));
           }
         }
       }
-    }// end of range or cell
+    }// end of range or cell    
   } else {
     // out of range after '['
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("wrong path expression!", K(ret), K(index_), K(expression_));
   }
-  return ret;
+  return ret;  
 }
 
 int ObJsonPath::get_func_comparison_type(ObJsonPathFilterNode* filter_comp_node)
@@ -3116,7 +2998,7 @@ int ObJsonPath::get_func_comparison_type(ObJsonPathFilterNode* filter_comp_node)
   if (expression_[index_] == 'l' && expression_.length() - index_ >= like_len ) {
     ObString like_tmp(like_len, expression_.ptr()+index_);
     ObString like_regex_tmp(like_regex_len, expression_.ptr()+index_);
-    if (expression_.length() - index_ >= like_regex_len
+    if (expression_.length() - index_ >= like_regex_len 
        && like_regex_tmp.prefix_match("like_regex")) {
       filter_comp_node->init_comp_type(ObJsonPathNodeType::JPN_LIKE_REGEX);
       index_ += like_regex_len;
@@ -3125,13 +3007,12 @@ int ObJsonPath::get_func_comparison_type(ObJsonPathFilterNode* filter_comp_node)
       index_ += like_len;
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong comparison type!", K(ret), K(index_), K(expression_));
     }
   // exists or eq_regex, both begin with 'e'
   } else if (expression_[index_] == 'e' && expression_.length() - index_ >= exists_len) {
     ObString exists_tmp(exists_len, expression_.ptr()+index_);
     ObString eq_regex_tmp(eq_regex_len, expression_.ptr()+index_);
-    if (expression_.length() - index_ >= eq_regex_len
+    if (expression_.length() - index_ >= eq_regex_len 
        && eq_regex_tmp.prefix_match("eq_regex")) {
       filter_comp_node->init_comp_type(ObJsonPathNodeType::JPN_EQ_REGEX);
       index_ += eq_regex_len;
@@ -3140,7 +3021,6 @@ int ObJsonPath::get_func_comparison_type(ObJsonPathFilterNode* filter_comp_node)
       index_ += exists_len;
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong comparison type!", K(ret), K(index_), K(expression_));
     }
   } else if (expression_[index_] == '!' && expression_.length() - index_ >= not_exists_len) {
     ++index_;
@@ -3152,7 +3032,6 @@ int ObJsonPath::get_func_comparison_type(ObJsonPathFilterNode* filter_comp_node)
       index_ += exists_len;
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong comparison type!", K(ret), K(index_), K(expression_));
     }
   // has substring
   } else if (expression_[index_] == 'h' && expression_.length() - index_ >= has_len) {
@@ -3161,17 +3040,15 @@ int ObJsonPath::get_func_comparison_type(ObJsonPathFilterNode* filter_comp_node)
       index_ += has_len;
       ObJsonPathUtil::skip_whitespace(expression_, index_);
       ObString substring_tmp(substring_len, expression_.ptr()+index_);
-      if (expression_.length() - index_ >= substring_len
+      if (expression_.length() - index_ >= substring_len 
        && substring_tmp.prefix_match("substring")) {
         filter_comp_node->init_comp_type(ObJsonPathNodeType::JPN_SUBSTRING);
         index_ += substring_len;
        } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("wrong comparison type!", K(ret), K(index_), K(expression_));
        }
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong comparison type!", K(ret), K(index_), K(expression_));
     }
   // starts with
   } else if (expression_.length() - index_ >= starts_len && expression_[index_] == 's') {
@@ -3180,17 +3057,15 @@ int ObJsonPath::get_func_comparison_type(ObJsonPathFilterNode* filter_comp_node)
       index_ += starts_len;
       ObJsonPathUtil::skip_whitespace(expression_, index_);
       ObString with_tmp(with_len, expression_.ptr()+index_);
-      if (expression_.length() - index_ >= with_len
+      if (expression_.length() - index_ >= with_len 
           && with_tmp.prefix_match("with")) {
         filter_comp_node->init_comp_type(ObJsonPathNodeType::JPN_STARTS_WITH);
         index_ += with_len;
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("wrong comparison type!", K(ret), K(index_), K(expression_));
       }
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong comparison type!", K(ret), K(index_), K(expression_));
     }
   }
 
@@ -3234,7 +3109,6 @@ int ObJsonPath::get_char_comparison_type(ObJsonPathFilterNode* filter_comp_node)
           }
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("supposed to have another '='!", K(ret), K(index_), K(expression_));
         }
         break;
       }
@@ -3246,17 +3120,14 @@ int ObJsonPath::get_char_comparison_type(ObJsonPathFilterNode* filter_comp_node)
           }
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("supposed to have '='!", K(ret), K(index_), K(expression_));
         }
         break;
       }
       default:
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("not comp type", K(ret), K(index_), K(expression_));
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("shouldn't end up with comparison!", K(ret), K(index_), K(expression_));
   }
   return ret;
 }
@@ -3278,7 +3149,6 @@ int ObJsonPath::get_comparison_type(ObJsonPathFilterNode* filter_comp_node, bool
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("wrong path, comparison should have right args!", K(ret), K(index_), K(expression_));
   }
   return ret;
 }
@@ -3297,16 +3167,14 @@ int ObJsonPath::jump_over_double_quote()
       } else {
         ++index_;
       }
-    }
+    }  
     if (index_ < len && expression_[index_] == ObJsonPathItem::DOUBLE_QUOTE) {
       ++index_;
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("there should be a '\"'!", K(ret), K(index_), K(expression_));
-    }
+    } 
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("there isn't '\"'!", K(ret), K(index_), K(expression_));
   }
   return ret;
 }
@@ -3321,21 +3189,20 @@ int ObJsonPath::jump_over_dot()
     // if '"' , jump
     if (expression_[index_] == ObJsonPathItem::DOUBLE_QUOTE) {
       if (OB_FAIL(jump_over_double_quote())) {
-      }
-    // without '"', could be .*/..
-    // or else must be .keyname or .function_name
+      }           
+    // without '"', could be .*/.. 
+    // or else must be .keyname or .function_name         
     } else if (expression_[index_] == ObJsonPathItem::WILDCARD) {
       ++index_;
     // if after .. is '[' the jump over the second '.'
     } else if (expression_[index_] == ObJsonPathItem::BEGIN_MEMBER) {
       if (index_ + 1 >= len) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("there end up with a '..'!", K(ret), K(index_), K(expression_));
       }
     } else {
       if (ObJsonPathUtil::letter_or_not(expression_[index_]) || expression_[index_] == '_') {
-        while (index_ < len
-              && (ObJsonPathUtil::letter_or_not(expression_[index_])
+        while (index_ < len  
+              && (ObJsonPathUtil::letter_or_not(expression_[index_]) 
               || ObJsonPathUtil::is_digit(expression_[index_])
               || expression_[index_] == '_')) {
           ++index_;
@@ -3348,17 +3215,14 @@ int ObJsonPath::jump_over_dot()
             ++index_;
           } else {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("there should be a ')'!", K(ret), K(index_), K(expression_));
           }
         }
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("member name should be start with letter when without double_quote!", K(ret), K(index_), K(expression_));
       }
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("out of range!", K(ret), K(index_), K(expression_));
   }
   return ret;
 }
@@ -3389,7 +3253,6 @@ int ObJsonPath::get_sub_path(char*& sub_path, uint64_t& sub_len)
           ++index_;
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("there should be a ']'!", K(ret), K(index_), K(expression_));
           break;
         }
       // start with '.'
@@ -3421,15 +3284,12 @@ int ObJsonPath::get_sub_path(char*& sub_path, uint64_t& sub_len)
               }
             }
             if (OB_FAIL(ret) || brace != 0) {
-              LOG_WARN("Wrong filter expression!", K(ret), K(index_), K(expression_));
             }
           } else {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("Should have a '(' after '?'!", K(ret), K(index_), K(expression_));
           }
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("Shouldn't end up with '?'!", K(ret), K(index_), K(expression_));
         }
       } else if (expression_[index_] == ' ') {
         ObJsonPathUtil::skip_whitespace(expression_, index_);
@@ -3446,7 +3306,6 @@ int ObJsonPath::get_sub_path(char*& sub_path, uint64_t& sub_len)
 
       if (end < start || end >= len) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("didn't get the right endding of sub_path!", K(ret), K(index_), K(expression_), K(end), K(start));
       } else {
         char* start_ptr = expression_.ptr() + start;
         if (end == start) {
@@ -3457,18 +3316,16 @@ int ObJsonPath::get_sub_path(char*& sub_path, uint64_t& sub_len)
         sub_path = static_cast<char*> (allocator_->alloc(sub_len));
         if (OB_ISNULL(sub_path)) {
           ret = OB_ALLOCATE_MEMORY_FAILED;
-          LOG_WARN("fail to allocate memory for sub_path.",K(ret), K(len),K(start_ptr));
         } else {
           sub_path[0] = ObJsonPathItem::ROOT;
           if(end > start) {
             MEMCPY(sub_path + 1, start_ptr, sub_len - 1);
           }
-        }
-      }
+        }       
+      }      
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("supposed to begin with '@'!", K(ret), K(index_), K(expression_));
   }
   return ret;
 }
@@ -3481,11 +3338,11 @@ int ObJsonPath::get_var_name(char*& name, uint64_t& len)
   uint64_t start = 0;
   uint64_t end = 0;
   start = index_;
-  if (index_ < expression_.length()
+  if (index_ < expression_.length() 
     && (ObJsonPathUtil::letter_or_not(expression_[index_]) || expression_[index_] == '_')) {
     ++index_;
     while (index_ < expression_.length() && end == 0) {
-      if (ObJsonPathUtil::letter_or_not(expression_[index_])
+      if (ObJsonPathUtil::letter_or_not(expression_[index_]) 
          || ObJsonPathUtil::is_digit(expression_[index_])
          || expression_[index_] == '_') {
         ++index_;
@@ -3496,21 +3353,18 @@ int ObJsonPath::get_var_name(char*& name, uint64_t& len)
 
     if (end < start || end >= expression_.length()) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("didn't get the right end of SQL/JSON variable name!", K(ret), K(index_), K(expression_));
     } else {
       char* start_ptr = expression_.ptr() + start;
       len = end - start + 1;
       name = static_cast<char*> (allocator_->alloc(len));
       if (OB_ISNULL(name)) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
-        LOG_WARN("fail to allocate memory for name.",K(ret), K(len),K(start_ptr));
       } else {
         MEMCPY(name, start_ptr, len);
-      }
+      }       
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("wrong name of SQL/JSON variable!", K(ret), K(index_), K(expression_));
   }
 
   return ret;
@@ -3543,40 +3397,36 @@ int ObJsonPath::get_num_str(char*& num, uint64_t& len)
         if (had_point == false) {
           ++index_;
           had_point = true;
-        } else if (expression_[index_] == 'e'
-                  && (index_ + 1 < expression_.length()
-                  && (expression_[index_+1] == '+'
+        } else if (expression_[index_] == 'e' 
+                  && (index_ + 1 < expression_.length() 
+                  && (expression_[index_+1] == '+' 
                   || ObJsonPathUtil::is_digit(expression_[index_ + 1])))){
           index_ += 2;
         } else {
           ret = OB_INVALID_ARGUMENT;
           bad_index_ = index_;
-          LOG_WARN("shouldn't be two point in a number!", K(ret), K(index_), K(expression_));
         }
       } else {
         end = index_ - 1;
       }
     }
-
+    
     if (OB_SUCC(ret) && index_ == expression_.length()) {
       end = index_ - 1;
     }
     if (OB_FAIL(ret) || had_digit == false || (end < start || end >= expression_.length())) {
-      LOG_WARN("didn't get the right end of SQL/JSON variable name!", K(ret), K(index_), K(expression_));
     } else {
       char* start_ptr = expression_.ptr() + start;
       len = end - start + 1;
       num = static_cast<char*> (allocator_->alloc(len));
       if (OB_ISNULL(num)) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
-        LOG_WARN("fail to allocate memory for sub_path.",K(ret), K(len),K(start_ptr));
       } else {
         MEMCPY(num, start_ptr, len);
       }
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("wrong name of SQL/JSON variable!", K(ret), K(index_), K(expression_));
   }
 
   return ret;
@@ -3591,9 +3441,8 @@ int ObJsonPath::parse_comp_var(ObJsonPathFilterNode* filter_comp_node, bool left
   } else {
     if (OB_ISNULL(val_name)) {
       ret = OB_BAD_NULL_ERROR;
-      LOG_WARN("didn't get name of SQL/JSON variable!", K(ret), K(index_), K(expression_));
     } else if (left) {
-      filter_comp_node->init_left_var(val_name, val_len);
+      filter_comp_node->init_left_var(val_name, val_len);        
     } else {
       if (OB_FAIL(filter_comp_node->init_right_var(val_name, val_len))) {
       }
@@ -3606,7 +3455,7 @@ int ObJsonPath::parse_comp_var(ObJsonPathFilterNode* filter_comp_node, bool left
 int ObJsonPath::parse_comp_string_num(ObJsonPathFilterNode* filter_comp_node, bool left)
 {
   INIT_SUCC(ret);
-  if (expression_[index_] == ObJsonPathItem::DOUBLE_QUOTE) {
+  if (expression_[index_] == ObJsonPathItem::DOUBLE_QUOTE) { 
     char* str = nullptr;
     uint64_t name_len = 0;
     bool is_func = false;
@@ -3615,7 +3464,6 @@ int ObJsonPath::parse_comp_string_num(ObJsonPathFilterNode* filter_comp_node, bo
     } else {
       if (OB_ISNULL(str)) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("didn't get string scalar!", K(ret), K(index_), K(expression_));
       } else {
         if (left) {
           filter_comp_node->init_left_scalar(str, name_len);
@@ -3623,9 +3471,9 @@ int ObJsonPath::parse_comp_string_num(ObJsonPathFilterNode* filter_comp_node, bo
           if (OB_FAIL(filter_comp_node->init_right_scalar(str, name_len))) {
           }
         }
-      }
+      }            
     }
-  } else if (ObJsonPathUtil::is_digit(expression_[index_])
+  } else if (ObJsonPathUtil::is_digit(expression_[index_]) 
             ||(expression_[index_] == ObJsonPathItem::MINUS || expression_[index_] == '.')) {
     char* num = nullptr;
     uint64_t num_len = 0;
@@ -3633,7 +3481,6 @@ int ObJsonPath::parse_comp_string_num(ObJsonPathFilterNode* filter_comp_node, bo
     } else {
       if (OB_ISNULL(num)) {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("didn't get string scalar!", K(ret), K(index_), K(expression_));
       } else {
         if (left) {
           filter_comp_node->init_left_scalar(num, num_len);
@@ -3641,11 +3488,10 @@ int ObJsonPath::parse_comp_string_num(ObJsonPathFilterNode* filter_comp_node, bo
           if (OB_FAIL(filter_comp_node->init_right_scalar(num, num_len))) {
           }
         }
-      }
+      }            
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("supposed to be string or number!", K(ret), K(index_), K(expression_));
   }
   return ret;
 }
@@ -3685,14 +3531,12 @@ int ObJsonPath::parse_comp_exist(ObJsonPathFilterNode* filter_comp_node)
       }
 
       if (OB_FAIL(ret) || end < start || end >= len) {
-        LOG_WARN("didn't get the right endding of exist_subpath!", K(ret), K(index_), K(expression_));
       } else {
         char* start_ptr = expression_.ptr() + start;
         uint64_t sub_len = end - start + 2;
         char* sub_path = static_cast<char*> (allocator_->alloc(sub_len));
         if (OB_ISNULL(sub_path)) {
           ret = OB_ALLOCATE_MEMORY_FAILED;
-          LOG_WARN("fail to allocate memory for sub_path.",K(ret), K(len),K(start_ptr));
         } else {
           sub_path[0] = ObJsonPathItem::ROOT;
           MEMCPY(sub_path + 1, start_ptr, sub_len - 1);
@@ -3703,7 +3547,6 @@ int ObJsonPath::parse_comp_exist(ObJsonPathFilterNode* filter_comp_node)
         } else if (OB_ISNULL(spath)) {
           // error
           ret = OB_ALLOCATE_MEMORY_FAILED;
-          LOG_WARN("allocate row buffer failed at sub_path",K(ret), K(index_), K(expression_));
         } else {
           spath = new (spath) ObJsonPath(exist_subpath, allocator_);
           spath->set_subpath_arg(is_lax_);
@@ -3716,11 +3559,9 @@ int ObJsonPath::parse_comp_exist(ObJsonPathFilterNode* filter_comp_node)
       }
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("there must be sub_path after exists/!exists.", K(ret), K(index_), K(expression_));
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("there must be a ')' after exists/!exists.", K(ret), K(index_), K(expression_));
   }
   return ret;
 }
@@ -3730,7 +3571,7 @@ int ObJsonPath::parse_comp_exist(ObJsonPathFilterNode* filter_comp_node)
 int ObJsonPath::parse_comp_half(ObJsonPathFilterNode* filter_comp_node, bool left)
 {
   INIT_SUCC(ret);
-  if (!left && (filter_comp_node->get_node_type() == ObJsonPathNodeType::JPN_NOT_EXISTS
+  if (!left && (filter_comp_node->get_node_type() == ObJsonPathNodeType::JPN_NOT_EXISTS 
               || filter_comp_node->get_node_type() == ObJsonPathNodeType::JPN_EXISTS)) {
   // @
     if (OB_FAIL(parse_comp_exist(filter_comp_node))) {
@@ -3745,7 +3586,6 @@ int ObJsonPath::parse_comp_half(ObJsonPathFilterNode* filter_comp_node, bool lef
       if (OB_ISNULL(spath)) {
         // error
         ret = OB_ALLOCATE_MEMORY_FAILED;
-        LOG_WARN("allocate row buffer failed at sub_path",K(ret), K(index_), K(expression_));
       } else {
         spath = new (spath) ObJsonPath(path_string, allocator_);
         spath->set_subpath_arg(is_lax_);
@@ -3767,11 +3607,11 @@ int ObJsonPath::parse_comp_half(ObJsonPathFilterNode* filter_comp_node, bool lef
     if (OB_FAIL(parse_comp_var(filter_comp_node, left))) {
     }
   // scalar
-  } else if ((expression_[index_] == ObJsonPathItem::DOUBLE_QUOTE) || (ObJsonPathUtil::is_digit(expression_[index_]))
+  } else if ((expression_[index_] == ObJsonPathItem::DOUBLE_QUOTE) || (ObJsonPathUtil::is_digit(expression_[index_])) 
             ||(expression_[index_] == ObJsonPathItem::MINUS || expression_[index_] == ObJsonPathItem::BEGIN_MEMBER)) {
     if (OB_FAIL(parse_comp_string_num(filter_comp_node, left))) {
     }
-  // true, false, null
+  // true, false, null 
   } else if (ObJsonPathUtil::letter_or_not(expression_[index_])) {
     if (expression_[index_] == 't' && expression_.length() - index_ >= 4) {
       ObString true_tmp(4, expression_.ptr()+index_);
@@ -3780,7 +3620,6 @@ int ObJsonPath::parse_comp_half(ObJsonPathFilterNode* filter_comp_node, bool lef
         filter_comp_node->init_bool_or_null(ObJsonPathNodeType::JPN_BOOL_TRUE, left);
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("unexpected charactor", K(ret), K(index_), K(expression_));
       }
     } else if (expression_[index_] == 'f' && expression_.length() - index_ >= 5) {
       ObString false_tmp(5, expression_.ptr()+index_);
@@ -3789,7 +3628,6 @@ int ObJsonPath::parse_comp_half(ObJsonPathFilterNode* filter_comp_node, bool lef
         filter_comp_node->init_bool_or_null(ObJsonPathNodeType::JPN_BOOL_FALSE, left);
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("unexpected charactor", K(ret), K(index_), K(expression_));
       }
     } else if (expression_[index_] == 'n' && expression_.length() - index_ >= 4) {
       ObString null_tmp(4, expression_.ptr()+index_);
@@ -3798,20 +3636,17 @@ int ObJsonPath::parse_comp_half(ObJsonPathFilterNode* filter_comp_node, bool lef
         filter_comp_node->init_bool_or_null(ObJsonPathNodeType::JPN_NULL, left);
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("unexpected charactor", K(ret), K(index_), K(expression_));
       }
     } else if (expression_[index_] != 'e' || !left) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("unexpected charactor", K(ret), K(index_), K(expression_));
     }
   } else {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("wrong comparison!", K(ret), K(index_), K(expression_));
   }
   return ret;
 }
 
-bool ObJsonPath::is_illegal_comp_for_func(const ObJsonPathNodeType last_path_node_type,
+bool ObJsonPath::is_illegal_comp_for_func(const ObJsonPathNodeType last_path_node_type, 
                                           const ObJsonPathNodeType scalar_type, const ObPathScalar scalar)
 {
   bool ret_bool = false;
@@ -3825,18 +3660,18 @@ bool ObJsonPath::is_illegal_comp_for_func(const ObJsonPathNodeType last_path_nod
     case JPN_NUM_ONLY:
     case JPN_SIZE: {
       // can only be number
-      if (scalar_type != JPN_SCALAR || OB_ISNULL(scalar.scalar_)
+      if (scalar_type != JPN_SCALAR || OB_ISNULL(scalar.scalar_) 
       || scalar.s_length_ <= 0 || scalar.scalar_[0] == '"'){
         ret_bool = true;
       }
       break;
     }
-    case JPN_BOOLEAN:
+    case JPN_BOOLEAN: 
     case JPN_BOOL_ONLY: {
       // can only be true or false
       if (scalar_type == JPN_BOOL_TRUE || scalar_type == JPN_BOOL_FALSE) {
         ret_bool = false;
-      } else if (scalar_type != JPN_SCALAR || OB_ISNULL(scalar.scalar_)
+      } else if (scalar_type != JPN_SCALAR || OB_ISNULL(scalar.scalar_) 
       || scalar.s_length_ <= 0 || scalar.scalar_[0] != '"') {
         ret_bool = true;
       } else if ((scalar.s_length_ == strlen("\"true\"") && 0 == strncasecmp(scalar.scalar_, "\"true\"", strlen("\"true\"")))
@@ -3847,14 +3682,14 @@ bool ObJsonPath::is_illegal_comp_for_func(const ObJsonPathNodeType last_path_nod
       }
       break;
     }
-    case JPN_DATE:
-    case JPN_LOWER:
-    case JPN_STRING:
-    case JPN_STR_ONLY:
-    case JPN_TIMESTAMP:
-    case JPN_TYPE:
+    case JPN_DATE: 
+    case JPN_LOWER: 
+    case JPN_STRING: 
+    case JPN_STR_ONLY: 
+    case JPN_TIMESTAMP: 
+    case JPN_TYPE: 
     case JPN_UPPER: {
-      if (scalar_type != JPN_SCALAR || OB_ISNULL(scalar.scalar_)
+      if (scalar_type != JPN_SCALAR || OB_ISNULL(scalar.scalar_) 
       || scalar.s_length_ < 0 || scalar.scalar_[0] != '"') {
         ret_bool = true;
       }
@@ -3881,7 +3716,6 @@ int ObJsonPath::is_legal_comparison(ObJsonPathFilterNode* filter_comp_node)
    || filter_comp_node->get_node_type() == ObJsonPathNodeType::JPN_NOT_EXISTS) {
     if (right_type != ObJsonPathNodeType::JPN_SUB_PATH) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("a sub_path must follow by exists!", K(ret));
     }
   } else {
     ObJsonPathNodeType left_type = filter_comp_node->node_content_.comp_.left_type_;
@@ -3897,7 +3731,6 @@ int ObJsonPath::is_legal_comparison(ObJsonPathFilterNode* filter_comp_node)
         if (left_type == ObJsonPathNodeType::JPN_SUB_PATH) {
           if (right_type  == ObJsonPathNodeType::JPN_SUB_PATH) {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("invalid comparison of two path expressions!", K(ret));
           } else if (right_type >= ObJsonPathNodeType::JPN_BOOL_TRUE && right_type <= ObJsonPathNodeType::JPN_SCALAR) {
             sub_path = comp_left.filter_path_;
             scalar_type = right_type;
@@ -3908,7 +3741,6 @@ int ObJsonPath::is_legal_comparison(ObJsonPathFilterNode* filter_comp_node)
         } else if (left_type >= ObJsonPathNodeType::JPN_BOOL_TRUE && left_type <= ObJsonPathNodeType::JPN_SCALAR) {
           if (right_type  == ObJsonPathNodeType::JPN_SQL_VAR) {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("invalid comparison of two path expressions!", K(ret));
           } else if (right_type == ObJsonPathNodeType::JPN_SUB_PATH) {
             sub_path = comp_right.filter_path_;
             scalar_type = left_type;
@@ -3919,11 +3751,9 @@ int ObJsonPath::is_legal_comparison(ObJsonPathFilterNode* filter_comp_node)
         } else if (left_type == ObJsonPathNodeType::JPN_SQL_VAR) {
           if (right_type != ObJsonPathNodeType::JPN_SUB_PATH) {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("invalid comparison of two path expressions!", K(ret));
           }
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("invalid comparison of two path expressions!", K(ret), K(left_type));
         }
         break;
       }
@@ -3938,19 +3768,15 @@ int ObJsonPath::is_legal_comparison(ObJsonPathFilterNode* filter_comp_node)
           // check the result of sub_path is string
           if (JPN_BEGIN_FUNC_FLAG < last_node_type && last_node_type < JPN_STRING) {
             ret = OB_ERR_JSON_PATH_EXPRESSION_SYNTAX_ERROR;
-            LOG_WARN("type incompatibility to compare.", K(ret));
           } else if (right_type  == ObJsonPathNodeType::JPN_SUB_PATH) {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("invalid comparison of two path expressions!", K(ret), K(index_));
           } else if (right_type  == ObJsonPathNodeType::JPN_SCALAR) {
             char* tmp = comp_right.path_scalar_.scalar_;
             if (!OB_ISNULL(tmp) && tmp[0] != '"') {
               ret = OB_INVALID_ARGUMENT;
-              LOG_WARN("invalid comparison of two path expressions!", K(ret), K(tmp));
             }
           } else if (right_type != ObJsonPathNodeType::JPN_SQL_VAR) {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("invalid comparison of two path expressions!", K(ret));
           }
           if (OB_SUCC(ret) && right_type >= ObJsonPathNodeType::JPN_BOOL_TRUE && right_type  <= ObJsonPathNodeType::JPN_SCALAR) {
             sub_path = comp_left.filter_path_;
@@ -3964,25 +3790,21 @@ int ObJsonPath::is_legal_comparison(ObJsonPathFilterNode* filter_comp_node)
           char* tmpr = comp_right.path_scalar_.scalar_;
           if ((!OB_ISNULL(tmpl) && tmpl[0] != '"') || (!OB_ISNULL(tmpr) && tmpr[0] != '"')) {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("invalid comparison of two path expressions!", K(ret), K(tmpl),K(tmpr));
           }
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("invalid comparison of two path expressions!", K(ret));
         }
         break;
       }
       default: {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN( "not compare type", K(ret), K(filter_comp_node->get_node_type()));
         break;
       }
     }// end switch
-    if (OB_SUCC(ret) && OB_NOT_NULL(sub_path)
+    if (OB_SUCC(ret) && OB_NOT_NULL(sub_path) 
       && sub_path->get_last_node_type() > JPN_BEGIN_FUNC_FLAG && sub_path->get_last_node_type() < JPN_END_FUNC_FLAG
       && is_illegal_comp_for_func(sub_path->get_last_node_type(), scalar_type, scalar)) {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("invalid comparison of two path expressions!", K(ret));
     }
   }
   return ret;
@@ -3994,12 +3816,10 @@ int ObJsonPath::parse_comparison(ObFilterArrayPointers& filter_stack, bool not_e
 {
   INIT_SUCC(ret);
 
-  ObJsonPathFilterNode* filter_comp_node =
+  ObJsonPathFilterNode* filter_comp_node = 
   static_cast<ObJsonPathFilterNode*> (allocator_->alloc(sizeof(ObJsonPathFilterNode)));
   if (OB_ISNULL(filter_comp_node)) {
     ret = OB_ALLOCATE_MEMORY_FAILED;
-    LOG_WARN("allocate row buffer failed at filter_comp_node",
-    K(ret), K(index_), K(expression_));
   } else {
     filter_comp_node = new (filter_comp_node) ObJsonPathFilterNode(allocator_);
   }
@@ -4023,7 +3843,7 @@ int ObJsonPath::parse_comparison(ObFilterArrayPointers& filter_stack, bool not_e
         } else {
           if (OB_FAIL(filter_stack.push_back(filter_comp_node))) {
           }
-        }
+        }      
       } // end of get comparison
     } // end of parse comparison and right_arg
 
@@ -4044,7 +3864,7 @@ int ObJsonPath::parse_condition(ObFilterArrayPointers& filter_stack, ObCharArray
     char pri = ObJsonPathUtil::priority(top, in);
     if (pri == '<') {
       if (OB_FAIL(char_stack.push_back(in))) {
-      }
+      } 
       if (OB_SUCC(ret) && in == '!') {
         if (OB_FAIL(char_stack.push_back('('))) {
         }
@@ -4056,12 +3876,10 @@ int ObJsonPath::parse_condition(ObFilterArrayPointers& filter_stack, ObCharArray
       }
       break;
     } else if (pri == '>') {
-      ObJsonPathFilterNode* filter_cond_node =
+      ObJsonPathFilterNode* filter_cond_node = 
       static_cast<ObJsonPathFilterNode*> (allocator_->alloc(sizeof(ObJsonPathFilterNode)));
       if (OB_ISNULL(filter_cond_node)) {
         ret = OB_ALLOCATE_MEMORY_FAILED;
-        LOG_WARN("allocate row buffer failed at filter_cond_node",
-        K(ret), K(index_), K(expression_));
         break;
       } else {
         filter_cond_node = new (filter_cond_node) ObJsonPathFilterNode(allocator_);
@@ -4080,7 +3898,6 @@ int ObJsonPath::parse_condition(ObFilterArrayPointers& filter_stack, ObCharArray
               }
             } else {
               ret = OB_INVALID_ARGUMENT;
-              LOG_WARN("filter stack is not supposed to be NULL!", K(top));
             }
           }
 
@@ -4117,7 +3934,6 @@ int ObJsonPath::parse_condition(ObFilterArrayPointers& filter_stack, ObCharArray
       }
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong expression!", K(ret), K(index_), K(expression_));
     }
   }
   return ret;
@@ -4132,22 +3948,19 @@ int ObJsonPath::push_filter_char_in(char in, ObFilterArrayPointers& filter_stack
   uint64_t size_c = char_stack.size();
   if (size_c <= 0) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("empty char stack", K(ret), K(index_), K(expression_));
   } else {
     char top = char_stack[size_c - 1];
     // legal
-    switch (in) {
+    switch (in) {  
       case '(': {
         ++index_;
         // ()
         if (index_ < expression_.length()) {
           if (expression_[index_] == ')') {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("there's no content in the brace !", K(ret), K(index_), K(expression_));
           }
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN(" '(' shouldn't be the end of path expression!", K(ret), K(index_), K(expression_));
         }
         break;
       }
@@ -4158,7 +3971,6 @@ int ObJsonPath::push_filter_char_in(char in, ObFilterArrayPointers& filter_stack
           ++index_;
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("Not operator must be followed by parenthetical expression", K(ret), K(index_), K(expression_));
         }
         break;
       }
@@ -4168,7 +3980,6 @@ int ObJsonPath::push_filter_char_in(char in, ObFilterArrayPointers& filter_stack
           ++index_;
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("Should be '&&'", K(ret), K(index_), K(expression_));
         }
         break;
       }
@@ -4178,7 +3989,6 @@ int ObJsonPath::push_filter_char_in(char in, ObFilterArrayPointers& filter_stack
           ++index_;
         } else {
           ret = OB_INVALID_ARGUMENT;
-          LOG_WARN("Should be '||'", K(ret), K(index_), K(expression_));
         }
         break;
       }
@@ -4188,7 +3998,6 @@ int ObJsonPath::push_filter_char_in(char in, ObFilterArrayPointers& filter_stack
       }
       default: {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("unexpected charactor!", K(ret), K(index_), K(expression_));
         break;
       }
     }
@@ -4198,22 +4007,20 @@ int ObJsonPath::push_filter_char_in(char in, ObFilterArrayPointers& filter_stack
       char pri = ObJsonPathUtil::priority(top, in);
       if (pri == '<') {
         if (OB_FAIL(char_stack.push_back(in))) {
-        }
+        } 
         if (OB_SUCC(ret) && in == '!') {
           if (OB_FAIL(char_stack.push_back('('))) {
           }
         }
-
+        
       } else if (pri == '>' || pri == '=') {
         if (OB_FAIL(parse_condition(filter_stack, char_stack, in))) {
         }
       } else {
         ret = OB_INVALID_ARGUMENT;
-        LOG_WARN("wrong path!", K(ret), K(index_), K(expression_));
       }
     } else {
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong path!", K(ret), K(index_), K(expression_));
     }
   }
   return ret;
@@ -4237,17 +4044,17 @@ int ObJsonPath::parse_filter_node()
         while (OB_SUCC(ret) && (index_ < expression_.length()) && char_stack.size() > 0) {
           // in filter node, between cond_node, must have comp_node
           // so, could be ：
-          // 1. @
-          // 2. $
+          // 1. @ 
+          // 2. $ 
           // 3. ""
           // 4. number(-/./1...)
           // 5. letter
           // 1 - 5 are both comp_node
           // 6. '&' '|' '!' '(' ')' are cond
           // beside: !exists is comparison
-          if ((expression_[index_] == ObJsonPathItem::SUB_PATH || expression_[index_] == ObJsonPathItem::ROOT
-              || expression_[index_] == ObJsonPathItem::DOUBLE_QUOTE)
-              || (ObJsonPathUtil::is_digit(expression_[index_])
+          if ((expression_[index_] == ObJsonPathItem::SUB_PATH || expression_[index_] == ObJsonPathItem::ROOT 
+              || expression_[index_] == ObJsonPathItem::DOUBLE_QUOTE)  
+              || (ObJsonPathUtil::is_digit(expression_[index_]) 
               || (expression_[index_] == ObJsonPathItem::MINUS || expression_[index_] == '.')
               || ObJsonPathUtil::letter_or_not(expression_[index_])) ) {
             if (OB_FAIL(parse_comparison(filter_stack, false))) {
@@ -4263,7 +4070,7 @@ int ObJsonPath::parse_filter_node()
                 // is !exist
                 if (expression_[index_] == 'e') {
                   // back to '!'
-                  index_ = tmp_idx;
+                  index_ = tmp_idx; 
                   if (OB_FAIL(parse_comparison(filter_stack, true))) {
                   } else {
                     ObJsonPathUtil::skip_whitespace(expression_, index_);
@@ -4278,7 +4085,6 @@ int ObJsonPath::parse_filter_node()
                 }
               } else {
                 ret = OB_INVALID_ARGUMENT;
-                LOG_WARN("shouldn't end up with '!'.", K(ret), K(index_), K(expression_));
               }
             // && or ||, push directly
             } else {
@@ -4290,7 +4096,6 @@ int ObJsonPath::parse_filter_node()
           // not comp or cond
           } else {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("unexpected charactor", K(ret), K(index_), K(expression_));
           }
         }
 
@@ -4302,16 +4107,14 @@ int ObJsonPath::parse_filter_node()
               // the first node after filter_node can't be array node OR another filter_node
               // illegal: ?()[idx]
               ObJsonPathUtil::skip_whitespace(expression_, index_);
-              if (index_ < expression_.length()
-                && (expression_[index_] == ObJsonPathItem::BEGIN_ARRAY
+              if (index_ < expression_.length() 
+                && (expression_[index_] == ObJsonPathItem::BEGIN_ARRAY 
                 || expression_[index_] == ObJsonPathItem::FILTER_FLAG)) {
                 ret = OB_INVALID_ARGUMENT;
-                LOG_WARN("array node after filter node", K(ret), K(index_), K(expression_));
               }
             }
           } else {
             ret = OB_INVALID_ARGUMENT;
-            LOG_WARN("wrong path expression", K(ret), K(index_), K(expression_));
           }
         }
 
@@ -4320,7 +4123,6 @@ int ObJsonPath::parse_filter_node()
   } else {
     // out of range after '?'
       ret = OB_INVALID_ARGUMENT;
-      LOG_WARN("wrong path expression!", K(ret), K(index_), K(expression_));
   }
   return ret;
 }

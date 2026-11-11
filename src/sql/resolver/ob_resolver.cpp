@@ -15,7 +15,6 @@
  */
 
 #define USING_LOG_PREFIX SQL_RESV
-#include "sql/ai_column/ai_column_runtime.h"
 #include "sql/resolver/ob_resolver.h"
 #include "lib/utility/ob_smart_call.h"
 #include "lib/stat/ob_diagnostic_info_guard.h"
@@ -160,9 +159,6 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
       || OB_ISNULL(params_.expr_factory_)
       || OB_ISNULL(params_.query_ctx_)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("allocator or schema checker or session_info or query_ctx is NULL",
-             K(params_.allocator_), K(params_.schema_checker_),
-             K(params_.session_info_), K(params_.query_ctx_), KP(params_.expr_factory_));
   } else {
     real_parse_tree = &parse_tree;
   }
@@ -185,10 +181,7 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
         break;
       }
       case T_ALTER_TABLE: {
-        const auto *actions=real_parse_tree->children_[1];
-        if(actions!=nullptr && actions->num_child_>0 && actions->children_[0]->type_==T_AI_COLUMN_RETRY) {
-          ret=resolve_ai_column_retry(params_,*real_parse_tree,stmt);
-        } else { REGISTER_STMT_RESOLVER(AlterTable); }
+        REGISTER_STMT_RESOLVER(AlterTable);
         break;
       }
       case T_CREATE_INDEX: {
@@ -203,7 +196,6 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
 #if 0
         ObAlterViewResolver stmt_resolver(params_);
         if (OB_FAIL(stmt_resolver.resolve(*node))) {
-          LOG_WARN("execute alter view resolver failed", K(ret));
         }
 
         stmt = stmt_resolver.get_basic_stmt();
@@ -377,7 +369,6 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
       case T_PREPARE: {
         if (params_.is_prepare_protocol_) {
           ret = OB_ERR_PARSE_SQL;
-          LOG_WARN("parse error", K(ret));
         } else {
           REGISTER_STMT_RESOLVER(Prepare);
         }
@@ -386,7 +377,6 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
       case T_EXECUTE: {
         if (params_.is_prepare_protocol_) {
           ret = OB_ERR_PARSE_SQL;
-          LOG_WARN("parse error", K(ret));
         } else {
           REGISTER_STMT_RESOLVER(Execute);
         }
@@ -395,7 +385,6 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
       case T_DEALLOCATE: {
         if (params_.is_prepare_protocol_) {
           ret = OB_ERR_PARSE_SQL;
-          LOG_WARN("parse error", K(ret));
         } else {
           REGISTER_STMT_RESOLVER(Deallocate);
         }
@@ -638,7 +627,6 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
       default: {
         ret = OB_NOT_SUPPORTED;
         const char *type_name = get_type_name(parse_tree.type_);
-        LOG_WARN("Statement not supported now", K(ret), K(type_name));
         LOG_USER_ERROR(OB_NOT_SUPPORTED, "statement type");
         break;
       }
@@ -685,7 +673,6 @@ int ObResolver::resolve(IsPrepared if_prepared, const ParseNode &parse_tree, ObS
 
         if (OB_ISNULL(params_.query_ctx_)) {
           ret = OB_ERR_UNEXPECTED;
-          LOG_WARN("query ctx is null", K(ret));
         } else {
           ddl_arg.ddl_stmt_str_ = params_.query_ctx_->get_sql_stmt();
         }

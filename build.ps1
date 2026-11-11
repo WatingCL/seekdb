@@ -389,6 +389,53 @@ if ($PackageBuild) {
     if (-not $ConfiguratorBuilt) {
         Write-Log "continuing without the Configurator executable"
     }
+    Do-Clean
+    exit 0
+}
+if ($Action.ToLower() -notin "release", "relwithdebinfo") {
+    Write-Err "Unsupported build type: $Action (only release is maintained)"
+    Show-Usage
+    exit 2
+}
+
+if ($Init) { Do-Init }
+Add-DependencyToolsToPath
+
+$CMake = Get-Command cmake -ErrorAction SilentlyContinue
+$Ninja = Get-Command ninja -ErrorAction SilentlyContinue
+if (-not $CMake) { throw "cmake not found; run with --init or install CMake 3.20+" }
+if (-not $Ninja) { throw "ninja not found; run with --init or install Ninja" }
+
+$DefaultVcpkgDir = if ($env:OB_VCPKG_DIR) { $env:OB_VCPKG_DIR } else { "$DEPS_3RD\vcpkg\x64-windows" }
+$DefaultOpenSSLDir = if ($env:OB_OPENSSL_DIR) { $env:OB_OPENSSL_DIR } else { "$DEPS_3RD\openssl" }
+$DefaultLLVMDir = if ($env:OB_LLVM_DIR) { $env:OB_LLVM_DIR } else { "$TOOLS_DIR\llvm18" }
+$BuildDir = "$TOPDIR\build_release"
+$CMakeArgs = @(
+    "-S", $TOPDIR,
+    "-B", $BuildDir,
+    "-G", "Ninja",
+    "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+    "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
+    "-DOB_ENABLE_UNITY=ON",
+    "-DOB_USE_LLD=ON",
+    "-DOB_VCPKG_DIR=$DefaultVcpkgDir",
+    "-DOB_OPENSSL_DIR=$DefaultOpenSSLDir",
+    "-DOB_LLVM_DIR=$DefaultLLVMDir"
+) + $ExtraCMakeArgs
+
+Write-Log "configuring Windows x64 release in $BuildDir"
+& $CMake.Source @CMakeArgs
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+if ($Build) {
+    if ($Jobs -le 0) {
+        $Jobs = (Get-CimInstance Win32_Processor |
+            Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
+        if (-not $Jobs -or $Jobs -lt 1) { $Jobs = 4 }
+    }
+    Write-Log "building seekdb with Ninja (-j $Jobs)"
+    & $Ninja.Source -C $BuildDir -j $Jobs seekdb
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
 Write-Log "configuring Windows x64 release in $BuildDir"

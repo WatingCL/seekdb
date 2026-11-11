@@ -36,8 +36,7 @@ class ObOptStatManager
 public:
   ObOptStatManager();
   virtual ~ObOptStatManager() {}
-  virtual int init(ObMySQLProxy *proxy,
-                   ObServerConfig *config);
+  virtual int init(ObMySQLProxy *proxy);
   static int64_t get_default_data_size();
 
   static int64_t get_default_avg_row_size();
@@ -49,7 +48,7 @@ public:
                               const ObIArray<int64_t> &part_ids,
                               bool &is_opt_stat_valid);
 
-  int check_system_stat_validity(sql::ObExecContext *ctx,
+  int check_system_stat_validity(sql::ObExecContext *ctx, 
                                  bool &is_valid);
 
   int check_opt_stat_validity(sql::ObExecContext &ctx,

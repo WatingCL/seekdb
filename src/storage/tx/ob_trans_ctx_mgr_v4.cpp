@@ -199,7 +199,7 @@ void ObLSTxCtxMgr::destroy()
 void ObLSTxCtxMgr::reset()
 {
   is_inited_ = false;
-
+  
   tx_table_ = NULL;
   lock_table_ = NULL;
   total_tx_ctx_count_ = 0;
@@ -300,7 +300,7 @@ int ObLSTxCtxMgr::create_tx_ctx_(const ObTxCreateArg &arg,
   } else if (is_stopped_()) {
     TRANS_LOG(WARN, "ObLSTxCtxMgr is stopped", K(arg));
     ret = OB_PARTITION_IS_STOPPED;
-  } else if (OB_ISNULL(tmp_ctx = ObTxCtxFactory::alloc())) {
+  } else if (OB_ISNULL(tmp_ctx = ObTxCtxFactory::alloc(arg.tx_ctx_cache_))) {
     TRANS_LOG(WARN, "alloc transaction context error", K(arg));
     ret = OB_ALLOCATE_MEMORY_FAILED;
   } else {
@@ -1149,7 +1149,7 @@ int ObTxCtxMgr::init(ObTsMgr *ts_mgr,
     ret = OB_ERR_UNEXPECTED;
     TRANS_LOG(WARN, "ts mgr is null");
   } else {
-
+    
     ts_mgr_ = ts_mgr;
     txs_ = txs;
     is_inited_ = true;

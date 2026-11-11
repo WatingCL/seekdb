@@ -27,7 +27,8 @@ target_link_libraries(ob_malloc_object oblib_base_without_pass)
 add_library(ob_malloc STATIC)
 target_link_libraries(ob_malloc ob_malloc_object)
 if(OB_HAVE_BUNDLED_JEMALLOC)
-  target_link_libraries(ob_malloc "${JEMALLOC_STATIC_LIBRARY}")
+  target_link_libraries(ob_malloc_object seekdb_jemalloc)
+  target_link_libraries(ob_malloc seekdb_jemalloc)
 endif()
 
 # malloc_hook is only part of the Linux production runtime.
@@ -35,7 +36,7 @@ if(NOT APPLE AND NOT WIN32 AND NOT ANDROID)
   add_library(malloc_hook STATIC ${SEEKDB_OBLIB_MALLOC_HOOK_STANDALONE})
   target_link_libraries(malloc_hook oblib_base)
   if(OB_HAVE_BUNDLED_JEMALLOC)
-    target_link_libraries(malloc_hook "${JEMALLOC_STATIC_LIBRARY}")
+    target_link_libraries(malloc_hook seekdb_jemalloc)
   endif()
 endif()
 
@@ -70,10 +71,13 @@ if(ANDROID)
 else()
   target_link_directories(oblib_lib PUBLIC
     ${DEP_DIR}/lib ${DEP_DIR}/lib/vsag_lib)
-  if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-    # AppleClang supports OpenMP in the frontend, but its driver does not
-    # accept -fopenmp. The arm64 SDK already supplies libomp_static below.
-    target_compile_options(oblib_lib PUBLIC -Xpreprocessor -fopenmp)
+  if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # Apple Clang accepts OpenMP in its frontend; the iOS runtime is linked separately.
+    target_compile_options(oblib_lib PUBLIC "SHELL:-Xpreprocessor -fopenmp")
+  elseif(UNIX AND CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+    # AppleClang's driver does not expose -fopenmp, but its frontend does.
+    # Keep using the libomp runtime packaged with the arm64 VSAG libraries.
+    target_compile_options(oblib_lib PUBLIC "SHELL:-Xclang -fopenmp")
   elseif(UNIX)
     target_compile_options(oblib_lib PUBLIC -fopenmp)
   endif()
@@ -92,11 +96,6 @@ else()
       libantlr4-runtime.a
       libantlr4-autogen.a
       libfmt.a)
-    # [hipVS/cuVS] optional GPU vector-index backend bridge
-    # enable: -DOB_BUILD_CUVS=ON -DCUVS_BRIDGE_LIB=/path/to/libseekdb_cuvs_bridge.so
-    if (OB_BUILD_CUVS AND EXISTS "${CUVS_BRIDGE_LIB}")
-      target_link_libraries(oblib_lib PUBLIC ${CUVS_BRIDGE_LIB})
-    endif()
   elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
     target_link_libraries(oblib_lib PUBLIC
       libcpuinfo.a
@@ -117,15 +116,18 @@ else()
       libvsag_static.a
       libdiskann.a
       libio.a
-      libgfortran_static.a
-      libquadmath_static.a
-      libgcc.a
-      libomp_static.a
-      libopenblas.a
       libroaring.a
       libantlr4-runtime.a
       libantlr4-autogen.a
       libfmt.a)
+    if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+      target_link_libraries(oblib_lib PUBLIC
+        libomp.a liblapacke.a "-framework Accelerate")
+    else()
+      target_link_libraries(oblib_lib PUBLIC
+        libgfortran_static.a libquadmath_static.a libgcc.a
+        libomp_static.a libopenblas.a)
+    endif()
   elseif(CMAKE_SYSTEM_PROCESSOR STREQUAL "AMD64")
     target_link_directories(oblib_lib PUBLIC ${OB_VSAG_DIR}/lib)
     target_include_directories(oblib_lib PUBLIC ${OB_VSAG_DIR}/include)

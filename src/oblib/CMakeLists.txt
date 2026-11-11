@@ -4,17 +4,20 @@ add_library(oblib_pass INTERFACE)
 
 get_property(EASY_INCLUDE_DIRS GLOBAL PROPERTY "EASY_INCLUDE_DIRS" )
 
+if(OB_MACOS27)
+  include("${CMAKE_SOURCE_DIR}/cmake/BoostCompat.cmake")
+endif()
+
 if(WIN32)
   set(OPENSSL_INCLUDE_DIR "${OB_OPENSSL_DIR}/include")
   set(VCPKG_INCLUDE_DIR "${OB_VCPKG_DIR}/include")
   set(CURL_INCLUDE_DIR "${OB_VCPKG_DIR}/include")
-  # vcpkg puts sqlite3.h at include/sqlite3.h, but code uses <sqlite/sqlite3.h>
-  set(SQLITE_COMPAT_DIR "${CMAKE_BINARY_DIR}/compat_include")
-  file(MAKE_DIRECTORY "${SQLITE_COMPAT_DIR}/sqlite")
-  if(EXISTS "${OB_VCPKG_DIR}/include/sqlite3.h")
-    configure_file("${OB_VCPKG_DIR}/include/sqlite3.h"
-                   "${SQLITE_COMPAT_DIR}/sqlite/sqlite3.h" COPYONLY)
-  endif()
+
+endif()
+
+set(OB_HEADER_DEP_DIR "${DEP_DIR}")
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS" AND SEEKDB_IOS_HEADER_PREFIX)
+  set(OB_HEADER_DEP_DIR "${SEEKDB_IOS_HEADER_PREFIX}")
 endif()
 
 target_include_directories(
@@ -27,9 +30,9 @@ target_include_directories(
   ${CMAKE_SOURCE_DIR}/src/oblib
   ${CMAKE_SOURCE_DIR}/src/oblib/common
   ${CMAKE_SOURCE_DIR}/src/oblib/easy/include
-  ${DEP_DIR}/include
-  ${DEP_DIR}/include/libxml2
-  $<$<NOT:$<PLATFORM_ID:Darwin>>:${SYS_INCLUDE_DIR}>
+  ${OB_HEADER_DEP_DIR}/include
+  ${OB_HEADER_DEP_DIR}/include/libxml2
+  $<$<NOT:$<PLATFORM_ID:Darwin,iOS>>:${SYS_INCLUDE_DIR}>
   $<$<PLATFORM_ID:Windows>:${SYS_UM_INCLUDE_DIR}>
   $<$<PLATFORM_ID:Windows>:${SYS_UCRT_INCLUDE_DIR}>
   $<$<PLATFORM_ID:Windows>:${SYS_SHARED_INCLUDE_DIR}>
@@ -37,25 +40,42 @@ target_include_directories(
   $<$<PLATFORM_ID:Windows>:${VCPKG_INCLUDE_DIR}>
   $<$<PLATFORM_ID:Windows>:${VCPKG_INCLUDE_DIR}/libxml2>
   $<$<PLATFORM_ID:Windows>:${CURL_INCLUDE_DIR}>
-  $<$<PLATFORM_ID:Windows>:${SQLITE_COMPAT_DIR}>
   $<$<PLATFORM_ID:Windows>:${OB_VSAG_DIR}/include>
   ${DEVTOOLS_DIR}
   ${DEVTOOLS_DIR}/include
-  ${DEP_DIR}/include/icu
-  ${DEP_DIR}/include/icu/common
-  ${DEP_DIR}/include/fast_float
+  ${OB_HEADER_DEP_DIR}/include/icu
+  ${OB_HEADER_DEP_DIR}/include/icu/common
+  ${OB_HEADER_DEP_DIR}/include/fast_float
   ${USSL_INCLUDE_DIRS}
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  include("${CMAKE_SOURCE_DIR}/cmake/IOSBoost.cmake")
+  seekdb_ios_boost_headers(oblib_base_without_pass)
+endif()
 
 # -Wno-vla-cxx-extension is Clang 18+ only; GCC and older Clang use -Wno-vla-extension
 include(CheckCXXCompilerFlag)
 set(CMAKE_REQUIRED_FLAGS "-Werror")
 check_cxx_compiler_flag("-Wno-vla-cxx-extension" COMPILER_SUPPORTS_VLA_CXX_EXTENSION)
-check_cxx_compiler_flag("-Wno-enum-constexpr-conversion" COMPILER_SUPPORTS_ENUM_CONSTEXPR_CONVERSION)
+check_cxx_compiler_flag("-Wno-enum-constexpr-conversion" COMPILER_SUPPORTS_ENUM_CONSTEXPR_WARNING)
+set(IOS_COMPAT_WARNING_FLAGS "")
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  foreach(warning nontrivial-memcall cast-function-type-mismatch
+      explicit-specialization-storage-class)
+    string(MAKE_C_IDENTIFIER "IOS_WARNING_${warning}" warning_check)
+    check_cxx_compiler_flag("-Wno-error=${warning}" ${warning_check})
+    if(${warning_check})
+      # Preserve new diagnostics while allowing existing code to compile with Apple Clang.
+      list(APPEND IOS_COMPAT_WARNING_FLAGS "-Wno-error=${warning}")
+    endif()
+  endforeach()
+  check_cxx_compiler_flag("-Wno-unnecessary-virtual-specifier" COMPILER_SUPPORTS_VIRTUAL_SPECIFIER_WARNING)
+endif()
 unset(CMAKE_REQUIRED_FLAGS)
-set(ENUM_CONSTEXPR_WARN_FLAG "")
-if(COMPILER_SUPPORTS_ENUM_CONSTEXPR_CONVERSION)
-  set(ENUM_CONSTEXPR_WARN_FLAG "-Wno-enum-constexpr-conversion")
+set(ENUM_CONSTEXPR_WARNING_FLAG "")
+if(COMPILER_SUPPORTS_ENUM_CONSTEXPR_WARNING)
+  set(ENUM_CONSTEXPR_WARNING_FLAG "-Wno-enum-constexpr-conversion")
 endif()
 if(COMPILER_SUPPORTS_VLA_CXX_EXTENSION)
   set(VLA_WARN_FLAG "-Wno-vla-cxx-extension")
@@ -128,7 +148,7 @@ if (OB_USE_CLANG)
       $<$<COMPILE_LANGUAGE:C>:-Wno-unused-parameter>
       -Wno-unused-but-set-variable -Wno-null-pointer-subtraction -Wno-compound-token-split-by-macro
       -Wno-packed-non-pod -Wno-format -Wno-shorten-64-to-32 -Wno-unused-but-set-parameter -Wno-single-bit-bitfield-constant-conversion
-      ${ENUM_CONSTEXPR_WARN_FLAG} -Wno-covered-switch-default
+      ${ENUM_CONSTEXPR_WARNING_FLAG} -Wno-covered-switch-default
       -Wno-bitwise-instead-of-logical -Wno-suggest-override -Wno-non-virtual-dtor -Wno-cast-qual
       -Wno-unused-value -Wno-macro-redefined -Wno-reinterpret-base-class -Wno-register
       -Wno-implicit-fallthrough -Wno-deprecated-non-prototype
@@ -136,27 +156,29 @@ if (OB_USE_CLANG)
       -Wno-string-concatenation
       -Wno-vla ${VLA_WARN_FLAG})
   endif()
-  target_compile_options(oblib_base_without_pass INTERFACE ${OBLIB_COMPILE_DEFINITIONS})
-  if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND
-     CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 21)
-    # Existing allocator and serialization types intentionally use these idioms.
-    target_compile_options(oblib_base_without_pass INTERFACE
-      $<$<COMPILE_LANGUAGE:CXX>:-Wno-unnecessary-virtual-specifier;-Wno-nontrivial-memcall;-Wno-cast-function-type-mismatch;-Wno-explicit-specialization-storage-class>)
-    # Backport Boost numeric_conversion's enum-trait fix without modifying the
-    # downloaded SDK. https://github.com/boostorg/numeric_conversion/commit/50a1eae
-    # AppleClang 21 makes out-of-range constexpr enum conversions a hard error.
-    set(SEEKDB_BOOST_COMPAT "${CMAKE_BINARY_DIR}/boost_compat")
-    foreach(SEEKDB_BOOST_TRAIT int_float_mixture sign_mixture udt_builtin_mixture)
-      set(SEEKDB_BOOST_HEADER "boost/numeric/conversion/detail/${SEEKDB_BOOST_TRAIT}.hpp")
-      file(READ "${DEP_DIR}/include/${SEEKDB_BOOST_HEADER}" SEEKDB_BOOST_CONTENT)
-      string(REPLACE "boost/mpl/integral_c.hpp" "boost/type_traits/integral_constant.hpp"
-        SEEKDB_BOOST_CONTENT "${SEEKDB_BOOST_CONTENT}")
-      string(REPLACE "mpl::integral_c<" "boost::integral_constant<"
-        SEEKDB_BOOST_CONTENT "${SEEKDB_BOOST_CONTENT}")
-      file(CONFIGURE OUTPUT "${SEEKDB_BOOST_COMPAT}/${SEEKDB_BOOST_HEADER}"
-        CONTENT "${SEEKDB_BOOST_CONTENT}" @ONLY)
+  if(OB_MACOS27)
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag("-Wenum-constexpr-conversion" OB_HAS_ENUM_CONSTEXPR_WARNING)
+    if(NOT OB_HAS_ENUM_CONSTEXPR_WARNING)
+      list(REMOVE_ITEM OBLIB_COMPILE_DEFINITIONS -Wno-enum-constexpr-conversion)
+    endif()
+    # New Clang diagnostics cover existing virtual ABI, byte-copy containers,
+    # and erased function-pointer serialization. Keep the established warning
+    # policy when using the host LLVM instead of the pinned Clang 17.
+    foreach(_warning unnecessary-virtual-specifier nontrivial-memcall cast-function-type-mismatch)
+      string(MAKE_C_IDENTIFIER "OB_HAS_${_warning}" _warning_supported)
+      check_cxx_compiler_flag("-W${_warning}" ${_warning_supported})
+      if(${_warning_supported})
+        list(APPEND OBLIB_COMPILE_DEFINITIONS "-Wno-${_warning}")
+      endif()
     endforeach()
-    target_include_directories(oblib_base_without_pass BEFORE INTERFACE "${SEEKDB_BOOST_COMPAT}")
+  endif()
+  target_compile_options(oblib_base_without_pass INTERFACE
+    ${OBLIB_COMPILE_DEFINITIONS} ${IOS_COMPAT_WARNING_FLAGS})
+  if(CMAKE_SYSTEM_NAME STREQUAL "iOS" AND COMPILER_SUPPORTS_VIRTUAL_SPECIFIER_WARNING)
+    # Keep this after warning groups that enable the new Apple Clang diagnostic.
+    target_compile_options(oblib_base_without_pass INTERFACE
+      $<$<COMPILE_LANGUAGE:CXX>:-Wno-unnecessary-virtual-specifier>)
   endif()
 else()
   target_compile_options(oblib_base_without_pass
@@ -200,6 +222,16 @@ else()
     )
 endif()
 
+if(ENABLE_SANITY)
+  target_compile_options(oblib_pass INTERFACE
+    "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-fpass-plugin=${SEEKDB_SANITY_PASS}>")
+  foreach(SEEKDB_SANITY_COMPILE_OPTION
+      IN LISTS SEEKDB_SANITY_NO_BUILTIN_COMPILE_OPTIONS)
+    target_compile_options(oblib_pass INTERFACE
+      "$<$<COMPILE_LANGUAGE:C,CXX>:${SEEKDB_SANITY_COMPILE_OPTION}>")
+  endforeach()
+endif()
+
 target_compile_features(oblib_base INTERFACE cxx_std_11)
 
 if(OB_HAVE_BUNDLED_JEMALLOC)
@@ -214,7 +246,7 @@ if(APPLE OR ANDROID)
   # macOS and Android don't have libaio
   set(LIBAIO_LINK_OPTION "")
   # On macOS, s2/protoc/protobuf/lz4/zstd are in lib64/
-  if(APPLE)
+  if(APPLE AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(_LIB_PATH_EXTRA "${DEP_DIR}/lib64/")
   else()
     set(_LIB_PATH_EXTRA "${_LIB_PATH}")
@@ -293,7 +325,6 @@ if(WIN32)
     ${VCPKG_LIB_DIR}/icudt.lib
     ${VCPKG_LIB_DIR}/icuuc.lib
     ${VCPKG_LIB_DIR}/protobuf-c.lib
-    ${VCPKG_LIB_DIR}/sqlite3.lib
     ${VCPKG_LIB_DIR}/pthreadVC3.lib
     ws2_32 crypt32 bcrypt userenv wldap32 advapi32
     ${ARCH_LDFLAGS}
@@ -309,17 +340,17 @@ else()
     ${OBLIB_ABSEIL_LIST}
     ${DEP_DIR}/lib/libroaring.a
     $<$<STREQUAL:"${ARCHITECTURE}","x86_64">:${DEP_DIR}/lib/libunwind.a>
-    ${DEP_DIR}/lib/sqlite/libsqlite3.a
     ${DEP_DIR}/lib/libz.a
     ${DEP_DIR}/lib/libicui18n.a
-    ${DEP_DIR}/lib/libicustubdata.a
+    $<$<PLATFORM_ID:iOS>:${DEP_DIR}/lib/libicudata.a>
+    $<$<NOT:$<PLATFORM_ID:iOS>>:${DEP_DIR}/lib/libicustubdata.a>
     ${DEP_DIR}/lib/libicuuc.a
     ${DEP_DIR}/lib/libprotobuf-c.a
     $<$<PLATFORM_ID:Linux>:-L${DEP_DIR}/var/usr/lib64 -L${DEP_DIR}/var/usr/lib -L${DEP_3RD_DIR}/usr/lib -L${DEP_3RD_DIR}/usr/lib64>
     ${LIBAIO_LINK_OPTION} $<$<NOT:$<BOOL:${ANDROID}>>:-lpthread> -ldl
     $<$<BOOL:${ANDROID}>:-llog>
     $<$<PLATFORM_ID:Linux>:-lrt>
-    $<$<PLATFORM_ID:Darwin>:-Wl,-framework,Security -Wl,-framework,CoreFoundation -Wl,-framework,SystemConfiguration -liconv>
+    $<$<PLATFORM_ID:Darwin,iOS>:-Wl,-framework,Security -Wl,-framework,CoreFoundation -Wl,-framework,SystemConfiguration -liconv>
     ${ARCH_LDFLAGS}
   )
 endif()

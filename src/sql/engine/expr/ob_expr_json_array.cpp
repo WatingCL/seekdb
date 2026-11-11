@@ -81,7 +81,7 @@ int ObExprJsonArray::eval_json_array(const ObExpr &expr, ObEvalCtx &ctx, ObDatum
   INIT_SUCC(ret);
   ObDatum *json_datum = NULL;
   ObEvalCtx::TempAllocGuard tmp_alloc_g(ctx);
-
+  
   MultimodeAlloctor temp_allocator(tmp_alloc_g.get_allocator());
   lib::ObMallocHookAttrGuard malloc_guard(lib::ObMemAttr("JSONModule"));
   ObJsonArray j_arr(&temp_allocator);
@@ -89,14 +89,12 @@ int ObExprJsonArray::eval_json_array(const ObExpr &expr, ObEvalCtx &ctx, ObDatum
 
   if (expr.datum_meta_.cs_type_ != CS_TYPE_UTF8MB4_BIN) {
     ret = OB_ERR_INVALID_JSON_CHARSET;
-    LOG_WARN("invalid out put charset", K(ret), K(expr.datum_meta_.cs_type_));
   }
 
   for (uint32_t i = 0; OB_SUCC(ret) && i < expr.arg_cnt_; i++) {
     ObIJsonBase *j_val;
     if (OB_FAIL(ObJsonExprHelper::get_json_val(expr, ctx, &temp_allocator, i, j_val))) {
       ret = OB_ERR_INVALID_JSON_TEXT_IN_PARAM;
-      LOG_WARN("failed: get_json_val failed", K(ret));
     } else if (OB_FAIL(j_base->array_append(j_val))) {
     }
   }

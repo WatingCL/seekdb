@@ -17,6 +17,7 @@
 #ifndef _OCEANBASE_SQL_OB_SQL_UTILS_H
 #define _OCEANBASE_SQL_OB_SQL_UTILS_H
 
+#include "config_bridge.h"
 #include "common/ob_range.h"
 #include "sql/rewrite/ob_query_range_provider.h"
 #include "common/object/ob_object.h"
@@ -527,7 +528,7 @@ public:
   {
     int64_t thredhold = OB_MAX_SQL_LENGTH;
 
-    thredhold = GCONF._query_record_size_limit;
+    thredhold = config::_query_record_size_limit();
 
     return thredhold;
   }
@@ -1033,7 +1034,7 @@ public:
   common::ObNewRow convert_row_;
   ObCastCtx output_row_cast_ctx_;
   uint64_t base_table_id_;
-
+  
   const share::schema::ObTableSchema *table_schema_;
   const common::ObIArray<uint64_t> *output_column_ids_;
   common::ObArray<const share::schema::ObColumnSchemaV2 *> cols_schema_;
@@ -1051,7 +1052,7 @@ public:
     plan_ = nullptr;
     exec_ctx_ = nullptr;
   }
-
+  
   void set_cur_sql(const common::ObString &cur_sql) { cur_sql_ = cur_sql; }
   void set_cur_plan(const ObPhysicalPlan *plan) { plan_ = plan; }
   void set_exec_context(ObExecContext *exec_ctx) { exec_ctx_ = exec_ctx; }

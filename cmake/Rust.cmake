@@ -12,21 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Build the Rust crate `sql-nio` (rust/sql-nio) with Cargo and expose it to the
-# C++ build as the imported-style INTERFACE target `sql_nio`.
+# Build the Cargo workspace and expose the C++ libraries in rust/exports.json.
 #
 # Usage from any C++ target:
 #     target_link_libraries(<your_target> PRIVATE sql_nio)
 #     #include "nio.h"
+#     target_link_libraries(<your_target> PRIVATE config)
+#     #include "config_bridge.h"
 #
 # Override the workspace location by setting RUST_WORKSPACE_DIR before include().
 
 if(NOT DEFINED RUST_WORKSPACE_DIR)
   set(RUST_WORKSPACE_DIR "${CMAKE_SOURCE_DIR}/rust")
 endif()
-set(RUST_CRATE_DIR   "${RUST_WORKSPACE_DIR}/sql-nio")
-set(RUST_INCLUDE_DIR "${RUST_CRATE_DIR}/include")
-
 # Locate cargo: explicit -DCARGO=, else PATH, else the rustup default location.
 if(NOT CARGO)
   find_program(CARGO cargo HINTS "$ENV{CARGO_HOME}/bin" "$ENV{HOME}/.cargo/bin")
@@ -41,37 +39,102 @@ message(STATUS "[rust] cargo: ${CARGO}")
 # Debug uses the dedicated cmake-debug profile (dev codegen + panic="abort")
 # rather than plain dev, so no linked build can unwind a panic into C++.
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  set(_cargo_profile_flag "--profile" "cmake-debug")
   set(_cargo_out_subdir "cmake-debug")
 else()
-  set(_cargo_profile_flag "--release")
   set(_cargo_out_subdir "release")
 endif()
 
-# Keep all cargo output inside the CMake build tree (isolated per build dir).
-set(RUST_TARGET_DIR "${CMAKE_BINARY_DIR}/rust-target")
-# Cargo's staticlib artifact name is platform-specific: libsql_nio.a on
-# Unix/MSYS, sql_nio.lib with the MSVC toolchain.
-if(WIN32)
-  set(RUST_STATICLIB "${RUST_TARGET_DIR}/${_cargo_out_subdir}/sql_nio.lib")
-else()
-  set(RUST_STATICLIB "${RUST_TARGET_DIR}/${_cargo_out_subdir}/libsql_nio.a")
+# Cargo otherwise builds for the host during a mobile CMake cross-build.
+# Keep the Rust static library on the same target and API level as the C++ code.
+set(_cargo_target_args)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  set(_rust_target_triple "${SEEKDB_IOS_RUST_TARGET}")
+  list(APPEND _cargo_target_args "--target" "${_rust_target_triple}")
+elseif(ANDROID)
+  if(NOT CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+    message(FATAL_ERROR "[rust] unsupported Android ABI: ${CMAKE_ANDROID_ARCH_ABI}")
+  endif()
+  set(_rust_target_triple "aarch64-linux-android")
+  list(APPEND _cargo_target_args "--target" "${_rust_target_triple}")
 endif()
 
-# Sources whose change should retrigger a rebuild of the staticlib.
-file(GLOB_RECURSE _rust_sources CONFIGURE_DEPENDS "${RUST_CRATE_DIR}/src/*.rs")
-list(APPEND _rust_sources
-  "${RUST_WORKSPACE_DIR}/Cargo.toml"
-  "${RUST_WORKSPACE_DIR}/Cargo.lock"
-  "${RUST_WORKSPACE_DIR}/rust-toolchain.toml"
-  "${RUST_CRATE_DIR}/Cargo.toml")
+# Keep all cargo output inside the CMake build tree (isolated per build dir).
+set(RUST_TARGET_DIR "${CMAKE_BINARY_DIR}/rust-target" CACHE PATH
+    "Cargo output directory; may reuse a previously built target directory")
+set(_rust_export_dir "${RUST_TARGET_DIR}/exports")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${RUST_WORKSPACE_DIR}/exports.json")
+file(READ "${RUST_WORKSPACE_DIR}/exports.json" _rust_exports)
+string(JSON _rust_export_count LENGTH "${_rust_exports}")
+math(EXPR _rust_export_last "${_rust_export_count} - 1")
+set(_rust_outputs)
+set(_rust_names)
+foreach(_index RANGE ${_rust_export_last})
+  string(JSON _name MEMBER "${_rust_exports}" ${_index})
+  list(APPEND _rust_names "${_name}")
+  if(WIN32)
+    set(_rust_library_${_name} "${_rust_export_dir}/${_name}.lib")
+  else()
+    set(_rust_library_${_name} "${_rust_export_dir}/lib${_name}.a")
+  endif()
+  list(APPEND _rust_outputs "${_rust_library_${_name}}")
+  string(JSON _header_count LENGTH "${_rust_exports}" "${_name}" headers)
+  if(_header_count GREATER 0)
+    math(EXPR _header_last "${_header_count} - 1")
+    foreach(_header_index RANGE ${_header_last})
+      string(JSON _header MEMBER "${_rust_exports}" "${_name}" headers ${_header_index})
+      list(APPEND _rust_outputs "${_rust_export_dir}/include/${_header}")
+    endforeach()
+  endif()
+endforeach()
+list(REMOVE_DUPLICATES _rust_outputs)
+
+# Reinvoke Cargo when any workspace crate's source or build input changes.
+# Discover crates through their manifests so rust/target is never scanned.
+file(GLOB _rust_inputs CONFIGURE_DEPENDS
+  "${RUST_WORKSPACE_DIR}/*.toml"
+  "${RUST_WORKSPACE_DIR}/*.lock")
+file(GLOB _rust_crate_manifests CONFIGURE_DEPENDS
+  "${RUST_WORKSPACE_DIR}/*/Cargo.toml")
+foreach(_rust_manifest IN LISTS _rust_crate_manifests)
+  get_filename_component(_rust_crate_dir "${_rust_manifest}" DIRECTORY)
+  file(GLOB_RECURSE _rust_crate_sources CONFIGURE_DEPENDS
+    "${_rust_crate_dir}/src/*.rs"
+    "${_rust_crate_dir}/include/*.h")
+  file(GLOB _rust_crate_build_inputs CONFIGURE_DEPENDS
+    "${_rust_crate_dir}/*.toml"
+    "${_rust_crate_dir}/*.rs"
+    "${_rust_crate_dir}/*.yaml"
+    "${_rust_crate_dir}/*.yml"
+    "${_rust_crate_dir}/*.json")
+  list(APPEND _rust_inputs ${_rust_crate_sources} ${_rust_crate_build_inputs})
+endforeach()
 
 # CC/AR: cargo inherits CMake's PATH but not its compiler variables, and
 # `ring` (rustls's crypto backend) compiles C through the `cc` crate. Pin it
 # to the same toolchain as the rest of the build instead of whatever `cc`
 # discovers on PATH.
 set(_rust_build_env "CARGO_TARGET_DIR=${RUST_TARGET_DIR}"
-                    "CC=${CMAKE_C_COMPILER}" "AR=${CMAKE_AR}")
+                    "DEFAULT_LOG_LEVEL=${DEFAULT_LOG_LEVEL}"
+                    "CC=${CMAKE_C_COMPILER}" "CXX=${CMAKE_CXX_COMPILER}"
+                    "AR=${CMAKE_AR}")
+if(NOT WIN32)
+  # Match the libstdc++ ABI selected in Env.cmake for CXX's std::string boundary.
+  list(APPEND _rust_build_env "CXXFLAGS=$ENV{CXXFLAGS} -D_GLIBCXX_USE_CXX11_ABI=1")
+endif()
+if(ANDROID)
+  string(REGEX REPLACE "^android-" "" _android_api "${ANDROID_PLATFORM}")
+  get_filename_component(_ndk_toolchain_bin "${CMAKE_C_COMPILER}" DIRECTORY)
+  set(_android_clang "${_ndk_toolchain_bin}/aarch64-linux-android${_android_api}-clang")
+  set(_android_ar "${_ndk_toolchain_bin}/llvm-ar")
+  if(NOT EXISTS "${_android_clang}")
+    message(FATAL_ERROR "[rust] Android clang wrapper not found: ${_android_clang}")
+  endif()
+  list(APPEND _rust_build_env
+       "CC_aarch64_linux_android=${_android_clang}"
+       "AR_aarch64_linux_android=${_android_ar}"
+       "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=${_android_clang}")
+endif()
 if(WIN32)
   # rustup treats an exact-version override and the stable alias as distinct
   # installed toolchains, even when stable currently is that exact version.
@@ -95,11 +158,18 @@ if(WIN32)
   endif()
 endif()
 if(APPLE)
+  if(OB_MACOS27)
+    list(APPEND _rust_build_env "DEVELOPER_DIR=${OB_MACOS_DEVELOPER_DIR}")
+  endif()
   # CMake injects -isysroot into its own compile rules on Apple; the cc crate
   # gets no such implicit flag, so the vendored devtools clang cannot find the
   # macOS SDK headers (TargetConditionals.h). SDKROOT is the env var the clang
   # driver itself honors.
-  if(CMAKE_OSX_SYSROOT)
+  if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    list(APPEND _rust_build_env
+      "SDKROOT=${SEEKDB_IOS_SDK_PATH}"
+      "IPHONEOS_DEPLOYMENT_TARGET=${CMAKE_OSX_DEPLOYMENT_TARGET}")
+  elseif(CMAKE_OSX_SYSROOT)
     list(APPEND _rust_build_env "SDKROOT=${CMAKE_OSX_SYSROOT}")
   else()
     execute_process(COMMAND xcrun --show-sdk-path
@@ -112,19 +182,27 @@ if(APPLE)
   endif()
 endif()
 
+set(_rust_job_server_options)
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
+  # Preserve GNU Make's jobserver file descriptors for Cargo. Without this,
+  # Cargo sees --jobserver-auth in MAKEFLAGS but cannot use the closed FDs.
+  list(APPEND _rust_job_server_options JOB_SERVER_AWARE TRUE)
+endif()
+
 add_custom_command(
-  OUTPUT "${RUST_STATICLIB}"
+  OUTPUT ${_rust_outputs}
   COMMAND "${CMAKE_COMMAND}" -E env ${_rust_build_env}
-          "${CARGO}" build ${_cargo_profile_flag}
-          --locked
-          --manifest-path "${RUST_WORKSPACE_DIR}/Cargo.toml"
-          --package sql-nio
+          "${Python3_EXECUTABLE}" "${RUST_WORKSPACE_DIR}/build.py"
+          --cargo "${CARGO}" --profile "${_cargo_out_subdir}" ${_cargo_target_args}
+          --target-dir "${RUST_TARGET_DIR}" --output "${_rust_export_dir}"
   WORKING_DIRECTORY "${RUST_WORKSPACE_DIR}"
-  DEPENDS ${_rust_sources}
-  COMMENT "[rust] cargo build sql-nio (${_cargo_out_subdir})"
+  DEPENDS ${_rust_inputs} "${CMAKE_CURRENT_LIST_FILE}"
+          "${RUST_WORKSPACE_DIR}/build.py" "${RUST_WORKSPACE_DIR}/exports.json"
+  COMMENT "[rust] cargo build workspace (${_cargo_out_subdir})"
+  ${_rust_job_server_options}
   VERBATIM)
 
-add_custom_target(sql_nio_build DEPENDS "${RUST_STATICLIB}")
+add_custom_target(rust_staticlibs_build DEPENDS ${_rust_outputs})
 
 # System libraries the Rust std staticlib depends on.
 if(WIN32)
@@ -135,17 +213,27 @@ if(WIN32)
 else()
   find_package(Threads REQUIRED)
   set(_rust_syslibs Threads::Threads ${CMAKE_DL_LIBS} m)
-  if(NOT APPLE)
+  if(NOT APPLE AND NOT ANDROID)
     list(APPEND _rust_syslibs rt)
   endif()
 endif()
 
-add_library(sql_nio INTERFACE)
-add_dependencies(sql_nio sql_nio_build)
-target_include_directories(sql_nio INTERFACE "${RUST_INCLUDE_DIR}")
-target_link_libraries(sql_nio INTERFACE "${RUST_STATICLIB}" ${_rust_syslibs})
+foreach(_name IN LISTS _rust_names)
+  string(JSON _crate GET "${_rust_exports}" "${_name}" crate)
+  add_library(${_name} INTERFACE)
+  add_dependencies(${_name} rust_staticlibs_build)
+  target_include_directories(${_name} INTERFACE
+    "${RUST_WORKSPACE_DIR}/${_crate}/include" "${_rust_export_dir}/include")
+  target_link_libraries(${_name} INTERFACE "${_rust_library_${_name}}" ${_rust_syslibs})
+  string(JSON _dep_count LENGTH "${_rust_exports}" "${_name}" deps)
+  if(_dep_count GREATER 0)
+    math(EXPR _dep_last "${_dep_count} - 1")
+    foreach(_dep_index RANGE ${_dep_last})
+      string(JSON _dep GET "${_rust_exports}" "${_name}" deps ${_dep_index})
+      target_link_libraries(${_name} INTERFACE "${_dep}")
+    endforeach()
+  endif()
+  message(STATUS "[rust] ${_name} target ready -> ${_rust_library_${_name}}")
+endforeach()
 
-set_property(DIRECTORY APPEND PROPERTY
-  ADDITIONAL_CLEAN_FILES "${RUST_TARGET_DIR}")
-
-message(STATUS "[rust] sql_nio target ready -> ${RUST_STATICLIB}")
+set_property(DIRECTORY APPEND PROPERTY ADDITIONAL_CLEAN_FILES "${RUST_TARGET_DIR}")

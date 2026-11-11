@@ -542,7 +542,7 @@ int serialize(char *buf, const int64_t buf_len, int64_t &pos)
 {
   int ret = OB_SUCCESS;
   const int64_t ori_pos = pos;
-
+ 
   if (OB_SUCCESS != (ret = serialize_one(buf, buf_len, pos))) {
     pos = ori_pos;
     ...
@@ -564,7 +564,7 @@ int serialize(char *buf, const int64_t buf_len, int64_t &pos)
 {
   int ret = OB_SUCCESS;
   const int64_t ori_pos = pos;
-
+ 
   if (OB_SUCCESS != (ret = serialize_one(buf, buf_len, pos))) {
     ...
   } else if (OB_SUCCESS != (ret = serialize_two(buf, buf_len, pos))) {
@@ -572,7 +572,7 @@ int serialize(char *buf, const int64_t buf_len, int64_t &pos)
   } else {
     ...
   }
-
+ 
   if (OB_SUCCESS != ret) {
     pos = ori_pos;
   }
@@ -610,13 +610,13 @@ int serialize(char *buf, const int64_t buf_len, int64_t &pos)
 #define DISALLOW_COPY_AND_ASSIGN(type_name) \
   type_name(const type_name&)               \
   void operator=(const type_name&)
-
+ 
 class ObFoo
 {
 public:
   ObFoo();
   ~ObFoo();
-
+ 
 private:
   DISALLOW_COPY_AND_ASSIGN(ObFoo);
 };
@@ -657,15 +657,15 @@ public:
   int init(init_param_list);
   bool is_inited();
   void destroy();
-
+  
   void reset();
   void reuse();
-
+    
   int deep_copy(const ObFoo &src);
   int shallow_copy(const ObFoo &src);
-
+  
   bool is_valid();
-
+  
   int64_t to_string(char *buf, const int64_t buf_len) const;
 
   NEED_SERIALIZE_AND_DESERIALIZE;
@@ -861,9 +861,9 @@ seekdb认为大规模项目开发应该优先避免常见陷阱，牺牲编程�
 bool operator()(const RowRun &r1, const RowRun &r2) const
 {
   bool ret = false;
-
+ 
   int err = do_something();
-
+ 
   return ret;
 }
 ```
@@ -873,9 +873,9 @@ bool operator()(const RowRun &r1, const RowRun &r2) const
 bool operator()(const RowRun &r1, const RowRun &r2) const
 {
   bool bool_ret = false;
-
+ 
   int ret = do_something();
-
+ 
   return bool_ret;
 }
 ```
@@ -886,7 +886,7 @@ bool operator()(const RowRun &r1, const RowRun &r2) const
 int func()
 {
   int ret = OB_SUCCESS;
-
+ 
   ret = do_something();
   if (OB_SUCCESS != ret) {
     int alloc_ret = clear_some_resource ();
@@ -908,12 +908,12 @@ int func()
 ```cpp
 // 冗长的代码
 int ret = OB_SUCCESS;
-
+ 
 ret = do_something1();
 if (OB_SUCCESS != ret) {
   // print error log
 }
-
+ 
 if (OB_SUCCESS == ret) {
   ret = do_something2();
   if (OB_SUCCESS != ret) {
@@ -930,7 +930,7 @@ if (OB_SUCCESS == ret) {
 ```cpp
 // 当顺序逻辑中每一步只有一行代码时，使用精简写法
 int ret = OB_SUCCESS;
-
+ 
 if (OB_FAIL(do_something1())) {
   // print error log
 } else if (OB_FAIL(do_something2())) {
@@ -945,7 +945,7 @@ if (OB_FAIL(do_something1())) {
 ```cpp
 // 当顺序逻辑中某些步骤超过一行代码，使用精简写法，并做一定变化
 int ret = OB_SUCCESS;
-
+ 
 if (OB_SUCCESS != (ret = do_something1())) {
   // print error log
 } else if (OB_SUCCESS != (ret = do_something2())) {
@@ -958,7 +958,7 @@ if (OB_SUCCESS != (ret = do_something1())) {
   // print error log
 } else { }
 }
-
+ 
 if (OB_SUCCESS == ret) {  // 开始一段新的逻辑
   if (OB_SUCCESS != (ret = do_something4())) {
 // print error log
@@ -973,7 +973,7 @@ if (OB_SUCCESS == ret) {  // 开始一段新的逻辑
 需要注意的是，如果顺序语句后面紧接着条件语句。假如顺序语句采用精简写法变成条件语句，那么，不能将它们合并为一个大的条件语句，而应该将它们在代码结构上分开来。例如：
 
 ```cpp
-// 错误的写法
+// 错误的写法 
 if (OB_SUCCESS != (ret = do_something1())) {
   // print error log
 } else if (OB_SUCCESS != (ret = do_something2())) {
@@ -1007,7 +1007,7 @@ if (OB_SUCCESS != (ret = do_something1())) {
 } else if (OB_SUCCESS != (ret = do_something2())) {
   // print error log
 } else { }
-
+ 
 if (OB_SUCCESS == ret) {
   if (cond) {
     // do something if cond
@@ -1065,11 +1065,11 @@ Exclusive Collectively Exhaustive）。原则上，每个条件语句的if/else�
 if (OB_SUCCESS != ret && x > 0) {
   // do something
 }
-
+ 
 if (OB_SUCCESS == ret && x < 0 ) {
   // do something
 }
-
+ 
 if (OB_SUCCESS == ret && x == 0) {
   // do something
 }
@@ -1113,7 +1113,7 @@ if (cond1) {
     // do something
   }
 }
-
+ 
 // 两个判断条件的第二种写法（错误）
 if (cond1 && cond2) {
   // do something
@@ -1133,7 +1133,7 @@ if (cond1 && cond2) {
 if (NULL == app_name || app_name[0] == ‘\0’) {
   ...
 }
-
+ 
 // 判断table_name或者column_name是否为空，认为是一个业务逻辑
 if (NULL != table_name || NULL != column_name) {
   ...
@@ -1178,7 +1178,7 @@ if (!param.is_valid() || !context.is_valid()) {
 int _func(void *ptr)
 {
   int ret = OB_SUCCESS;
-
+ 
   if (NULL == ptr) {
     // print error log
     ret = OB_INVALID_ARGUMENT;
@@ -1199,7 +1199,7 @@ int _func(void *ptr)
 // 错误的写法
 int ret = do_something(param1, 100, NULL);
 ```
-
+ 
 ```cpp
 // 正确的写法
 ObCallback *null_callback = NULL;
@@ -1250,9 +1250,9 @@ seekdb可用于内存分配的方法包括ob_malloc以及各种内存分配器�
 
 ```cpp
 void *ptr = ob_malloc(100, ObModIds::OB_COMMON_ARRAY);
-
+ 
 // do something
-
+ 
 if (NULL != ptr) {
   // 释放资源
   ob_free(ptr, ObModIds::OB_COMMON_ARRAY);
@@ -1462,7 +1462,7 @@ Options o = Options::All;
 ```
 
 是否允许
-**允许。**原来的枚举类型就是一个C++语言的BUG。新的枚举类型让编译器的检查更加严格，且使用新的关键字定义，和原来的enum不冲突。
+**允许。** 原来的枚举类型就是一个C++语言的BUG。新的枚举类型让编译器的检查更加严格，且使用新的关键字定义，和原来的enum不冲突。
 
 ## 6.19 Lambdas
 **是什么**
@@ -1476,7 +1476,7 @@ std::function<int(int)> lfib = [&lfib](int n) {return n < 2 ? 1 : lfib(n-1) + lf
 ```
 
 是否允许
-**禁止。**lambda语法新奇，让C代码看起来像一种新语言，且多数人对函数式编程的理解不足，学习代价较大。不符合原则（1）。另外，lambda本质上等价于定义一个functor，是一个语法糖，其并没有增加C的抽象能力。不符合原则（2）。
+**禁止。** lambda语法新奇，让C代码看起来像一种新语言，且多数人对函数式编程的理解不足，学习代价较大。不符合原则（1）。另外，lambda本质上等价于定义一个functor，是一个语法糖，其并没有增加C的抽象能力。不符合原则（2）。
 
 ## 6.20 non-member begin() and end()
 **是什么**
@@ -1490,7 +1490,7 @@ std::for_each(std::begin(arr), std::end(arr), [](int n) {std::cout << n << std::
 ```
 
 是否允许
-**禁止。**这个特性主要是让STL更加好用，不过OB禁止使用STL容器。
+**禁止。** 这个特性主要是让STL更加好用，不过OB禁止使用STL容器。
 
 ## 6.21 static_assert and type traits
 **是什么**
@@ -1508,7 +1508,7 @@ class Vector
 };
 ```
 是否允许
-**允许。**虽然OB代码已经自己定义了 `STATIC_ASSERT`，但是其只是对编译器检查的模拟，报错不友好。而 `type_traits`(参考[4])给模板的使用带来很大好处。
+**允许。** 虽然OB代码已经自己定义了 `STATIC_ASSERT`，但是其只是对编译器检查的模拟，报错不友好。而 `type_traits`(参考[4])给模板的使用带来很大好处。
 
 ## 6.22 Move semantics
 **是什么**
@@ -1530,7 +1530,7 @@ buffer(std::move(temp.buffer))
 ```
 是否允许
 
-**禁止。**禁止它可能带来一些争论。主要基于以下考虑：
+**禁止。** 禁止它可能带来一些争论。主要基于以下考虑：
 
 1. OB不使用STL容器，所以标准库使用移动语义的优化对我们没有带来好处。
 2. Move semantic和rvalue的语义比较复杂，容易引入坑
@@ -1554,7 +1554,7 @@ int my_array[ getDefaultArraySize( 3 ) ];
 ```
 
 是否允许
-**允许。**常量对于编译优化总是更加友好的。在上面的例子中，还避免了宏的使用。此外，constexpr支持浮点数计算，这时用static const无法代替的。
+**允许。** 常量对于编译优化总是更加友好的。在上面的例子中，还避免了宏的使用。此外，constexpr支持浮点数计算，这时用static const无法代替的。
 
 ## 6.23 Uniform initialization syntax and semantics
 **是什么**
@@ -1571,7 +1571,7 @@ X* p = new X{1,2};
 ```
 
 是否允许
-**禁止。**语法上更加统一，但也没有带来什么显著的好处。同时，会显著影响OB代码的风格，影响可读性。
+**禁止。** 语法上更加统一，但也没有带来什么显著的好处。同时，会显著影响OB代码的风格，影响可读性。
 
 ## 6.24 Right Angle Brackets
 **是什么**
@@ -1603,7 +1603,7 @@ void func(const Arg1& arg1, const Args&... args)
 }
 ```
 是否允许
-**允许。**对于模板编程来说这是一个很关键的特性。因为没有变长模板参数，OB的一些基础库如 to_string , to_yson, RPC框架，日志库等都需要用一些奇技淫巧结合宏来实现。且类型更加安全。
+**允许。** 对于模板编程来说这是一个很关键的特性。因为没有变长模板参数，OB的一些基础库如 to_string , to_yson, RPC框架，日志库等都需要用一些奇技淫巧结合宏来实现。且类型更加安全。
 
 ## 6.26 Unrestricted unions
 **是什么**
@@ -1631,7 +1631,7 @@ union U {
 
 是否允许
 
-**允许。**OB的代码中有多处因为这个限制而不得不定义了冗余的域，或者用很trick的方法绕过（定义char数组占位）。悲惨的例子见sql::ObPostExprItem。
+**允许。** OB的代码中有多处因为这个限制而不得不定义了冗余的域，或者用很trick的方法绕过（定义char数组占位）。悲惨的例子见sql::ObPostExprItem。
 
 ## 6.27 Explicitly defaulted and deleted special member functions
 **是什么**
@@ -1653,7 +1653,7 @@ struct NoInt {
 ```
 是否允许
 
-**允许。**这个特性就像是为OB量身定制的；禁止某个函数的功能也很有用。
+**允许。** 这个特性就像是为OB量身定制的；禁止某个函数的功能也很有用。
 
 ## 6.28 Type alias (alias declaration)
 **是什么**
@@ -1673,7 +1673,7 @@ ptr ptr_int;
 ```
 是否允许
 
-**禁止。**暂时没有遇到别名模板的需求，而非模板的别名用typedef可以达到相同的作用。
+**禁止。** 暂时没有遇到别名模板的需求，而非模板的别名用typedef可以达到相同的作用。
 
 ## 6.29 总结
 1. 不允许使用智能指针，允许通过Guard类自动释放资源。
@@ -1723,19 +1723,19 @@ ob_update_server.h以及ob_update_server.cpp。
 ```cpp
 // class and structs
 class ObArenaAllocator
-{
+{ 
   ...
   struct ObUpsInfo
   { ... }
 };
-
+ 
   // typedefs
 typedef ObStringBufT<> ObStringBuf;
-
+ 
 // enums
 enum ObPacketCode
 { ... };
-
+ 
 // inner class
 class ObOuterClass
 {
@@ -1748,7 +1748,7 @@ private:
 接口类需要前面加“I”修饰符，其它类都不要加，例如：
 
 ```cpp
-class ObIAllocator
+class ObIAllocator 
 { ... };
 ```
 
@@ -1758,11 +1758,11 @@ class ObIAllocator
 
 ```cpp
 class ObArenaAllocator
-{
+{ 
 private:
   ModuleArena arena_;
 };
-
+ 
 struct ObUpsInfo
 {
   common::ObServer addr_;
@@ -1787,7 +1787,7 @@ int64_t g_thread_number;
 
 ```cpp
 class ObArenaAllocator
-{
+{ 
 public:
   int64_t used() const;
   int64_t total() const;
@@ -1839,16 +1839,16 @@ static const int NUM_TEST_CASES = 6;
 void function()
 {
   int ret = OB_SUCCESS;
-
+ 
 }
-
+ 
 // 代码块头、尾不要有空行
 while (cond) {
   // do_something();
-
+ 
 }
 if (cond) {
-
+ 
   // do_something()
 }
 ```
@@ -1867,7 +1867,7 @@ void function(const char *buf, const int64_t buf_len, int64_t &pos)
   } else {
     ori_pos = pos;
   }
-
+ 
   // 执行业务逻辑
   return ret;
 }
@@ -1978,14 +1978,14 @@ int ret = function(argument1, argument2, argument3);
 
 如果切分成多行，可以将后面的参数拆分到下一行，如下：
 ```cpp
-int ret = really_long_function(argument1,
+int ret = really_long_function(argument1, 
     argument2, argument3);  // 空4格
 ```
 
 也可以将每个参数单独放一行，后面每一行都和第一个参数对齐，如下：
 
 ```cpp
-int ret = really_long_function(argument1,
+int ret = really_long_function(argument1, 
                                argument2,   // 和第一个参数对齐
                                argument3);
 ```
@@ -1993,7 +1993,7 @@ int ret = really_long_function(argument1,
 如果函数名太长，可以将所有的参数独立成行，如下：
 ```cpp
 int ret = really_really_long_function(
-    argument1,
+    argument1, 
     argument2,   // 空4格
     argument3);
 ```
@@ -2021,7 +2021,7 @@ if (cond) {  // (与cond，cond与)之间没有空格
 ```cpp
 if (OB_SUCCESS == (ret = do_something1())) {
   ...
-} else if (OB_SUCCESS == (ret = do_somethng2())) {
+} else if (OB_SUCCESS == (ret = do_somethng2())) { 
   ...
 } else { }  // else分支什么也不做，}不要求另起一行
 ```
@@ -2032,13 +2032,13 @@ if (OB_SUCCESS == (ret = do_something1())) {
 if (NULL == p) {
   ...
 }
-
+ 
 // 错误的写法
 if (p == NULL) {
   ...
 }
 ```
-
+ 
 ## 8.7 表达式
 表达式运算符与前后变量之间各有一个空格，如下：
 
@@ -2128,11 +2128,11 @@ default: {
 while (cond) {
   // empty
 }
-
+ 
 for (int64_t i = 0; i < num; ++i) {
   // empty
 }
-
+ 
 // 错误的做法
 while (cond) ;
 for (int64_t i = 0; i < num; ++i) ;
@@ -2145,20 +2145,20 @@ for (int64_t i = 0; i < num; ++i) ;
 // 正确的做法
 int64_t *ptr1 = NULL;
 int64_t *ptr2 = NULL;
-
+ 
 // 错误的做法
-
+ 
 int64_t *ptr1 = NULL, ptr2 = NULL; // 错误，每行只声明一个变量
 int64_t *ptr3; // 错误，变量声明时必须初始化
 int64_t* ptr = NULL; // 错误，*与变量名挨着，而不是与数据类型挨着
-
+ 
 char* get_buf(); // 错误，*与变量名挨着，而不是与数据类型挨着
 char *get_buf(); // 正确
-
+ 
 int set_buf(char* ptr); // 错误，*与变量名挨着，而不是与数据类型挨着
 int set_buf(char *ptr); // 正确
 ```
-
+ 
 ## 8.10 变量引用
 对于引用和指针，需要注意：句点（.）或箭头（->）前后不要有空格。指针(*)和地址操作符（&）之后不能有空格，地址操作符紧靠变量名。
 
@@ -2194,22 +2194,22 @@ public:                                // 顶格
   ObMyClass();                       // 相对public缩进2格
   ~ObMyClass();
   explicit ObMyClass(int var);
-
+ 
   int some_function1();             // 第一类功能函数
   int some_function2();
-
+  
   inline void set_some_var(int64_t var) {some_var_ = var;} // 第二类功能函数
   inline int64_t get_some_var() const {return some_var_;}
-
+  
   inline int some_inline_func();    // 第三类功能函数
-
+  
 private:
   int some_internal_function();      // 函数定义在前
-
+  
   int64_t some_var_;                 // 变量定义在后
   DISALLOW_COPY_AND_ASSIGN(ObMyClass);
 };
-
+ 
 int ObMyClass::some_inline_func()
 {
   ...
@@ -2229,7 +2229,7 @@ ObMyClass::ObMyClass(int var):some_var_(var), other_var_(var+1)
 {
   ...
 }
-
+ 
 // 初始化列表放在多行，按照4格缩进
 ObMyClass::ObMyClass(int var)
     :some_var_(var),
@@ -2313,9 +2313,9 @@ class MemTableGetIter : public common::ObIterator
 - 函数是否是可重入的，其同步前提是什么
 
 ```cpp
-// Returns an iterator for this table.
-// Note:
-//    It’s the client’s responsibility to delete the iterator
+// Returns an iterator for this table. 
+// Note: 
+//    It’s the client’s responsibility to delete the iterator 
 //    when it’s done with it.
 //
 // The method is equivalent to:
@@ -2331,7 +2331,7 @@ ObMyIterator *get_iterator() const;
 
 ```cpp
 // Gets the value according to the specified key.
-//
+// 
 // @param [in] key the specified key.
 // @param [in] value the result value.
 // @return the error code.
@@ -2359,7 +2359,7 @@ private:
   // Keeps track of the total number of entries in the table.
   // -1 means that we don’t yet know how many entries the table has.
 int num_total_entries_;
-
+ 
 // 注释出现在变量右侧
 static const int NUM_TEST_CASES = 6; // the total number of test cases.
 ```
@@ -2623,8 +2623,8 @@ PAUSE的作用可以看这个回答:http://stackoverflow.com/questions/12894078/
 各模块下的子模块定义将由各组内部进一步细化。模块与子模块的定义放在文件ob_log_module.h中。
 
 ## 11.3 打印范围的设置
-1.0版本支持用户按照语句、session和全局（系统）范围分别设置打印级别。系统中参考的优先级为
-1. 语句
+1.0版本支持用户按照语句、session和全局（系统）范围分别设置打印级别。系统中参考的优先级为 
+1. 语句 
 2. session
 3. 系统全局（或server）只有在前一项无设置或设置无效的情况下，系统才会参考后面的级别设置。
 
@@ -2670,9 +2670,9 @@ sql>alter system set log_level = '[log_level_statement]{,server_ip=xxx.xxx.xxx.x
 
 ### 11.3.5 log_level_statement格式
 ```
-log_level_statement =
+log_level_statement = 
 mod_level_statement {, mod_level_statement }
-mod_level_statement =
+mod_level_statement = 
 [mod[.[submod|*]]:][ERROR|WARNING|INFO|TRACE|DEBUG]
 ```
 
@@ -2691,7 +2691,7 @@ OB_MOD_LOG(mod, submod, level, "info_string", var1_name, var1, var2, 2.3, curren
 
 ```
 [2014-10-09 10:23:54.639198] DEBUG ob_tbnet_callback.cpp:203 [12530][Ytrace_id] info_string(
-var1_name=5, var2=2.3, current_range= "table_id:50,(MIN;MAX)" )
+var1_name=5, var2=2.3, current_range= "table_id:50,(MIN;MAX)" ) 
 ```
 
 其中info_string为该条日志的主要信息总结，应简洁、明了、易读。避免出现"operator

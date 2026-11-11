@@ -32,11 +32,10 @@ int ObSysVariableSqlService::replace_sys_variable(
     const common::ObString *ddl_stmt_str)
 {
   int ret = OB_SUCCESS;
-
-
+  
+  
   if (!sys_variable_schema.is_valid()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("invalid sys variable schema", K(sys_variable_schema), K(ret));
   } else if (sys_variable_schema.get_real_sysvar_count() > 0) {
     int64_t affected_rows = 0;
     ObDMLSqlSplicer dml;
@@ -70,7 +69,7 @@ int ObSysVariableSqlService::replace_sys_variable(
     if (OB_SUCC(ret) && OB_DDL_MAX_OP != operation_type) {
       // log operation
       ObSchemaOperation op;
-
+      
       op.op_type_ = operation_type;
       op.schema_version_ = sys_variable_schema.get_schema_version();
       op.ddl_stmt_str_ = ddl_stmt_str ? *ddl_stmt_str : ObString();
@@ -87,11 +86,10 @@ int ObSysVariableSqlService::replace_system_variable(
     ObISQLClient &sql_client)
 {
   int ret = OB_SUCCESS;
-
-
+  
+  
   if (!sysvar_schema.is_valid()) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("sysvar_schema is invalid", K(sysvar_schema), K(ret));
   } else {
     int64_t affected_rows = 0;
     ObDMLSqlSplicer dml;
@@ -103,7 +101,6 @@ int ObSysVariableSqlService::replace_system_variable(
       } else if (OB_FAIL(exec.exec_insert_update(OB_ALL_SYS_VARIABLE_TNAME, dml, affected_rows))) {
       } else if (0 != affected_rows && 1 != affected_rows && 2 != affected_rows) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("affected_rows unexpected", K(affected_rows), K(ret));
       } else {
         OB_LOG(INFO, "replace sysvar schema success", K(affected_rows), K(sysvar_schema));
       }
@@ -118,7 +115,6 @@ int ObSysVariableSqlService::replace_system_variable(
       } else if (OB_FAIL(exec.exec_insert(OB_ALL_SYS_VARIABLE_HISTORY_TNAME, dml, affected_rows))) {
       } else if (0 != affected_rows && 1 != affected_rows && 2 != affected_rows) {
         ret = OB_ERR_UNEXPECTED;
-        LOG_WARN("affected_rows unexpected", K(affected_rows), K(ret));
       }
     }
   }
@@ -128,8 +124,8 @@ int ObSysVariableSqlService::replace_system_variable(
 int ObSysVariableSqlService::gen_sys_variable_dml(ObDMLSqlSplicer &dml, const ObSysVarSchema &sysvar_schema, bool is_history)
 {
   int ret = OB_SUCCESS;
-
-
+  
+  
 #define FORMAT_STR(str) (str.empty() ? ObString("") : str)
   if (OB_FAIL(dml.add_pk_column("name", ObHexEscapeSqlStr(FORMAT_STR(sysvar_schema.get_name()))))
             || OB_FAIL(dml.add_column("data_type", sysvar_schema.get_data_type()))
@@ -139,12 +135,10 @@ int ObSysVariableSqlService::gen_sys_variable_dml(ObDMLSqlSplicer &dml, const Ob
             || OB_FAIL(dml.add_column("info", ObHexEscapeSqlStr(FORMAT_STR(sysvar_schema.get_info()))))
             || OB_FAIL(dml.add_column("flags", sysvar_schema.get_flags()))
             || OB_FAIL(dml.add_gmt_modified())) {
-    LOG_WARN("add column failed", K(ret));
   } else if (is_history) {
     const int64_t is_deleted = 0;
     if (OB_FAIL(dml.add_pk_column("schema_version", sysvar_schema.get_schema_version()))
         || OB_FAIL(dml.add_column("is_deleted", is_deleted))) {
-      LOG_WARN("add column failed", K(ret));
     }
   }
 #undef FORMAT_STR

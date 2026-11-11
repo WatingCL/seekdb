@@ -67,7 +67,7 @@ bool operator!=(const ObColumnSchemaV2 &r) const;
 int assign(const ObColumnSchemaV2 &src_schema);
 
 //set methods
-
+  
   inline void set_table_id(const uint64_t id) { table_id_ = id; }
   inline void set_column_id(const uint64_t id) { column_id_ = id; }
   inline void set_schema_version(const int64_t schema_version) { schema_version_ = schema_version; }
@@ -160,7 +160,7 @@ int assign(const ObColumnSchemaV2 &src_schema);
   inline void set_skip_index_attr(const uint64_t attr_val) { skip_index_attr_.set_column_attr(attr_val); }
   inline void set_is_string_lob() { add_column_flag(STRING_LOB_COLUMN_FLAG); }
   //get methods
-
+  
   inline uint64_t get_table_id() const { return table_id_; }
   inline uint64_t get_column_id() const { return column_id_; }
   inline uint64_t& get_column_id() { return column_id_; }
@@ -347,21 +347,6 @@ int assign(const ObColumnSchemaV2 &src_schema);
   inline share::ObLocalSessionVar &get_local_session_var() { return local_session_vars_; }
   inline const share::ObLocalSessionVar &get_local_session_var() const { return local_session_vars_; }
   int is_same_collection_column(const ObColumnSchemaV2 &other, bool &is_same) const;
-  bool is_ai_column() const { return !ai_column_expr_.empty(); }
-  bool is_ai_column_internal() const { return (column_flags_ & AI_COLUMN_INTERNAL_FLAG) != 0; }
-  const common::ObString &get_ai_column_expr() const { return ai_column_expr_; }
-  const common::ObString &get_ai_column_dependency_ids() const { return ai_column_dependency_ids_; }
-  int64_t get_ai_column_max_retries() const { return ai_column_max_retries_; }
-  uint64_t get_ai_column_state_column_id() const { return ai_column_state_column_id_; }
-  uint64_t get_ai_column_request_column_id() const { return ai_column_request_column_id_; }
-  uint64_t get_ai_column_result_spec_column_id() const { return ai_column_result_spec_column_id_; }
-  int set_ai_column_expr(const common::ObString &value) { return deep_copy_str(value, ai_column_expr_); }
-  int set_ai_column_dependency_ids(const common::ObString &value);
-  void set_ai_column_max_retries(int64_t value) { ai_column_max_retries_ = value; }
-  void set_ai_column_state_column_id(uint64_t value) { ai_column_state_column_id_ = value; }
-  void set_ai_column_request_column_id(uint64_t value) { ai_column_request_column_id_ = value; }
-  void set_ai_column_result_spec_column_id(uint64_t value) { ai_column_result_spec_column_id_ = value; }
-
   DECLARE_VIRTUAL_TO_STRING;
 private:
   int alloc_column_ref_set();
@@ -413,13 +398,6 @@ private:
   ObSkipIndexColumnAttr skip_index_attr_;
   int64_t lob_chunk_size_;
   share::ObLocalSessionVar local_session_vars_;
-  common::ObString ai_column_expr_;
-  common::ObString ai_column_dependency_ids_;
-  int64_t ai_column_max_retries_;
-  uint64_t ai_column_state_column_id_;
-  uint64_t ai_column_request_column_id_;
-  uint64_t ai_column_result_spec_column_id_;
-
 };
 
 inline int32_t ObColumnSchemaV2::get_data_length() const

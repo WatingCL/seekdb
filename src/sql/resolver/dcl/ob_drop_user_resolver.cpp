@@ -40,7 +40,6 @@ int ObDropUserResolver::resolve(const ParseNode &parse_tree)
   bool if_exists = false;
   if (OB_ISNULL(params_.session_info_)) {
     ret = OB_NOT_INIT;
-    LOG_WARN("Session info is not inited", K(ret));
   } else {
     // mysql_mode
     if (OB_ISNULL(top_node)) {
@@ -69,7 +68,7 @@ int ObDropUserResolver::resolve(const ParseNode &parse_tree)
       ret = OB_ERR_UNEXPECTED;
       SQL_RESV_LOG(WARN, "user_list_node is null", K(ret));
     } else {
-
+      
       // resolved user_list_node
       for (int i = 0; i < user_list_node->num_child_ && OB_SUCCESS == ret; ++i) {
         ObString user_name;
@@ -80,7 +79,7 @@ int ObDropUserResolver::resolve(const ParseNode &parse_tree)
         }
       }
       if (OB_SUCC(ret)) {
-
+        
         drop_user_stmt->set_if_exists(if_exists);
       }
     }

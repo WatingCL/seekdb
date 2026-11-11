@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "config_bridge.h"
 #include "ob_all_virtual_tablet_sstable_macro_info.h"
 #include "share/rc/ob_server_runtime.h"
 #include "storage/meta_mem/ob_storage_meta_mem_mgr.h"
@@ -243,8 +244,8 @@ int ObAllVirtualTabletSSTableMacroInfo::get_macro_info(
   macro_read_info.io_desc_.set_wait_event(ObWaitEventIds::DB_FILE_DATA_READ);
   macro_read_info.offset_ = 0;
   macro_read_info.size_ = OB_STORAGE_OBJECT_MGR.get_macro_block_size();
-  macro_read_info.io_timeout_ms_ = GCONF._data_storage_io_timeout / 1000L;
-
+  macro_read_info.io_timeout_ms_ = config::_data_storage_io_timeout() / 1000L;
+  
 
   if (OB_ISNULL(io_buf_) && OB_ISNULL(io_buf_ =
       reinterpret_cast<char*>(allocator_->alloc(OB_STORAGE_OBJECT_MGR.get_macro_block_size())))) {
@@ -543,9 +544,9 @@ int ObAllVirtualTabletSSTableMacroInfo::get_next_tablet()
   tablet_handle_.reset();
   tablet_allocator_.reuse();
   if (nullptr == tablet_iter_) {
-
-
-
+    
+    
+    
     ObStorageMetaMemMgr *t3m = ::oceanbase::share::server_service<::oceanbase::storage::ObStorageMetaMemMgr>();
     if (OB_ISNULL(tablet_iter_ = new (iter_buf_) ObTabletIterator(*t3m, tablet_allocator_, nullptr/*no op*/))) {
       ret = OB_ERR_UNEXPECTED;

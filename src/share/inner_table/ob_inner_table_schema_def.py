@@ -82,151 +82,6 @@
 ################################################################################
 
 ################################################################################
-# SQLite Table Definitions
-# These tables are stored in SQLite and do not have table_id (they are not
-# OceanBase system tables). They are defined here for code generation purposes.
-# SQLite tables are defined before OceanBase system tables to ensure they are
-# available when virtual tables reference them.
-################################################################################
-
-# __all_merge_info: SQLite table for global merge info
-gen_sqlite_table_def(
-  table_name = '__all_merge_info',
-  columns = [
-      ('id', 'INTEGER', 'NOT NULL DEFAULT 0', None),
-      ('frozen_scn', 'INTEGER', 'NOT NULL', None),
-      ('global_broadcast_scn', 'INTEGER', 'NOT NULL', None),
-      ('is_merge_error', 'INTEGER', 'NOT NULL', None),
-      ('last_merged_scn', 'INTEGER', 'NOT NULL', None),
-      ('merge_status', 'INTEGER', 'NOT NULL', None),
-      ('error_type', 'INTEGER', 'NOT NULL', None),
-      ('suspend_merging', 'INTEGER', 'NOT NULL', None),
-      ('merge_start_time', 'INTEGER', 'NOT NULL', None),
-      ('last_merged_time', 'INTEGER', 'NOT NULL', None)
-  ],
-  primary_key = ['id']
-  )
-
-# __all_zone_merge_info: SQLite table for zone merge info
-
-# __all_reserved_snapshot: SQLite table for reserved snapshot
-
-# __all_server_event_history: SQLite table for server event history
-
-# __all_column_checksum_error_info: SQLite table for column checksum error info
-gen_sqlite_table_def(
-  table_name = '__all_column_checksum_error_info',
-  columns = [
-      ('frozen_scn', 'INTEGER', 'NOT NULL', None),
-      ('index_type', 'INTEGER', 'NOT NULL', None),
-      ('data_table_id', 'INTEGER', 'NOT NULL', None),
-      ('index_table_id', 'INTEGER', 'NOT NULL', None),
-      ('data_tablet_id', 'INTEGER', 'NOT NULL', None),
-      ('index_tablet_id', 'INTEGER', 'NOT NULL', None),
-      ('column_id', 'INTEGER', 'NOT NULL', None),
-      ('data_column_checksum', 'INTEGER', 'NOT NULL', None),
-      ('index_column_checksum', 'INTEGER', 'NOT NULL', None)
-  ],
-  primary_key = ['frozen_scn', 'index_type', 'data_table_id', 'index_table_id', 'data_tablet_id', 'index_tablet_id']
-  )
-
-# __all_deadlock_event_history: SQLite table for deadlock event history
-gen_sqlite_table_def(
-  table_name = '__all_deadlock_event_history',
-  columns = [
-      ('event_id', 'INTEGER', 'NOT NULL', None),
-      ('detector_id', 'INTEGER', 'NOT NULL', None),
-      ('report_time', 'INTEGER', 'NOT NULL', None),
-      ('cycle_idx', 'INTEGER', 'NOT NULL', None),
-      ('cycle_size', 'INTEGER', 'NOT NULL', None),
-      ('role', 'TEXT', 'NULL', None),
-      ('priority_level', 'TEXT', 'NULL', None),
-      ('priority', 'INTEGER', 'NOT NULL', None),
-      ('create_time', 'INTEGER', 'NOT NULL', None),
-      ('start_delay', 'INTEGER', 'NOT NULL', None),
-      ('module', 'TEXT', 'NULL', None),
-      ('visitor', 'TEXT', 'NULL', None),
-      ('object', 'TEXT', 'NULL', None),
-      ('extra_name1', 'TEXT', 'NULL', None),
-      ('extra_value1', 'TEXT', 'NULL', None),
-      ('extra_name2', 'TEXT', 'NULL', None),
-      ('extra_value2', 'TEXT', 'NULL', None),
-      ('extra_name3', 'TEXT', 'NULL', None),
-      ('extra_value3', 'TEXT', 'NULL', None)
-  ],
-  primary_key = ['event_id', 'detector_id']
-  )
-
-# __all_tablet_meta_table: SQLite table for tablet meta
-gen_sqlite_table_def(
-  table_name = '__all_tablet_meta_table',
-  columns = [
-      ('gmt_create', 'INTEGER', 'NULL', None),
-      ('gmt_modified', 'INTEGER', 'NULL', None),
-      ('tablet_id', 'INTEGER', 'NOT NULL', None),
-      ('compaction_scn', 'INTEGER', 'NOT NULL', None),
-      ('data_size', 'INTEGER', 'NOT NULL', None),
-      ('required_size', 'INTEGER', 'NOT NULL', '0'),
-      ('report_scn', 'INTEGER', 'NOT NULL', '0'),
-      ('status', 'INTEGER', 'NOT NULL', '0')
-  ],
-  primary_key = ['tablet_id']
-  )
-
-# __all_tablet_local_checksum: SQLite table for tablet replica checksum
-gen_sqlite_table_def(
-  table_name = '__all_tablet_local_checksum',
-  columns = [
-      ('tablet_id', 'INTEGER', 'NOT NULL', None),
-      ('compaction_scn', 'INTEGER', 'NOT NULL', None),
-      ('row_count', 'INTEGER', 'NOT NULL', None),
-      ('data_checksum', 'INTEGER', 'NOT NULL', None),
-      ('column_checksums', 'TEXT', 'NULL', None),
-      ('b_column_checksums', 'BLOB', 'NULL', None),
-      ('data_checksum_type', 'INTEGER', 'NOT NULL', '0')
-  ],
-  primary_key = ['tablet_id']
-  )
-
-# __all_sys_parameter: SQLite table for sys parameter
-gen_sqlite_table_def(
-  table_name = '__all_sys_parameter',
-  columns = [
-      ('gmt_create', 'INTEGER', 'NULL', None),
-      ('gmt_modified', 'INTEGER', 'NULL', None),
-      ('name', 'TEXT', 'NOT NULL', None),
-      ('data_type', 'TEXT', 'NULL', None),
-      ('value', 'TEXT', 'NOT NULL', None),
-      ('value_strict', 'TEXT', 'NULL', None),
-      ('info', 'TEXT', 'NULL', None),
-      ('need_reboot', 'INTEGER', 'NULL', None),
-      ('section', 'TEXT', 'NULL', None),
-      ('visible_level', 'TEXT', 'NULL', None),
-      ('config_version', 'INTEGER', 'NOT NULL', None),
-      ('scope', 'TEXT', 'NULL', None),
-      ('source', 'TEXT', 'NULL', None),
-      ('edit_level', 'TEXT', 'NULL', None)
-  ],
-  primary_key = ['name']
-  )
-
-
-gen_sqlite_table_def(
-    table_name = '__all_rootservice_job',
-    columns = [
-        ('job_id', 'INTEGER', 'NOT NULL', '0'),
-        ('gmt_create', 'INTEGER', 'NULL', None),
-        ('gmt_modified', 'INTEGER', 'NULL', None),
-        ('job_type', 'TEXT', 'NOT NULL', "''"),
-        ('job_status', 'TEXT', 'NOT NULL', "''"),
-        ('result_code', 'INTEGER', 'NULL', None)
-  ],
-    primary_key = ['job_id']
-  )
-
-# __all_kv_table: SQLite KV table for simple information storage (tenant info, etc.)
-
-################################################################################
 # OceanBase System Table Definitions
 ################################################################################
 
@@ -487,13 +342,7 @@ all_column_def = dict(
       ('sub_data_type', 'int', 'false', '0'),
       ('skip_index_attr', 'int', 'false', '0'),
       ('lob_chunk_size', 'int', 'false', 'OB_DEFAULT_LOB_CHUNK_SIZE'),
-      ('local_session_vars', 'longtext', 'true'),
-      ('ai_column_expr', 'longtext', 'false', ''),
-      ('ai_column_dependency_ids', 'longtext', 'false', ''),
-      ('ai_column_max_retries', 'int', 'false', '2'),
-      ('ai_column_state_column_id', 'int', 'false', '0'),
-      ('ai_column_request_column_id', 'int', 'false', '0'),
-      ('ai_column_result_spec_column_id', 'int', 'false', '0')
+      ('local_session_vars', 'longtext', 'true')
   ]
   )
 
@@ -1153,8 +1002,7 @@ def_table_schema(**gen_history_table_def(1009, all_database_privilege_def))
 
 # 116: __all_zone (abandoned)
 # 117: __all_server (abandoned)
-# 118: __all_sys_parameter # migrated to SQLite, see gen_sqlite_table_def above
-# Placeholder - original definition removed, using SQLite version
+# 118: __all_sys_parameter # replaced by the in-memory configuration catalog
 
 # 119: __tenant_parameter (abandoned)
 
@@ -1286,11 +1134,9 @@ def_table_schema(
 
 
 
-# 154: __all_server_event_history # migrated to SQLite, see gen_sqlite_table_def above
-# Placeholder - original definition removed, using SQLite version
+# 154: __all_server_event_history # removed
 
-# 155: __all_rootservice_job # migrated to SQLite, see gen_sqlite_table_def above
-# Placeholder - original definition removed, using SQLite version
+# 155: __all_rootservice_job # represented by a local table below
 
 # 156: __all_unit_load_history # abandoned in 4.0.
 
@@ -1800,8 +1646,7 @@ def_table_schema(
 
 # 320: (abandoned)
 
-# 322: __all_deadlock_event_history # migrated to SQLite, see gen_sqlite_table_def above
-# Placeholder - original definition removed, using SQLite version
+# 322: __all_deadlock_event_history # represented by a local table below
 
 all_column_usage_def = dict(
     owner = 'yibo.tyf',
@@ -1987,8 +1832,7 @@ def_table_schema(
   ]
   )
 
-# 344: __all_tablet_meta_table # migrated to SQLite, see gen_sqlite_table_def above
-# Placeholder - original definition removed, using SQLite version
+# 344: __all_tablet_meta_table # represented by a local table below
 
 # 345: legacy ls status table (abandoned)
 # 346: __all_zone_v2 # abandoned in 4.0
@@ -2020,8 +1864,7 @@ def_table_schema(
 
 # 370: legacy ls recovery stat table (abandoned)
 
-# 372: __all_tablet_local_checksum # migrated to SQLite, see gen_sqlite_table_def above
-# Placeholder - original definition removed, using SQLite version
+# 372: __all_tablet_local_checksum # represented by a local table below
 
 # do checksum(user tenant) between primary cluster and standby cluster
 # differ from __all_tablet_local_checksum, it is tablet level
@@ -2162,8 +2005,8 @@ def_table_schema(
 # 383: __all_global_context_value (abandoned)
 # 385: legacy ls election reference info table (abandoned)
 
-# 392: __all_zone_merge_info # abandoned, migrated to SQLite
-# 393: __all_merge_info # abandoned, migrated to SQLite
+# 392: __all_zone_merge_info # abandoned, migrated to local storage
+# 393: __all_merge_info # abandoned, migrated to local storage
 
 def_table_schema(
   owner = 'donglou.zl',
@@ -2259,8 +2102,7 @@ def_table_schema(
 # 414 : __all_tenant_datafile
 # 415 : __all_tenant_datafile_history
 
-# 416: __all_column_checksum_error_info # migrated to SQLite, see gen_sqlite_table_def above
-# Placeholder - original definition removed, using SQLite version
+# 416: __all_column_checksum_error_info # represented by a local table below
 
 # 417 : abandoned
 # 418 : abandoned
@@ -2274,10 +2116,9 @@ def_table_schema(
 # 432 reserved
 
 
-# 444: __all_reserved_snapshot # migrated to SQLite, see gen_sqlite_table_def above
-# Placeholder - original definition removed, using SQLite version
+# 444: __all_reserved_snapshot # removed
 
-# 445: __all_cluster_event_history # migrated to SQLite, see gen_sqlite_table_def above
+# 445: __all_cluster_event_history # removed
 
 # 450: __all_external_table_file # abandoned in seekdb
 
@@ -2322,7 +2163,7 @@ def_table_schema(
 
 # __wr_control # removed
 
-# 473 : __all_tenant_event_history
+# 473 : __all_tenant_event_history 
 
 def_table_schema(
   table_name     = '__all_scheduler_job_class',
@@ -2606,8 +2447,6 @@ all_ai_model_endpoint_def = dict(
 def_table_schema(**all_ai_model_endpoint_def)
 
 
-
-
 all_objauth_mysql_def = dict(
     owner = 'cjl476581',
     table_name     = '__all_objauth_mysql',
@@ -2627,54 +2466,6 @@ all_objauth_mysql_def = dict(
   )
 def_table_schema(**all_objauth_mysql_def)
 def_table_schema(**gen_history_table_def(1134, all_objauth_mysql_def))
-
-# AI column definitions are separate from model endpoints: a table definition
-# version remains stable when endpoint credentials or routing are changed.
-def_table_schema(
-    owner='competition', table_name='__all_ai_column', table_id='1140',
-    table_type='SYSTEM_TABLE', gm_columns=['gmt_create', 'gmt_modified'],
-    is_cluster_private=False, meta_record_in_sys=False,
-    rowkey_columns=[('table_id', 'int'), ('column_id', 'int')],
-    normal_columns=[
-        ('definition_version', 'int', 'false'),
-        ('column_name', 'varchar:OB_MAX_COLUMN_NAME_LENGTH', 'false'),
-        ('normalized_expr', 'longtext', 'false'),
-        ('dependency_column_ids', 'longtext', 'false'),
-        ('result_type', 'varchar:128', 'false'),
-        ('state_column_id', 'int', 'false'),
-        ('request_column_id', 'int', 'false'),
-        ('result_spec_column_id', 'int', 'false'),
-        ('max_retries', 'int', 'false', '2'),
-        ('vector_dimension', 'int', 'false', '0'),
-    ])
-
-# Each request id identifies one row/change group. Column ids distinguish the
-# independent model attempts; publish waits for every member to become terminal.
-def_table_schema(
-    owner='competition', table_name='__all_ai_column_task', table_id='1141',
-    table_type='SYSTEM_TABLE', gm_columns=['gmt_create', 'gmt_modified'],
-    is_cluster_private=False, meta_record_in_sys=False,
-    rowkey_columns=[('request_id', 'varchar:64'), ('column_id', 'int')],
-    normal_columns=[
-        ('table_id', 'int', 'false'),
-        ('definition_version', 'int', 'false'),
-        ('rowkey_predicate', 'longtext', 'false'),
-        ('model_input', 'longtext', 'false'),
-        ('group_size', 'int', 'false'),
-        ('status', 'varchar:16', 'false', 'PENDING'),
-        ('attempts', 'int', 'false', '0'),
-        ('state', 'int', 'false', '0'),
-        ('retry_count', 'int', 'false', '0'),
-        ('max_retries', 'int', 'false', '2'),
-        ('eligible_ts', 'timestamp:6', 'false'),
-        ('lease_owner', 'varchar:128', 'false', ''),
-        ('lease_epoch', 'int', 'false', '0'),
-        ('lease_expire_ts', 'int', 'false', '0'),
-        ('result', 'longtext', 'false', ''),
-        ('result_is_null', 'int', 'false', '1'),
-        ('error_code', 'int', 'false', '0'),
-    ])
-
 
 
 # Reserved position (placeholder before this line)
@@ -3418,11 +3209,28 @@ def_table_schema(
 
 # 11040: __all_virtual_partition_replay_status # abandoned in 4.0
 
-# 11041: __all_virtual_sys_parameter # migrated to SQLite
-def_table_schema(**gen_sqlite_virtual_table_def(
+# 11041: __all_virtual_sys_parameter reads the in-memory configuration catalog
+def_config_virtual_table(
   table_id = '11041',
   table_name = '__all_virtual_sys_parameter',
-  keywords = all_def_keywords['__all_sys_parameter']))
+  columns = [
+    ('gmt_create', 'int', 'true'),
+    ('gmt_modified', 'int', 'true'),
+    ('name', 'varchar:256', 'false'),
+    ('data_type', 'varchar:256', 'true'),
+    ('value', 'varchar:256', 'false'),
+    ('value_strict', 'varchar:256', 'true'),
+    ('info', 'varchar:256', 'true'),
+    ('need_reboot', 'int', 'true'),
+    ('section', 'varchar:256', 'true'),
+    ('visible_level', 'varchar:256', 'true'),
+    ('config_version', 'uint', 'false'),
+    ('scope', 'varchar:256', 'true'),
+    ('source', 'varchar:256', 'true'),
+    ('edit_level', 'varchar:256', 'true'),
+  ],
+  primary_key = ['name'],
+)
 
 def_table_schema(
   owner = 'nijia.nj',
@@ -5008,11 +4816,36 @@ def_table_schema(
 
 # 12208: __all_virtual_ddl_task_status # removed (single-tenant: iterate VT mechanism deleted)
 
-# __all_virtual_deadlock_event_history: SQLite virtual table (migrated from iterate)
-def_table_schema(**gen_sqlite_virtual_table_def(
+# __all_virtual_deadlock_event_history: local virtual table (migrated from iterate)
+def_local_table(
+  table_name = '__all_deadlock_event_history',
   table_id = '12209',
-  table_name = '__all_virtual_deadlock_event_history',
-  keywords = all_def_keywords['__all_deadlock_event_history']))
+  namespace = 'deadlock_history',
+  namespace_id = 2,
+  columns = [
+    ('event_id', 'int', 'false'),
+    ('detector_id', 'int', 'false'),
+    ('report_time', 'int', 'false'),
+    ('cycle_idx', 'int', 'false'),
+    ('cycle_size', 'int', 'false'),
+    ('role', 'varchar:256', 'true'),
+    ('priority_level', 'varchar:256', 'true'),
+    ('priority', 'int', 'false'),
+    ('create_time', 'int', 'false'),
+    ('start_delay', 'int', 'false'),
+    ('module', 'varchar:256', 'true'),
+    ('visitor', 'varchar:256', 'true'),
+    ('object', 'varchar:256', 'true'),
+    ('extra_name1', 'varchar:256', 'true'),
+    ('extra_value1', 'varchar:256', 'true'),
+    ('extra_name2', 'varchar:256', 'true'),
+    ('extra_value2', 'varchar:256', 'true'),
+    ('extra_name3', 'varchar:256', 'true'),
+    ('extra_value3', 'varchar:256', 'true'),
+  ],
+  primary_key = ['event_id', 'detector_id'],
+  indexes = ['report_time'],
+)
 
 # 12210: __all_virtual_column_usage # removed (single-tenant: iterate VT mechanism deleted)
 
@@ -5116,11 +4949,25 @@ def_table_schema(
 
 # 12239: __all_virtual_ls_meta_table (abandoned)
 
-# 12240: __all_virtual_tablet_meta_table # migrated to SQLite
-def_table_schema(**gen_sqlite_virtual_table_def(
+# 12240: __all_virtual_tablet_meta_table # migrated to local storage
+def_local_table(
+  table_name = '__all_tablet_meta_table',
   table_id = '12240',
-  table_name = '__all_virtual_tablet_meta_table',
-  keywords = all_def_keywords['__all_tablet_meta_table']))
+  namespace = 'tablet_meta',
+  namespace_id = 3,
+  columns = [
+    ('gmt_create', 'int', 'true'),
+    ('gmt_modified', 'int', 'true'),
+    ('tablet_id', 'int', 'false'),
+    ('compaction_scn', 'uint', 'false'),
+    ('data_size', 'int', 'false'),
+    ('required_size', 'int', 'false', '0'),
+    ('report_scn', 'uint', 'false', '0'),
+    ('status', 'int', 'false', '0'),
+  ],
+  primary_key = ['tablet_id'],
+  indexes = ['compaction_scn'],
+)
 
 # 12241: __all_virtual_tablet_to_table # removed (single-tenant: iterate VT mechanism deleted)
 
@@ -5181,11 +5028,23 @@ def_table_schema(
 # 12255: __all_virtual_tenant_info (abandoned)
 # 12256: __all_virtual_ls_recovery_stat (abandoned)
 
-# __all_virtual_tablet_local_checksum: SQLite virtual table (migrated from iterate)
-def_table_schema(**gen_sqlite_virtual_table_def(
+# __all_virtual_tablet_local_checksum: local virtual table (migrated from iterate)
+def_local_table(
+  table_name = '__all_tablet_local_checksum',
   table_id = '12258',
-  table_name = '__all_virtual_tablet_local_checksum',
-  keywords = all_def_keywords['__all_tablet_local_checksum']))
+  namespace = 'tablet_checksum',
+  namespace_id = 4,
+  columns = [
+    ('tablet_id', 'int', 'false'),
+    ('compaction_scn', 'uint', 'false'),
+    ('row_count', 'int', 'false'),
+    ('data_checksum', 'int', 'false'),
+    ('column_checksums', 'varchar:256', 'true'),
+    ('b_column_checksums', 'varbinary:OB_MAX_VARBINARY_LENGTH', 'true'),
+    ('data_checksum_type', 'int', 'false', '0'),
+  ],
+  primary_key = ['tablet_id'],
+)
 
 # 12259: __all_virtual_ddl_checksum # removed (single-tenant: iterate VT mechanism deleted)
 
@@ -5393,10 +5252,25 @@ def_table_schema(
   )
 
 
-def_table_schema(**gen_sqlite_virtual_table_def(
+def_local_table(
+  table_name = '__all_merge_info',
   table_id = '12291',
-  table_name = '__all_virtual_merge_info',
-  keywords = all_def_keywords['__all_merge_info']))
+  namespace = 'merge_info',
+  namespace_id = 0,
+  columns = [
+    ('id', 'int', 'false'),
+    ('frozen_scn', 'uint', 'false'),
+    ('global_broadcast_scn', 'uint', 'false'),
+    ('is_merge_error', 'int', 'false'),
+    ('last_merged_scn', 'uint', 'false'),
+    ('merge_status', 'int', 'false'),
+    ('error_type', 'int', 'false'),
+    ('suspend_merging', 'int', 'false'),
+    ('merge_start_time', 'int', 'false'),
+    ('last_merged_time', 'int', 'false'),
+  ],
+  primary_key = ['id'],
+)
 
 def_table_schema(
   owner = 'gengli.wzy',
@@ -5595,11 +5469,25 @@ def_table_schema(
 # 12328: __all_virtual_tenant_datafile
 # 12329: __all_virtual_tenant_datafile_history
 
-# __all_virtual_column_checksum_error_info: SQLite virtual table (migrated from iterate)
-def_table_schema(**gen_sqlite_virtual_table_def(
+# __all_virtual_column_checksum_error_info: local virtual table (migrated from iterate)
+def_local_table(
+  table_name = '__all_column_checksum_error_info',
   table_id = '12330',
-  table_name = '__all_virtual_column_checksum_error_info',
-  keywords = all_def_keywords['__all_column_checksum_error_info']))
+  namespace = 'checksum_error',
+  namespace_id = 1,
+  columns = [
+    ('frozen_scn', 'uint', 'false'),
+    ('index_type', 'int', 'false'),
+    ('data_table_id', 'int', 'false'),
+    ('index_table_id', 'int', 'false'),
+    ('data_tablet_id', 'int', 'false'),
+    ('index_tablet_id', 'int', 'false'),
+    ('column_id', 'int', 'false'),
+    ('data_column_checksum', 'int', 'false'),
+    ('index_column_checksum', 'int', 'false'),
+  ],
+  primary_key = ['frozen_scn', 'index_type', 'data_table_id', 'index_table_id', 'data_tablet_id', 'index_tablet_id'],
+)
 
 # 12331: __all_virtual_kvcache_handle_leak_info
 # 12332: abandoned
@@ -5981,7 +5869,7 @@ def_table_schema(
 )
 
 # 12414: __all_virtual_wr_control # removed
-# 12415: __all_virtual_event_history - migrated to SQLite, see gen_sqlite_virtual_table_def above
+# 12415: __all_virtual_event_history # removed
 
 # 12418: removed (legacy resource isolation deleted)
 # 12419: removed (legacy resource isolation deleted)
@@ -6463,18 +6351,21 @@ def_table_schema(
 # 12557: __all_virtual_objauth_mysql_history # removed (single-tenant: iterate VT mechanism deleted)
 # 12559: __tenant_virtual_list_file # abandoned in seekdb
 
-# __all_virtual_reserved_snapshot: SQLite virtual table
-# Note: Using table_id 12447 (next available after 12444-12446)
-
-# __all_virtual_server_event_history: SQLite virtual table
-# Note: Using table_id 12155 (next available after 12154 which is abandoned)
-
-
-def_table_schema(**gen_sqlite_virtual_table_def(
-    table_id = '12563',
-    table_name = '__all_virtual_rootservice_job',
-    keywords = all_def_keywords['__all_rootservice_job']
-  ))
+def_local_table(
+  table_name = '__all_rootservice_job',
+  table_id = '12563',
+  namespace = 'admin_job',
+  namespace_id = 5,
+  columns = [
+    ('job_id', 'int', 'false', '0'),
+    ('gmt_create', 'int', 'true'),
+    ('gmt_modified', 'int', 'true'),
+    ('job_type', 'varchar:256', 'false', "''"),
+    ('job_status', 'varchar:256', 'false', "''"),
+    ('result_code', 'int', 'true'),
+  ],
+  primary_key = ['job_id'],
+)
 
 # 12564: __all_virtual_change_stream_refresh_stat
 def_table_schema(
@@ -7612,9 +7503,9 @@ def_table_schema(
                       WHERE A.TYPE IN (1, 2, 3)
                         AND C.TABLE_MODE >> 12 & 15 in (0,1)
                         AND C.INDEX_ATTRIBUTES_SET & 16 = 0
-
+                    
                       UNION ALL
-
+                    
                       SELECT
                       CAST(A.ORIGINAL_NAME AS CHAR(128)) AS OWNER,
                       CAST(A.OBJECT_NAME AS CHAR(128)) AS OBJECT_NAME,
@@ -7636,9 +7527,9 @@ def_table_schema(
                       JOIN OCEANBASE.__ALL_DATABASE B
                         ON A.DATABASE_ID = B.DATABASE_ID
                       WHERE A.TYPE = 4
-
+                    
                       UNION ALL
-
+                    
                       SELECT
                       CAST(B.DATABASE_NAME AS CHAR(128)) AS OWNER,
                       CAST(A.OBJECT_NAME AS CHAR(128)) AS OBJECT_NAME,
@@ -8189,9 +8080,9 @@ def_table_schema(
                                where t.table_mode >> 12 & 15 in (0,1) and t.index_attributes_set & 16 = 0) o
                                join oceanbase.__all_dependency d
                                on d.dep_obj_id = o.table_id) v
-
+                    
                          join
-
+                    
                          (select o.database_name as TABLE_SCHEMA,
                                  o.table_name as TABLE_NAME,
                                  d.dep_obj_id as DEP_OBJ_ID,
@@ -8204,7 +8095,7 @@ def_table_schema(
                                 on t.database_id = d.database_id) o
                                 join oceanbase.__all_dependency d
                                 on d.ref_obj_id = o.table_id) t
-
+                    
                         on v.dep_obj_id = t.dep_obj_id and v.ref_obj_id = t.ref_obj_id
                         where (0 = sys_privilege_check('table_acc')
                                 or 0 = sys_privilege_check('table_acc', t.table_schema, v.view_name))
@@ -8401,9 +8292,9 @@ def_table_schema(
                           FROM OCEANBASE.__ALL_VIRTUAL_CORE_ALL_TABLE A
                           JOIN OCEANBASE.__ALL_VIRTUAL_CORE_ALL_TABLE B
                             ON B.TABLE_NAME = '__all_core_table'
-
+                    
                           UNION ALL
-
+                    
                           SELECT
                           GMT_CREATE
                           ,GMT_MODIFIED
@@ -8438,9 +8329,9 @@ def_table_schema(
                           WHERE TABLE_TYPE != 12 AND TABLE_TYPE != 13
                             AND TABLE_MODE >> 12 & 15 in (0,1)
                             AND INDEX_ATTRIBUTES_SET & 16 = 0
-
+                    
                           UNION ALL
-
+                    
                           SELECT
                               CST.GMT_CREATE
                              ,CST.GMT_MODIFIED
@@ -8460,9 +8351,9 @@ def_table_schema(
                              WHERE DB.DATABASE_ID = TBL.DATABASE_ID AND TBL.TABLE_ID = CST.TABLE_ID and CST.CONSTRAINT_TYPE = 1
                               AND TBL.TABLE_MODE >> 12 & 15 in (0,1)
                               AND TBL.INDEX_ATTRIBUTES_SET & 16 = 0
-
+                    
                           UNION ALL
-
+                    
                           SELECT
                           P.GMT_CREATE
                           ,P.GMT_MODIFIED
@@ -8484,9 +8375,9 @@ def_table_schema(
                           FROM OCEANBASE.__ALL_TABLE T JOIN OCEANBASE.__ALL_PART P ON T.TABLE_ID = P.TABLE_ID
                           WHERE T.TABLE_MODE >> 12 & 15 in (0,1)
                           AND P.PARTITION_TYPE = 0 AND T.INDEX_ATTRIBUTES_SET & 16 = 0
-
+                    
                           UNION ALL
-
+                    
                           SELECT
                           SUBP.GMT_CREATE
                           ,SUBP.GMT_MODIFIED
@@ -8509,9 +8400,9 @@ def_table_schema(
                           WHERE T.TABLE_ID =P.TABLE_ID AND P.TABLE_ID=SUBP.TABLE_ID AND P.PART_ID =SUBP.PART_ID
                           AND T.TABLE_MODE >> 12 & 15 in (0,1)
                           AND SUBP.PARTITION_TYPE = 0 AND P.PARTITION_TYPE = 0 AND T.INDEX_ATTRIBUTES_SET & 16 = 0
-
+                    
                           UNION ALL
-
+                    
                           SELECT
                           P.GMT_CREATE
                           ,P.GMT_MODIFIED
@@ -8541,9 +8432,9 @@ def_table_schema(
                           , 0 AS NAMESPACE
                           ,NULL AS EDITION_NAME
                           FROM OCEANBASE.__ALL_PACKAGE P
-
+                    
                           UNION ALL
-
+                    
                           SELECT
                           R.GMT_CREATE
                           ,R.GMT_MODIFIED
@@ -8567,9 +8458,9 @@ def_table_schema(
                           ,NULL AS EDITION_NAME
                           FROM OCEANBASE.__ALL_ROUTINE R
                           WHERE (ROUTINE_TYPE = 1 OR ROUTINE_TYPE = 2)
-
+                    
                           UNION ALL
-
+                    
                           SELECT
                           T.GMT_CREATE
                           ,T.GMT_MODIFIED
@@ -8590,9 +8481,9 @@ def_table_schema(
                           , 0 AS NAMESPACE
                           ,NULL AS EDITION_NAME
                           FROM OCEANBASE.__ALL_TRIGGER T
-
+                    
                           UNION ALL
-
+                    
                           SELECT
                             GMT_CREATE,
                             GMT_MODIFIED,
@@ -8609,7 +8500,7 @@ def_table_schema(
                             0 AS NAMESPACE,
                             NULL AS EDITION_NAME
                           FROM OCEANBASE.__ALL_DATABASE
-
+                    
                         ) A
                         JOIN OCEANBASE.__ALL_DATABASE B
                         ON A.DATABASE_ID = B.DATABASE_ID
@@ -9121,7 +9012,7 @@ def_table_schema(
     CAST(I_T.OWNER AS CHAR(128)) AS OWNER,
     CAST(I_T.INDEX_NAME AS CHAR(128)) AS INDEX_NAME,
     CAST(I_T.TABLE_NAME AS CHAR(128)) AS TABLE_NAME,
-
+    
     CAST(CASE I_T.PART_FUNC_TYPE
          WHEN 0 THEN 'HASH'
          WHEN 1 THEN 'KEY'
@@ -9131,7 +9022,7 @@ def_table_schema(
          WHEN 5 THEN 'LIST'
          WHEN 6 THEN 'LIST COLUMNS'
          WHEN 7 THEN 'RANGE' END AS CHAR(13)) AS PARTITIONING_TYPE,
-
+    
     CAST(CASE WHEN I_T.PART_LEVEL < 2 THEN 'NONE'
          ELSE (CASE I_T.SUB_PART_FUNC_TYPE
                WHEN 0 THEN 'HASH'
@@ -9143,22 +9034,22 @@ def_table_schema(
                WHEN 6 THEN 'LIST COLUMNS'
                WHEN 7 THEN 'RANGE' END)
          END AS CHAR(13)) AS SUBPARTITIONING_TYPE,
-
+    
     CAST(I_T.PART_NUM AS SIGNED) AS PARTITION_COUNT,
-
+    
     CAST(CASE WHEN (I_T.PART_LEVEL < 2 OR I_T.SUB_PART_TEMPLATE_FLAGS = 0) THEN 0
          ELSE I_T.SUB_PART_NUM END AS SIGNED) AS DEF_SUBPARTITION_COUNT,
-
+    
     CAST(PKC.PARTITIONING_KEY_COUNT AS SIGNED) AS PARTITIONING_KEY_COUNT,
     CAST(PKC.SUBPARTITIONING_KEY_COUNT AS SIGNED) AS SUBPARTITIONING_KEY_COUNT,
-
+    
     CAST(CASE I_T.IS_LOCAL WHEN 1 THEN 'LOCAL'
          ELSE 'GLOBAL' END AS CHAR(6)) AS LOCALITY,
-
+    
     CAST(CASE WHEN I_T.IS_LOCAL = 0 THEN 'PREFIXED'
               WHEN (I_T.IS_LOCAL = 1 AND LOCAL_PARTITIONED_PREFIX_INDEX.IS_PREFIXED = 1) THEN 'PREFIXED'
               ELSE 'NON_PREFIXED' END AS CHAR(12)) AS ALIGNMENT,
-
+    
     CAST(NULL AS CHAR(30)) AS DEF_TABLESPACE_NAME,
     CAST(0 AS SIGNED) AS DEF_PCT_FREE,
     CAST(0 AS SIGNED) AS DEF_INI_TRANS,
@@ -9180,7 +9071,7 @@ def_table_schema(
     CAST('NO' AS CHAR(3)) AS AUTOLIST,
     CAST(NULL AS CHAR(1000)) AS INTERVAL_SUBPARTITION,
     CAST(NULL AS CHAR(1000)) AS AUTOLIST_SUBPARTITION
-
+    
     FROM
     (SELECT D.DATABASE_NAME AS OWNER,
             I.TABLE_ID AS INDEX_ID,
@@ -9214,7 +9105,7 @@ def_table_schema(
              ELSE I.TABLE_ID END) AS JOIN_TABLE_ID
      FROM OCEANBASE.__ALL_TABLE I
      JOIN
-			oceanbase.__all_table T
+    			oceanbase.__all_table T
      ON I.DATA_TABLE_ID = T.TABLE_ID
      JOIN OCEANBASE.__ALL_DATABASE D
      ON T.DATABASE_ID = D.DATABASE_ID
@@ -9222,7 +9113,7 @@ def_table_schema(
      AND I.TABLE_MODE >> 12 & 15 in (0,1)
      AND I.INDEX_ATTRIBUTES_SET & 16 = 0
     ) I_T
-
+    
     JOIN
     (SELECT
        TABLE_ID,
@@ -9231,7 +9122,7 @@ def_table_schema(
        FROM OCEANBASE.__ALL_COLUMN
        GROUP BY TABLE_ID) PKC
     ON I_T.JOIN_TABLE_ID = PKC.TABLE_ID
-
+    
     LEFT JOIN
     (
      SELECT I.TABLE_ID AS INDEX_ID,
@@ -9268,7 +9159,7 @@ def_table_schema(
      )
     ) LOCAL_PARTITIONED_PREFIX_INDEX
     ON I_T.INDEX_ID = LOCAL_PARTITIONED_PREFIX_INDEX.INDEX_ID
-
+    
         """
      .replace("\n", " ")
 )
@@ -9368,6 +9259,12 @@ def_table_schema(
         AND PART.PARTITION_TYPE = 0 AND I.INDEX_ATTRIBUTES_SET & 16 = 0
 """.replace("\n", " ")
 )
+
+# 21223: GV$OB_KVCACHE # removed (single-tenant GV/V collapse; use oceanbase.__all_virtual_kvcache_info)
+
+# 21224: V$OB_KVCACHE # removed (single-tenant GV/V collapse; use oceanbase.__all_virtual_kvcache_info)
+
+# 21225: GV$OB_TRANSACTION_WRITE_STATE # removed (single-tenant GV/V collapse; folded into V$OB_TRANSACTION_WRITE_STATE)
 
 def_table_schema(
   owner           = 'yanmu.ztl',
@@ -9517,7 +9414,7 @@ def_table_schema(
                                             SYNC_SCN,
                         READABLE_SCN
                       FROM oceanbase.__all_virtual_server_stat
-
+                    
                     """.replace("\n", " ")
 )
 
@@ -9567,7 +9464,7 @@ def_table_schema(
   gm_columns      = [],
   view_definition = """
                     SELECT
-
+                    
                       ID,
                       USER,
                       HOST,
@@ -11578,7 +11475,7 @@ def_table_schema(
   rowkey_columns = [],
   normal_columns  = [],
   view_definition = """
-
+                    
                         select
                         CAST('def' AS CHAR(64)) AS CONSTRAINT_CATALOG,
                         CAST(cd.database_name AS CHAR(128)) collate utf8mb4_name_case AS CONSTRAINT_SCHEMA,
@@ -11613,9 +11510,9 @@ def_table_schema(
                           AND ct.index_attributes_set & 16 = 0
                           AND (0 = sys_privilege_check('table_acc')
                                OR 0 = sys_privilege_check('table_acc', cd.database_name, ct.table_name))
-
+                    
                         union all
-
+                    
                         select
                         CAST('def' AS CHAR(64)) AS CONSTRAINT_CATALOG,
                         CAST(cd.database_name AS CHAR(128)) collate utf8mb4_name_case AS CONSTRAINT_SCHEMA,
@@ -11650,9 +11547,9 @@ def_table_schema(
                           AND ct.table_type = 3
                           AND (0 = sys_privilege_check('table_acc')
                                OR 0 = sys_privilege_check('table_acc', cd.database_name, ct.table_name))
-
+                    
                         union all
-
+                    
                         select
                         CAST('def' AS CHAR(64)) AS CONSTRAINT_CATALOG,
                         CAST(cd.database_name AS CHAR(128)) collate utf8mb4_name_case AS CONSTRAINT_SCHEMA,

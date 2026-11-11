@@ -22,7 +22,6 @@
 #include "lib/hash/ob_hashmap.h"
 #include "lib/hash/ob_hashset.h"
 #include "lib/lock/ob_drw_lock.h"
-#include "share/config/ob_config.h"
 
 namespace oceanbase
 {
@@ -132,7 +131,7 @@ public:
     }
     TO_STRING_KV(K(task_id_), K(point_id_));
   public:
-
+    
     uint64_t task_id_;
     ObDDLSimPointID point_id_;
   };

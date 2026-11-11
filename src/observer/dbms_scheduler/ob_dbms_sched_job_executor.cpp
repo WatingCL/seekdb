@@ -54,11 +54,9 @@ int ObDBMSSchedJobExecutor::init(
   int ret = OB_SUCCESS;
   if (inited_) {
     ret = OB_INIT_TWICE;
-    LOG_WARN("job scheduler executor already init", K(inited_), K(ret));
   } else if (OB_ISNULL(sql_proxy_ = sql_proxy)
           || OB_ISNULL(schema_service_ = schema_service)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("sql proxy or schema service is null", K(sql_proxy), K(ret));
   } else if (OB_FAIL(table_operator_.init(sql_proxy_))) {
   } else {
     inited_ = true;
@@ -127,7 +125,7 @@ int ObDBMSSchedJobExecutor::init_env(ObDBMSSchedJobInfo &job_info, ObSQLSessionI
   OZ (schema_guard.get_database_schema( job_info.get_cowner(), database_schema));
   if (OB_SUCC(ret)) {
     if (job_info.get_user_id() != OB_INVALID_ID) {
-      OZ (schema_guard.get_user_info(job_info.get_user_id(), user_info));
+      OZ (schema_guard.get_user_info(job_info.get_user_id(), user_info));      
     } else {
       ObString user = job_info.get_powner();
       if (OB_SUCC(ret)) {
@@ -171,11 +169,9 @@ int ObDBMSSchedJobExecutor::create_session(
   ObSQLSessionMgr &session_mgr = OBSERVER.get_sql_session_mgr();
   if (OB_FAIL(session_mgr.create_sessid(sid))) {
   } else if (OB_FAIL(session_mgr.create_session(sid, session_info))) {
-    LOG_WARN("create session failed", K(ret), K(sid));
     session_info = NULL;
   } else if (OB_ISNULL(session_info)) {
     ret = OB_ERR_UNEXPECTED;
-    LOG_WARN("unexpected session info is null", K(ret));
   } else {
     free_session_ctx.sessid_ = sid;
   }
@@ -189,7 +185,6 @@ int ObDBMSSchedJobExecutor::destroy_session(
   int ret = OB_SUCCESS;
   if (OB_ISNULL(session_info)) {
     ret = OB_INVALID_ARGUMENT;
-    LOG_WARN("session_info is null", KR(ret));
   } else {
     session_info->set_session_sleep();
     ::oceanbase::share::server_service<::oceanbase::sql::ObSQLSessionMgr>()->revert_session(session_info);
@@ -243,7 +238,6 @@ int ObDBMSSchedJobExecutor::run_dbms_sched_job(
             LOG_INFO("program not exists, may delete alreay!", K(ret), K(job_info.get_program_name().ptr()), K(job_info.get_program_name().ptr()));
             ret = OB_SUCCESS;
           } else {
-            LOG_WARN("failed to get next", K(ret), K(job_info.get_job_name().ptr()), K(job_info.get_program_name().ptr()));
           }
         }
       }
@@ -290,13 +284,11 @@ int ObDBMSSchedJobExecutor::run_dbms_sched_job(
                     } else if (OB_ITER_END == ret) {
                       LOG_ERROR("program default argument not exists", K(sql.ptr()), K(job_info.get_program_name().ptr()));
                     } else {
-                      LOG_WARN("failed to get next", K(ret), K(job_info.get_job_name().ptr()));
                     }
                   }
                 }
                 ret = OB_SUCCESS;
               } else {
-                LOG_WARN("failed to get next", K(ret), K(job_info.get_job_name().ptr()));
               }
             }
           }

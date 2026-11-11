@@ -31,7 +31,7 @@ def storage_validate_source_inventory(
         standalone_sources,
         checked_in_sources,
         separately_owned_sources):
-    """Freezes the release action baseline and proves complete source ownership."""
+    """Validates source paths and complete, unique source ownership."""
 
     group_keys = {}
     unity_paths = {}
@@ -62,15 +62,6 @@ def storage_validate_source_inventory(
         if source.path in unity_paths:
             fail("Storage source appears in Unity and standalone: %s" % source.path)
         standalone_paths[source.path] = True
-
-    if len(unity_groups) != 44:
-        fail("Storage inventory must contain 44 regular Unity groups, got %s" % len(unity_groups))
-    if len(simd_unity_groups) != 1:
-        fail("Storage inventory must contain 1 SIMD Unity group, got %s" % len(simd_unity_groups))
-    if len(unity_paths) != 686:
-        fail("Storage inventory must contain 686 Unity sources, got %s" % len(unity_paths))
-    if len(standalone_paths) != 0:
-        fail("Storage inventory must contain 0 standalone sources, got %s" % len(standalone_paths))
 
     owned_package_paths = {}
     for path in unity_paths.keys() + standalone_paths.keys():

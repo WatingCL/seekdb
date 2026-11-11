@@ -422,8 +422,6 @@ SQL_COMPOSITION_HEADERS = [
 ]
 
 SQL_PRIVATE_HEADERS = [
-    "ai_column/ai_column_runtime.h",
-    "ai_column/ai_column_sql_utils.h",
     "code_generator/ob_code_generator.h",
     "code_generator/ob_dml_cg_service.h",
     "code_generator/ob_static_engine_cg.h",
@@ -473,9 +471,6 @@ SQL_PRIVATE_HEADERS = [
     "engine/basic/chunk_store/ob_default_block_writer.h",
     "engine/basic/ob_expr_values_op.h",
     "engine/basic/ob_external_file_writer.h",
-    "engine/basic/file_sql/csv_writer.h",
-    "engine/basic/file_sql/file_reader.h",
-    "engine/basic/file_sql/parquet_reader.h",
     "engine/basic/ob_function_table_op.h",
     "engine/basic/ob_group_join_buffer.h",
     "engine/basic/ob_hash_partitioning_basic.h",

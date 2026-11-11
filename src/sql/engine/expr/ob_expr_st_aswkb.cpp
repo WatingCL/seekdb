@@ -105,7 +105,7 @@ int ObExprGeomWkb::eval_geom_wkb(const ObExpr &expr,
   uint32_t arg_num = expr.arg_cnt_;
   bool is_null_result = false;
   ObEvalCtx::TempAllocGuard tmp_alloc_g(ctx);
-
+  
   MultimodeAlloctor tmp_allocator(tmp_alloc_g.get_allocator());
   common::ObSrsCacheGuard srs_guard;
   ObSQLSessionInfo *session = ctx.exec_ctx_.get_my_session();
@@ -146,7 +146,6 @@ int ObExprGeomWkb::eval_geom_wkb(const ObExpr &expr,
       // do nothing ====> select st_aswkb(point(1,1), '   '); ignore '   '
     } else if (OB_FAIL(ObGeoExprUtils::parse_axis_order(option_str, get_func_name(),
                                                         axis_order))) {
-      LOG_WARN("fail to parse axis order option string", K(ret), K(option_str));
       ret = OB_ERR_INVALID_OPTION_KEY_VALUE_PAIR; // adapt mysql errcode.
       const uint64_t STR_LEN_MAX = 512;
       char err_str[STR_LEN_MAX] = {0};
@@ -165,7 +164,6 @@ int ObExprGeomWkb::eval_geom_wkb(const ObExpr &expr,
       need_reverse = true;
     }
     if (need_reverse && is_geog && OB_FAIL(ObGeoExprUtils::reverse_coordinate(geo, get_func_name()))) {
-      LOG_WARN("failed to reverse geometry coordinate", K(ret));
     }
   }
 

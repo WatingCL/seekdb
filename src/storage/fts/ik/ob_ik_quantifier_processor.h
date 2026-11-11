@@ -19,6 +19,7 @@
 
 #include "lib/allocator/ob_allocator.h"
 #include "storage/fts/dict/ob_ft_dict.h"
+#include "storage/fts/ik/ob_ft_token_vec.h"
 #include "storage/fts/ik/ob_ik_processor.h"
 
 #include <cstdint>
@@ -34,12 +35,20 @@ public:
       : quan_dict_(quan_dict), count_hits_(alloc), start_(-1), end_(-1), quan_char_cnt_(0)
   {
   }
-  ~ObIKQuantifierProcessor() override { count_hits_.reset(); }
+  ~ObIKQuantifierProcessor() override { count_hits_.release_blocks(); }
 
   int do_process(TokenizeContext &ctx,
                  const char *ch,
                  const uint8_t char_len,
                  const ObFTCharUtil::CharType type);
+
+  void reset_state() override
+  {
+    reset();
+    // release the block table too: the scratch arena pages are recycled
+    // right after this by release_to_pool()
+    count_hits_.release_blocks();
+  }
 
 private:
   int process_CN_number(TokenizeContext &ctx,
@@ -59,7 +68,7 @@ private:
 
 private:
   const ObIFTDict &quan_dict_;
-  ObList<ObDATrieHit, ObIAllocator> count_hits_;
+  ObFTSegVec<ObDATrieHit> count_hits_;
   int64_t start_;
   int64_t end_;
   int64_t quan_char_cnt_;

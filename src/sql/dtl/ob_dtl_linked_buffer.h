@@ -17,6 +17,7 @@
 #ifndef OB_DTL_LINKED_BUFFER_H
 #define OB_DTL_LINKED_BUFFER_H
 
+#include "config_bridge.h"
 #include "lib/queue/ob_link.h"
 #include "sql/dtl/ob_dtl_msg_type.h"
 #include "lib/container/ob_array_serialization.h"
@@ -357,7 +358,7 @@ public:
     dst->size_ = src.size_;
     dst->is_data_msg_ = src.is_data_msg_;
     dst->seq_no_ = src.seq_no_;
-
+    
     dst->is_eof_ = src.is_eof_;
     dst->timeout_ts_ = src.timeout_ts_;
     dst->pos_ = src.pos_;
@@ -379,7 +380,7 @@ public:
     size_ = src.size_;
     is_data_msg_ = src.is_data_msg_;
     seq_no_ = src.seq_no_;
-
+    
     is_eof_ = src.is_eof_;
     timeout_ts_ = src.timeout_ts_;
     pos_ = src.pos_;
@@ -527,7 +528,7 @@ The memory layout is as below:
           |+++++++++++++++++++|
           |+++++++++++++++++++|
           |+++++++++++++++++++|
-          |+++++++++++++++++++|     Payload (default min 64K, by GCONF.dtl_buffer_size)
+          |+++++++++++++++++++|     Payload (default min 64K, by config::dtl_buffer_size())
           |+++++++++++++++++++|
           |+++++++++++++++++++|
           |+++++++++++++++++++|         |
@@ -546,7 +547,7 @@ The memory layout is as below:
   mutable int64_t pos_;
   bool is_data_msg_;
   int64_t seq_no_;
-
+  
   int64_t allocated_chid_;
   bool is_eof_;
   int64_t timeout_ts_;
