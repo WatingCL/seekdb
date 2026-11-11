@@ -106,12 +106,17 @@ sed_inplace "/obsql_mysql_yylex_init is special because it creates the scanner i
 # generate type name
 ./gen_type_name.sh "$ITEM_TYPE_HEADER" > type_name.c
 
-echo "$md5sum_value" > $CACHE_MD5_FILE
+echo "$md5sum_value" > "$CACHE_MD5_FILE"
 }
 
 if [[ -n "$NEED_PARSER_CACHE" && "$NEED_PARSER_CACHE" == "ON" ]]; then
     echo "generate sql parser with cache"
-    origin_md5sum_value=$(<$CACHE_MD5_FILE)
+    # A fresh checkout has no cache stamp. Under set -e, reading the missing
+    # file would abort before generate_parser can create it.
+    origin_md5sum_value=""
+    if [[ -f "$CACHE_MD5_FILE" && -r "$CACHE_MD5_FILE" ]]; then
+      origin_md5sum_value=$(<"$CACHE_MD5_FILE")
+    fi
     if [[ "$md5sum_value" == "$origin_md5sum_value" ]] && ! outputs_missing; then
       echo "hit the md5 cache"
     else

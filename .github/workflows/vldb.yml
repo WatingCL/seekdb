@@ -26,6 +26,7 @@ jobs:
       - name: Initialize and build
         run: |
           ./build.sh release --init
+          python3 unittest/sql/parser/test_parser_generation_cache.py
           make -C build_release -j2 seekdb sql_tests storage_tests share_tests
       - name: Run focused native regressions
         env:

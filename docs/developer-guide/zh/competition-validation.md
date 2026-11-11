@@ -48,6 +48,12 @@ python3 unittest/sql/engine/basic/test_file_sql_protocol.py \
 
 ## 原生单测
 
+初始化依赖后，可单独验证解析器首次生成与缓存行为。测试在临时目录运行真实 Bison/Flex，不修改当前构建目录：
+
+```bash
+python3 unittest/sql/parser/test_parser_generation_cache.py
+```
+
 Linux 上可构建并运行对应模块。原生测试统一使用 `unittest/all_tests_main.cpp`，新增测试不能再定义独立入口。FTS 差分测试的独立运行模式由 `SEEKDB_FTS_STANDALONE_TEST` 显式启用。
 
 ```bash
