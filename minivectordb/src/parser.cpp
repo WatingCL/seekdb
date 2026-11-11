@@ -1,8 +1,10 @@
 #include "parser.hpp"
 
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <utility>
 
 namespace mvdb {
 
