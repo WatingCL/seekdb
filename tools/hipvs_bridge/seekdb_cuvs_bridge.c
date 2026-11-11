@@ -5,7 +5,7 @@
  * (NN_DESCENT / graph_degree=128 / intermediate=256 / nn_descent_niter=100) and
  * re-allocates RMM scratch + search params on every query. This file keeps the
  * exact same C ABI, but by default builds the intermediate NN-descent graph with
- * intermediate=192 / niter=80 while the final graph stays at degree 128, and:
+ * intermediate=192 / niter=60 while the final graph stays at degree 128, and:
  *
  *  1. every build/search knob is runtime-tunable via environment variables so
  *     that quality/speed trade-offs can be measured on a GPU box WITHOUT a
@@ -75,7 +75,7 @@ static void sk_cfg_load(void) {
   sk_cfg_val.build_algo       = (int)sk_env_long("OB_CUVS_BUILD_ALGO", 2 /* NN_DESCENT */);
   sk_cfg_val.graph_degree     = sk_env_long("OB_CUVS_GRAPH_DEGREE", 128);
   sk_cfg_val.inter_degree     = sk_env_long("OB_CUVS_INTER_DEGREE", baseline ? 256 : 192);
-  sk_cfg_val.nn_iters         = sk_env_long("OB_CUVS_NN_ITERS", baseline ? 100 : 80);
+  sk_cfg_val.nn_iters         = sk_env_long("OB_CUVS_NN_ITERS", baseline ? 100 : 60);
   sk_cfg_val.ivf_n_probes     = (int)sk_env_long("OB_CUVS_IVF_N_PROBES", 0);
   sk_cfg_val.ivf_refine_rate  = (float)sk_env_dbl("OB_CUVS_IVF_REFINE_RATE", -1.0);
   sk_cfg_val.itopk            = sk_env_long("OB_CUVS_ITOPK", 0);
