@@ -1,14 +1,16 @@
 /* seekdb <-> hipVS bridge: plain-C CAGRA kNN; all cuVS/ROCm deps live here.
  *
- * [AMD contest optimizations, default = frozen-baseline behaviour]
+ * [AMD contest optimizations, default = tuned build parameters]
  * The frozen V5 baseline hard-codes CAGRA build parameters
  * (NN_DESCENT / graph_degree=128 / intermediate=256 / nn_descent_niter=100) and
  * re-allocates RMM scratch + search params on every query. This file keeps the
- * exact same C ABI and the exact same default behaviour, but:
+ * exact same C ABI, but by default builds the intermediate NN-descent graph with
+ * intermediate=192 / niter=80 while the final graph stays at degree 128, and:
  *
  *  1. every build/search knob is runtime-tunable via environment variables so
  *     that quality/speed trade-offs can be measured on a GPU box WITHOUT a
- *     recompile (one build, many configs). Unset variables => baseline values;
+ *     recompile (one build, many configs). `OB_CUVS_BASELINE=1` restores every
+ *     frozen-baseline value, and any single variable overrides its own default;
  *  2. per-handle search params are created once and refreshed per call instead
  *     of create/destroy per query;
  *  3. per-handle device scratch buffers are grown once and reused across
@@ -69,10 +71,11 @@ static double sk_env_dbl(const char *name, double dflt) {
 }
 
 static void sk_cfg_load(void) {
+  const int baseline = (getenv("OB_CUVS_BASELINE") != NULL);
   sk_cfg_val.build_algo       = (int)sk_env_long("OB_CUVS_BUILD_ALGO", 2 /* NN_DESCENT */);
   sk_cfg_val.graph_degree     = sk_env_long("OB_CUVS_GRAPH_DEGREE", 128);
-  sk_cfg_val.inter_degree     = sk_env_long("OB_CUVS_INTER_DEGREE", 256);
-  sk_cfg_val.nn_iters         = sk_env_long("OB_CUVS_NN_ITERS", 100);
+  sk_cfg_val.inter_degree     = sk_env_long("OB_CUVS_INTER_DEGREE", baseline ? 256 : 192);
+  sk_cfg_val.nn_iters         = sk_env_long("OB_CUVS_NN_ITERS", baseline ? 100 : 80);
   sk_cfg_val.ivf_n_probes     = (int)sk_env_long("OB_CUVS_IVF_N_PROBES", 0);
   sk_cfg_val.ivf_refine_rate  = (float)sk_env_dbl("OB_CUVS_IVF_REFINE_RATE", -1.0);
   sk_cfg_val.itopk            = sk_env_long("OB_CUVS_ITOPK", 0);
