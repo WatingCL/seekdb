@@ -1,0 +1,118 @@
+name: MiniVectorDB Linux verify
+
+# Temporary verification workflow: the submission was built only with MinGW g++ 8.1
+# on Windows, so this reproduces the judged path on ubuntu-24.04 (g++ 13 + docker).
+# Delete this file before the final submission commit.
+
+on:
+  push:
+    branches: ["ci/linux-verify"]
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Toolchain versions
+        run: |
+          uname -a
+          g++ --version | head -1
+          python3 --version
+          docker --version
+
+      - name: Stage 1 - native g++ build
+        run: |
+          set +e
+          g++ -std=c++17 -O2 -Wall -Wextra -pthread minivectordb/src/*.cpp -o /tmp/mvdb-native \
+            >/tmp/native.log 2>&1
+          rc=$?
+          echo "native_rc=$rc" >>"$GITHUB_ENV"
+          if [ -x /tmp/mvdb-native ]; then
+            printf '{"id":1,"op":"shutdown"}\n' | timeout 30 /tmp/mvdb-native --data-dir /tmp/hcheck >>/tmp/native.log 2>&1
+            echo "handshake_rc=$?" >>"$GITHUB_ENV"
+          fi
+
+      - name: Stage 2 - docker build (the judged path)
+        run: |
+          set +e
+          docker build -t vectordb-ci . >/tmp/dockerbuild.log 2>&1
+          echo "docker_rc=$?" >>"$GITHUB_ENV"
+
+      - name: Stage 3 - official protocol_check against the image
+        if: env.docker_rc == '0'
+        run: |
+          set +e
+          # sudo so the harness-owned /data bind dir is root-owned, as in the judge.
+          sudo python3 protocol_check/run.py --image vectordb-ci \
+            --output /tmp/ci-image >/tmp/image.log 2>&1
+          echo "image_rc=$?" >>"$GITHUB_ENV"
+          sudo chmod -R a+rX /tmp/ci-image 2>/dev/null
+
+      - name: Stage 4 - official protocol_check against the native binary
+        if: env.native_rc == '0'
+        run: |
+          set +e
+          python3 protocol_check/run.py \
+            --command '["/tmp/mvdb-native","--data-dir","{data_dir}"]' \
+            --output protocol-results/ci-native >/tmp/native_check.log 2>&1
+          echo "native_check_rc=$?" >>"$GITHUB_ENV"
+
+      - name: Stage 5 - crash and recovery suite
+        if: env.native_rc == '0'
+        run: |
+          set +e
+          python3 minivectordb/tools/crash_check.py --exe /tmp/mvdb-native \
+            --output protocol-results/ci-crash >/tmp/crash.log 2>&1
+          echo "crash_rc=$?" >>"$GITHUB_ENV"
+
+      - name: Dump evidence
+        if: always()
+        run: |
+          for f in /tmp/native.log /tmp/dockerbuild.log /tmp/image.log /tmp/native_check.log /tmp/crash.log; do
+            echo "===== $f (last 40 lines) ====="
+            tail -40 "$f" 2>/dev/null || echo "(missing)"
+          done
+          echo "===== per-case results ====="
+          sudo ls -l /tmp/ci-image 2>/dev/null | head -20
+          python3 - <<'PY'
+import json
+from pathlib import Path
+paths = list(Path("protocol-results").glob("*/result.json"))
+try:
+    paths += list(Path("/tmp/ci-image").glob("*/result.json"))
+except PermissionError:
+    pass
+for p in sorted(paths):
+    print("---", p)
+    try:
+        d = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print("unreadable:", exc)
+        continue
+    print(json.dumps(d.get("summary", d), ensure_ascii=False)[:1500])
+PY
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-verify
+          path: protocol-results
+          if-no-files-found: ignore
+
+      - name: Verdict
+        if: always()
+        run: |
+          echo "native build   : ${native_rc:-skip}"
+          echo "handshake      : ${handshake_rc:-skip}"
+          echo "docker build   : ${docker_rc:-skip}"
+          echo "image protocol : ${image_rc:-skip}"
+          echo "native protocol: ${native_check_rc:-skip}"
+          echo "crash suite    : ${crash_rc:-skip}"
+          [ "${native_rc:-1}" = "0" ] && [ "${docker_rc:-1}" = "0" ] \
+            && [ "${image_rc:-1}" = "0" ] && [ "${native_check_rc:-1}" = "0" ] \
+            && [ "${crash_rc:-1}" = "0" ]
