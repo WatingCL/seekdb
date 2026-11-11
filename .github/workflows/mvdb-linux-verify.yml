@@ -77,24 +77,21 @@ jobs:
             tail -40 "$f" 2>/dev/null || echo "(missing)"
           done
           echo "===== per-case results ====="
-          sudo ls -l /tmp/ci-image 2>/dev/null | head -20
+          sudo chmod -R a+rX /tmp/ci-image protocol-results 2>/dev/null || true
           python3 - <<'PY'
-import json
-from pathlib import Path
-paths = list(Path("protocol-results").glob("*/result.json"))
-try:
-    paths += list(Path("/tmp/ci-image").glob("*/result.json"))
-except PermissionError:
-    pass
-for p in sorted(paths):
-    print("---", p)
-    try:
-        d = json.loads(p.read_text(encoding="utf-8"))
-    except Exception as exc:
-        print("unreadable:", exc)
-        continue
-    print(json.dumps(d.get("summary", d), ensure_ascii=False)[:1500])
-PY
+          import json
+          from pathlib import Path
+          paths = list(Path("protocol-results").glob("*/result.json"))
+          paths += list(Path("/tmp/ci-image").glob("*/result.json"))
+          for p in sorted(paths):
+              print("---", p)
+              try:
+                  d = json.loads(p.read_text(encoding="utf-8"))
+              except Exception as exc:
+                  print("unreadable:", exc)
+                  continue
+              print(json.dumps(d.get("summary", d), ensure_ascii=False)[:1500])
+          PY
 
       - name: Upload artifacts
         if: always()
