@@ -85,6 +85,8 @@ python3 tools/deploy/run_ai_column_tests.py \
 
 ## 题目 4 与 GitHub 验证
 
+赛题 4 的同机优化前后对比、完整正确性摘要及 CI 修复已补齐，见 [收尾报告](fts-task4-closeout.md)。最终四组 A/B 的三类等权综合耗时下降约 0.76%，IK 分词下降约 1.83%；旧的跨硬件 100 分参考报告不能当作本次改动的性能收益证明。
+
 全文索引使用 `tools/benchmark/fts_large_bench.sh` 和固定基线评分，运行方式见仓库根目录 `seekdb题目4.md`。保持输入数据、SQL、计时与评分脚本不变。基准会重建 `fts_large_bench` 数据库，只能在专用实例运行。
 
 `.github/workflows/vldb.yml` 在该分支推送时执行，也支持手动触发。它编译并执行相关单测、题目 1/2 的协议测试和完整 FTS 基准，上传日志及报告。它也运行上述五个 AI COLUMN 原始验收用例，但不能代替组委会的完整隐藏测试。GitHub 托管机器与正式基线硬件不同，性能分数仅供参考；局部分词函数的差分测试和微基准不能代替完整索引构建、TOKENIZE 和 MATCH 的验证。

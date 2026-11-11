@@ -1,0 +1,556 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "binary_sha256": {
+    "before": "3f0d961b2b783f6ec8ca63283d4764797fc9d4b39a01da758f81f221e985185d",
+    "after": "57d42a6503673f8811ad15ba2e5053972313bb1140530521a224832f5321f14c"
+  },
+  "binaries": {
+    "before": "/private/tmp/seekdb-task4-ab-w_fxqbrk/seekdb-reference",
+    "after": "/private/tmp/seekdb-task4-ab-w_fxqbrk/seekdb-optimized-ascii"
+  },
+  "benchmark_files_sha256": {
+    "tools/benchmark/fts_large_bench.sh": "596ea5d1c0038e666b78aa94bef22d2dfb87ffc9e84dbc7e2a1da1f746424462",
+    "tools/benchmark/fts_large_bench_gen.py": "b0c816dd8211ac0471f60b72a37a3fb5c62580357a5b6d7ac95f5a8c2e3f143d",
+    "tools/benchmark/fts_large_bench_setup.sql": "311826751df7f51ac45156fb4284aeca9bd9197370aceb88f4fb92832b458108",
+    "tools/benchmark/fts_large_bench_score.py": "bea52eb1c68d05693bb3ac5b910ab0e2fa0e70e01582f40466898ee1e2e3ef55",
+    "tools/benchmark/fts_large_bench_baseline.json": "f4e97eddb2e49c982b967fc8047f7cf37177eebe53d648f6746d85aacda91f0c"
+  },
+  "config": {
+    "rows": 20000,
+    "batch": 500,
+    "rounds": 3000,
+    "query_rounds": 200,
+    "samples": 3,
+    "warmup": 30,
+    "skip_load": 0
+  },
+  "server_config": {
+    "cpu_count": 2,
+    "memory_limit": "2G"
+  },
+  "source_manifest": {
+    "source_commit": "1e5b86437c9767bcd3ceafdfedd2dfea09b8e21c",
+    "reference_fts_commit": "2845b8e0659367d0f5a84327aac0391e75dd2235",
+    "files": {
+      "src/storage/fts/ik/ob_ik_char_util.h": {
+        "optimized_sha256": "d4e54403e47ae51ca5207fd444ff204586edc105003b1c171bf3cf0676c33d94",
+        "reference_sha256": "d26f03bfb9eb494a5259e1345744369473d7de0b781831e0492d16add2db6ca8"
+      },
+      "src/storage/fts/utils/unicode_utils.cpp": {
+        "optimized_sha256": "811602761e78861cb31b5c08c54b4eae18d14b91f8e68f437e255ad02f0286a2",
+        "reference_sha256": "df5f75ea6d16c4284359c5fb34f9acf757c66b0018a19b0a0d684accf3cca8e2"
+      },
+      "src/storage/fts/utils/unicode_utils.h": {
+        "optimized_sha256": "7538b94b5c9b099ed275f4aae6404d8b0828f51143b557840e796527df7003ef",
+        "reference_sha256": "7a38abb5608dd730a0eb2172bbe99a46b1820e342195a52d3d21eec15e59ce16"
+      },
+      "src/share/text_analysis/ob_token_stream.cpp": {
+        "optimized_sha256": "c9d076bf81a021e446f5ffd85243ae5823c433e8948b719a44a098bf69ba0a81",
+        "reference_sha256": "a92e496def595c6f5d12ae78c96aaad4ed1d6453fd03f1024a3bef64994587e3"
+      }
+    },
+    "compiler": "Apple clang version 21.0.0 (clang-2100.4.1.1)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Library/Developer/CommandLineTools/usr/bin\n",
+    "cmake_build_type": "Release",
+    "unity_build": true,
+    "build_command": "make -C build_release -j3 seekdb",
+    "flags_make_sha256": "56b88a965ad33dddb5d30686f782e05c2ed974e3d7e57d08cefb91fe32187ed9",
+    "additional_change": "UTF-8 ASCII classification bypasses the general decoder for exactly one valid ASCII byte; wider, invalid and UTF-16 paths unchanged."
+  },
+  "order": [
+    "before",
+    "after",
+    "after",
+    "before",
+    "before",
+    "after",
+    "after",
+    "before"
+  ],
+  "runs": [
+    {
+      "label": "01-before",
+      "variant": "before",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0319,
+        "select1_stdev_ms": 0.0035,
+        "raw_load_sec": 1.563,
+        "raw_load_rows_per_sec": 12795.9,
+        "build_ik_all_sec": 5.084,
+        "build_ik_content_sec": 3.869,
+        "build_beng_en_sec": 2.061,
+        "build_total_sec": 11.06,
+        "tokenize_ik_avg_ms": 0.0833,
+        "tokenize_ik_median_ms": 0.0828,
+        "tokenize_ik_stdev_ms": 0.0009,
+        "tokenize_beng_avg_ms": 0.0493,
+        "tokenize_beng_median_ms": 0.0489,
+        "tokenize_beng_stdev_ms": 0.0009,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9965,
+        "query_cn_stdev_ms": 0.0423,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.4316,
+        "query_beng_stdev_ms": 0.0026,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.1115,
+        "query_mixed_stdev_ms": 0.0049,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.3706,
+        "query_limit_stdev_ms": 0.1373
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        2.93798828125,
+        2.67333984375,
+        2.62353515625
+      ],
+      "load_after": [
+        4.794921875,
+        3.1142578125,
+        2.7822265625
+      ]
+    },
+    {
+      "label": "02-after",
+      "variant": "after",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0354,
+        "select1_stdev_ms": 0.0036,
+        "raw_load_sec": 1.614,
+        "raw_load_rows_per_sec": 12391.6,
+        "build_ik_all_sec": 5.094,
+        "build_ik_content_sec": 3.777,
+        "build_beng_en_sec": 2.07,
+        "build_total_sec": 10.972,
+        "tokenize_ik_avg_ms": 0.0814,
+        "tokenize_ik_median_ms": 0.0823,
+        "tokenize_ik_stdev_ms": 0.0037,
+        "tokenize_beng_avg_ms": 0.0457,
+        "tokenize_beng_median_ms": 0.0454,
+        "tokenize_beng_stdev_ms": 0.0022,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 1.0434,
+        "query_cn_stdev_ms": 0.092,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.4273,
+        "query_beng_stdev_ms": 0.0279,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.0861,
+        "query_mixed_stdev_ms": 0.0087,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2617,
+        "query_limit_stdev_ms": 0.0015
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        4.794921875,
+        3.1142578125,
+        2.7822265625
+      ],
+      "load_after": [
+        4.63427734375,
+        3.22802734375,
+        2.83251953125
+      ]
+    },
+    {
+      "label": "03-after",
+      "variant": "after",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0326,
+        "select1_stdev_ms": 0.0025,
+        "raw_load_sec": 1.619,
+        "raw_load_rows_per_sec": 12353.3,
+        "build_ik_all_sec": 5.093,
+        "build_ik_content_sec": 3.997,
+        "build_beng_en_sec": 2.068,
+        "build_total_sec": 11.194,
+        "tokenize_ik_avg_ms": 0.0904,
+        "tokenize_ik_median_ms": 0.0874,
+        "tokenize_ik_stdev_ms": 0.0069,
+        "tokenize_beng_avg_ms": 0.0501,
+        "tokenize_beng_median_ms": 0.0503,
+        "tokenize_beng_stdev_ms": 0.0004,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9799,
+        "query_cn_stdev_ms": 0.0215,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.421,
+        "query_beng_stdev_ms": 0.0076,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.1502,
+        "query_mixed_stdev_ms": 0.0664,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.283,
+        "query_limit_stdev_ms": 0.0181
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        4.63427734375,
+        3.22802734375,
+        2.83251953125
+      ],
+      "load_after": [
+        4.85595703125,
+        3.38671875,
+        2.89990234375
+      ]
+    },
+    {
+      "label": "04-before",
+      "variant": "before",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0336,
+        "select1_stdev_ms": 0.0025,
+        "raw_load_sec": 1.633,
+        "raw_load_rows_per_sec": 12247.4,
+        "build_ik_all_sec": 5.212,
+        "build_ik_content_sec": 3.881,
+        "build_beng_en_sec": 2.057,
+        "build_total_sec": 11.183,
+        "tokenize_ik_avg_ms": 0.0831,
+        "tokenize_ik_median_ms": 0.083,
+        "tokenize_ik_stdev_ms": 0.0009,
+        "tokenize_beng_avg_ms": 0.0474,
+        "tokenize_beng_median_ms": 0.0477,
+        "tokenize_beng_stdev_ms": 0.0005,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 1.0023,
+        "query_cn_stdev_ms": 0.0137,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.4763,
+        "query_beng_stdev_ms": 0.0432,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.0999,
+        "query_mixed_stdev_ms": 0.0109,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2779,
+        "query_limit_stdev_ms": 0.01
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        4.85595703125,
+        3.38671875,
+        2.89990234375
+      ],
+      "load_after": [
+        4.61865234375,
+        3.42529296875,
+        2.92529296875
+      ]
+    },
+    {
+      "label": "05-before",
+      "variant": "before",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0376,
+        "select1_stdev_ms": 0.0084,
+        "raw_load_sec": 1.59,
+        "raw_load_rows_per_sec": 12578.6,
+        "build_ik_all_sec": 4.991,
+        "build_ik_content_sec": 3.866,
+        "build_beng_en_sec": 2.167,
+        "build_total_sec": 11.059,
+        "tokenize_ik_avg_ms": 0.0834,
+        "tokenize_ik_median_ms": 0.0826,
+        "tokenize_ik_stdev_ms": 0.0014,
+        "tokenize_beng_avg_ms": 0.048,
+        "tokenize_beng_median_ms": 0.0481,
+        "tokenize_beng_stdev_ms": 0.0002,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9907,
+        "query_cn_stdev_ms": 0.0337,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.4825,
+        "query_beng_stdev_ms": 0.0865,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.1013,
+        "query_mixed_stdev_ms": 0.0073,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2591,
+        "query_limit_stdev_ms": 0.0016
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        4.61865234375,
+        3.42529296875,
+        2.92529296875
+      ],
+      "load_after": [
+        5.75341796875,
+        3.76806640625,
+        3.05908203125
+      ]
+    },
+    {
+      "label": "06-after",
+      "variant": "after",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0328,
+        "select1_stdev_ms": 0.002,
+        "raw_load_sec": 1.622,
+        "raw_load_rows_per_sec": 12330.5,
+        "build_ik_all_sec": 4.995,
+        "build_ik_content_sec": 3.863,
+        "build_beng_en_sec": 2.076,
+        "build_total_sec": 10.969,
+        "tokenize_ik_avg_ms": 0.0822,
+        "tokenize_ik_median_ms": 0.0817,
+        "tokenize_ik_stdev_ms": 0.0011,
+        "tokenize_beng_avg_ms": 0.0483,
+        "tokenize_beng_median_ms": 0.048,
+        "tokenize_beng_stdev_ms": 0.0007,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9643,
+        "query_cn_stdev_ms": 0.0173,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.4032,
+        "query_beng_stdev_ms": 0.01,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.1443,
+        "query_mixed_stdev_ms": 0.0814,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2591,
+        "query_limit_stdev_ms": 0.0056
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        5.75341796875,
+        3.76806640625,
+        3.05908203125
+      ],
+      "load_after": [
+        5.60107421875,
+        3.88330078125,
+        3.1201171875
+      ]
+    },
+    {
+      "label": "07-after",
+      "variant": "after",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0328,
+        "select1_stdev_ms": 0.0023,
+        "raw_load_sec": 1.632,
+        "raw_load_rows_per_sec": 12254.9,
+        "build_ik_all_sec": 4.977,
+        "build_ik_content_sec": 3.787,
+        "build_beng_en_sec": 2.053,
+        "build_total_sec": 10.849,
+        "tokenize_ik_avg_ms": 0.0819,
+        "tokenize_ik_median_ms": 0.0825,
+        "tokenize_ik_stdev_ms": 0.0013,
+        "tokenize_beng_avg_ms": 0.0514,
+        "tokenize_beng_median_ms": 0.0472,
+        "tokenize_beng_stdev_ms": 0.006,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9634,
+        "query_cn_stdev_ms": 0.0135,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.4125,
+        "query_beng_stdev_ms": 0.0085,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.0845,
+        "query_mixed_stdev_ms": 0.0036,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.3405,
+        "query_limit_stdev_ms": 0.1005
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        5.60107421875,
+        3.88330078125,
+        3.1201171875
+      ],
+      "load_after": [
+        4.94873046875,
+        3.841796875,
+        3.1220703125
+      ]
+    },
+    {
+      "label": "08-before",
+      "variant": "before",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0329,
+        "select1_stdev_ms": 0.0022,
+        "raw_load_sec": 1.629,
+        "raw_load_rows_per_sec": 12277.5,
+        "build_ik_all_sec": 5.189,
+        "build_ik_content_sec": 3.879,
+        "build_beng_en_sec": 2.06,
+        "build_total_sec": 11.168,
+        "tokenize_ik_avg_ms": 0.0863,
+        "tokenize_ik_median_ms": 0.0849,
+        "tokenize_ik_stdev_ms": 0.0047,
+        "tokenize_beng_avg_ms": 0.0471,
+        "tokenize_beng_median_ms": 0.0474,
+        "tokenize_beng_stdev_ms": 0.0005,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9777,
+        "query_cn_stdev_ms": 0.0217,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.4185,
+        "query_beng_stdev_ms": 0.0094,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.1687,
+        "query_mixed_stdev_ms": 0.0036,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2584,
+        "query_limit_stdev_ms": 0.0028
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        4.94873046875,
+        3.841796875,
+        3.1220703125
+      ],
+      "load_after": [
+        6.74755859375,
+        4.3466796875,
+        3.3203125
+      ]
+    }
+  ],
+  "hardware": [
+    "Apple M3",
+    "8589934592"
+  ],
+  "correctness_queries": {
+    "corpus_tokens": "SELECT id,TOKENIZE(title,'ik'),TOKENIZE(CAST(content AS CHAR CHARACTER SET utf8mb4),'ik'),TOKENIZE(title_en,'beng'),TOKENIZE(CAST(content_en AS CHAR CHARACTER SET utf8mb4),'beng') FROM fts_large_bench.docs ORDER BY id",
+    "match_cn": "SELECT id,MATCH(title,content) AGAINST('\u5168\u6587\u7d22\u5f15 \u5206\u8bcd\u5668') AS score FROM fts_large_bench.docs WHERE MATCH(title,content) AGAINST('\u5168\u6587\u7d22\u5f15 \u5206\u8bcd\u5668') ORDER BY id",
+    "match_beng": "SELECT id,MATCH(title_en,content_en) AGAINST('database performance audit') AS score FROM fts_large_bench.docs WHERE MATCH(title_en,content_en) AGAINST('database performance audit') ORDER BY id",
+    "match_mixed": "SELECT id,MATCH(title,content) AGAINST('OceanBase \u7a33\u5b9a database') AS score FROM fts_large_bench.docs WHERE MATCH(title,content) AGAINST('OceanBase \u7a33\u5b9a database') ORDER BY id",
+    "match_content": "SELECT id,MATCH(content) AGAINST('\u5012\u6392\u7d22\u5f15 tokenizer') AS score FROM fts_large_bench.docs WHERE MATCH(content) AGAINST('\u5012\u6392\u7d22\u5f15 tokenizer') ORDER BY id",
+    "match_limit": "SELECT id,MATCH(content) AGAINST('\u5012\u6392\u7d22\u5f15 tokenizer') AS score FROM fts_large_bench.docs WHERE MATCH(content) AGAINST('\u5012\u6392\u7d22\u5f15 tokenizer') ORDER BY id LIMIT 20"
+  }
+}

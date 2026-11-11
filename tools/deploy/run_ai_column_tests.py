@@ -33,7 +33,8 @@ def main():
     try:
         for case in CASES:
             print(f'Running {case}', flush=True)
-            command = [str(candidate), '--no-defaults', '--protocol=tcp',
+            command = [str(candidate), '--no-defaults', '--result-format-version=1',
+                   f'--prologue={root / "tools/deploy/mysql_test/compat/quiet_connections.inc"}', '--protocol=tcp',
                        f'--host={args.host}', f'--port={args.port}', f'--user={args.user}',
                        '--database=test', f'--test-file={suite / "t" / (case + ".test")}',
                        f'--result-file={suite / "r/mysql" / (case + ".result")}',

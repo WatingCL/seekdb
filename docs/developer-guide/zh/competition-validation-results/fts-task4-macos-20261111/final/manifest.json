@@ -1,0 +1,564 @@
+{
+  "platform": "macOS-27.2-arm64-arm-64bit",
+  "machine": "arm64",
+  "binary_sha256": {
+    "before": "3f0d961b2b783f6ec8ca63283d4764797fc9d4b39a01da758f81f221e985185d",
+    "after": "e242851840b03ee1af0c99440b347ecbefa5dcb3d02965c0124fccb96251f7c6"
+  },
+  "binaries": {
+    "before": "/private/tmp/seekdb-task4-ab-w_fxqbrk/seekdb-reference",
+    "after": "/private/tmp/seekdb-task4-ab-w_fxqbrk/seekdb-optimized-final"
+  },
+  "benchmark_files_sha256": {
+    "tools/benchmark/fts_large_bench.sh": "596ea5d1c0038e666b78aa94bef22d2dfb87ffc9e84dbc7e2a1da1f746424462",
+    "tools/benchmark/fts_large_bench_gen.py": "b0c816dd8211ac0471f60b72a37a3fb5c62580357a5b6d7ac95f5a8c2e3f143d",
+    "tools/benchmark/fts_large_bench_setup.sql": "311826751df7f51ac45156fb4284aeca9bd9197370aceb88f4fb92832b458108",
+    "tools/benchmark/fts_large_bench_score.py": "bea52eb1c68d05693bb3ac5b910ab0e2fa0e70e01582f40466898ee1e2e3ef55",
+    "tools/benchmark/fts_large_bench_baseline.json": "f4e97eddb2e49c982b967fc8047f7cf37177eebe53d648f6746d85aacda91f0c"
+  },
+  "config": {
+    "rows": 20000,
+    "batch": 500,
+    "rounds": 3000,
+    "query_rounds": 200,
+    "samples": 3,
+    "warmup": 30,
+    "skip_load": 0
+  },
+  "server_config": {
+    "cpu_count": 2,
+    "memory_limit": "2G"
+  },
+  "source_manifest": {
+    "source_commit": "1e5b86437c9767bcd3ceafdfedd2dfea09b8e21c",
+    "reference_fts_commit": "2845b8e0659367d0f5a84327aac0391e75dd2235",
+    "files": {
+      "src/storage/fts/ik/ob_ik_char_util.h": {
+        "optimized_sha256": "d8947d0829dcaba0046c5ac8ef995651e8119f1d1b85334c729ee03dfeb09855",
+        "reference_sha256": "d26f03bfb9eb494a5259e1345744369473d7de0b781831e0492d16add2db6ca8"
+      },
+      "src/storage/fts/utils/unicode_utils.cpp": {
+        "optimized_sha256": "811602761e78861cb31b5c08c54b4eae18d14b91f8e68f437e255ad02f0286a2",
+        "reference_sha256": "df5f75ea6d16c4284359c5fb34f9acf757c66b0018a19b0a0d684accf3cca8e2"
+      },
+      "src/storage/fts/utils/unicode_utils.h": {
+        "optimized_sha256": "7538b94b5c9b099ed275f4aae6404d8b0828f51143b557840e796527df7003ef",
+        "reference_sha256": "7a38abb5608dd730a0eb2172bbe99a46b1820e342195a52d3d21eec15e59ce16"
+      },
+      "src/share/text_analysis/ob_token_stream.cpp": {
+        "optimized_sha256": "c9d076bf81a021e446f5ffd85243ae5823c433e8948b719a44a098bf69ba0a81",
+        "reference_sha256": "a92e496def595c6f5d12ae78c96aaad4ed1d6453fd03f1024a3bef64994587e3"
+      },
+      "src/storage/fts/ik/ob_ik_processor.cpp": {
+        "reference_sha256": "2916a1995da392ba12f9531992d911913e4a3e5477a4c5aa5e3dd26911155f31",
+        "optimized_sha256": "1a216ade9a1d661085b6e63e1859381b732e060c336e254105bff7e400005aec"
+      },
+      "src/storage/fts/ik/ob_ik_arbitrator.cpp": {
+        "reference_sha256": "bc37be1f32a77ddb46eff6fb84393cdacf5a885fca4db9490695fa99c04053a0",
+        "optimized_sha256": "05f3bcd441afdd57ea66e47f802992456d54a820826a5104114cb3646490252f"
+      }
+    },
+    "compiler": "Apple clang version 21.0.0 (clang-2100.4.1.1)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Library/Developer/CommandLineTools/usr/bin\n",
+    "cmake_build_type": "Release",
+    "unity_build": true,
+    "build_command": "make -C build_release -j3 seekdb",
+    "flags_make_sha256": "56b88a965ad33dddb5d30686f782e05c2ed974e3d7e57d08cefb91fe32187ed9",
+    "additional_change": "Decode one valid UTF-8 scalar once for byte width and Unicode class in scanning and arbitration; preserve original validation/error paths for malformed input and UTF-16; direct ASCII class checks."
+  },
+  "order": [
+    "before",
+    "after",
+    "after",
+    "before",
+    "before",
+    "after",
+    "after",
+    "before"
+  ],
+  "runs": [
+    {
+      "label": "01-before",
+      "variant": "before",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0322,
+        "select1_stdev_ms": 0.0022,
+        "raw_load_sec": 1.569,
+        "raw_load_rows_per_sec": 12747.0,
+        "build_ik_all_sec": 4.796,
+        "build_ik_content_sec": 3.783,
+        "build_beng_en_sec": 1.96,
+        "build_total_sec": 10.581,
+        "tokenize_ik_avg_ms": 0.0844,
+        "tokenize_ik_median_ms": 0.0838,
+        "tokenize_ik_stdev_ms": 0.0009,
+        "tokenize_beng_avg_ms": 0.0481,
+        "tokenize_beng_median_ms": 0.0479,
+        "tokenize_beng_stdev_ms": 0.0002,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9535,
+        "query_cn_stdev_ms": 0.0185,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.3915,
+        "query_beng_stdev_ms": 0.0085,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.0773,
+        "query_mixed_stdev_ms": 0.0047,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2418,
+        "query_limit_stdev_ms": 0.0049
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        1.890625,
+        2.7255859375,
+        2.96142578125
+      ],
+      "load_after": [
+        2.16552734375,
+        2.7275390625,
+        2.95556640625
+      ]
+    },
+    {
+      "label": "02-after",
+      "variant": "after",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0329,
+        "select1_stdev_ms": 0.0028,
+        "raw_load_sec": 1.609,
+        "raw_load_rows_per_sec": 12430.1,
+        "build_ik_all_sec": 4.808,
+        "build_ik_content_sec": 3.689,
+        "build_beng_en_sec": 1.961,
+        "build_total_sec": 10.498,
+        "tokenize_ik_avg_ms": 0.0819,
+        "tokenize_ik_median_ms": 0.0821,
+        "tokenize_ik_stdev_ms": 0.0018,
+        "tokenize_beng_avg_ms": 0.0485,
+        "tokenize_beng_median_ms": 0.0484,
+        "tokenize_beng_stdev_ms": 0.0003,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9739,
+        "query_cn_stdev_ms": 0.0412,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.404,
+        "query_beng_stdev_ms": 0.0169,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.08,
+        "query_mixed_stdev_ms": 0.0023,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2546,
+        "query_limit_stdev_ms": 0.0107
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        2.16552734375,
+        2.7275390625,
+        2.95556640625
+      ],
+      "load_after": [
+        2.6669921875,
+        2.81005859375,
+        2.97900390625
+      ]
+    },
+    {
+      "label": "03-after",
+      "variant": "after",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0327,
+        "select1_stdev_ms": 0.002,
+        "raw_load_sec": 1.566,
+        "raw_load_rows_per_sec": 12771.4,
+        "build_ik_all_sec": 4.903,
+        "build_ik_content_sec": 3.581,
+        "build_beng_en_sec": 1.951,
+        "build_total_sec": 10.465,
+        "tokenize_ik_avg_ms": 0.082,
+        "tokenize_ik_median_ms": 0.0814,
+        "tokenize_ik_stdev_ms": 0.0011,
+        "tokenize_beng_avg_ms": 0.048,
+        "tokenize_beng_median_ms": 0.0482,
+        "tokenize_beng_stdev_ms": 0.0005,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9668,
+        "query_cn_stdev_ms": 0.0264,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.3975,
+        "query_beng_stdev_ms": 0.0083,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.0822,
+        "query_mixed_stdev_ms": 0.0024,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2549,
+        "query_limit_stdev_ms": 0.0068
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        2.6669921875,
+        2.81005859375,
+        2.97900390625
+      ],
+      "load_after": [
+        2.48193359375,
+        2.7568359375,
+        2.95556640625
+      ]
+    },
+    {
+      "label": "04-before",
+      "variant": "before",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.032,
+        "select1_stdev_ms": 0.0022,
+        "raw_load_sec": 1.581,
+        "raw_load_rows_per_sec": 12650.2,
+        "build_ik_all_sec": 4.92,
+        "build_ik_content_sec": 3.787,
+        "build_beng_en_sec": 1.954,
+        "build_total_sec": 10.693,
+        "tokenize_ik_avg_ms": 0.0837,
+        "tokenize_ik_median_ms": 0.083,
+        "tokenize_ik_stdev_ms": 0.0012,
+        "tokenize_beng_avg_ms": 0.0483,
+        "tokenize_beng_median_ms": 0.048,
+        "tokenize_beng_stdev_ms": 0.0006,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9737,
+        "query_cn_stdev_ms": 0.0121,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.4065,
+        "query_beng_stdev_ms": 0.0034,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.0903,
+        "query_mixed_stdev_ms": 0.0031,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.254,
+        "query_limit_stdev_ms": 0.0037
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        2.48193359375,
+        2.7568359375,
+        2.95556640625
+      ],
+      "load_after": [
+        2.33251953125,
+        2.70654296875,
+        2.93212890625
+      ]
+    },
+    {
+      "label": "05-before",
+      "variant": "before",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0322,
+        "select1_stdev_ms": 0.0024,
+        "raw_load_sec": 1.598,
+        "raw_load_rows_per_sec": 12515.6,
+        "build_ik_all_sec": 4.91,
+        "build_ik_content_sec": 3.787,
+        "build_beng_en_sec": 2.07,
+        "build_total_sec": 10.809,
+        "tokenize_ik_avg_ms": 0.084,
+        "tokenize_ik_median_ms": 0.0829,
+        "tokenize_ik_stdev_ms": 0.0015,
+        "tokenize_beng_avg_ms": 0.0479,
+        "tokenize_beng_median_ms": 0.0479,
+        "tokenize_beng_stdev_ms": 0.0002,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9811,
+        "query_cn_stdev_ms": 0.0194,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.3973,
+        "query_beng_stdev_ms": 0.0048,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.0875,
+        "query_mixed_stdev_ms": 0.0017,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2527,
+        "query_limit_stdev_ms": 0.0022
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        2.33251953125,
+        2.70654296875,
+        2.93212890625
+      ],
+      "load_after": [
+        2.49658203125,
+        2.72314453125,
+        2.93212890625
+      ]
+    },
+    {
+      "label": "06-after",
+      "variant": "after",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0313,
+        "select1_stdev_ms": 0.0029,
+        "raw_load_sec": 1.585,
+        "raw_load_rows_per_sec": 12618.3,
+        "build_ik_all_sec": 4.905,
+        "build_ik_content_sec": 3.676,
+        "build_beng_en_sec": 1.961,
+        "build_total_sec": 10.577,
+        "tokenize_ik_avg_ms": 0.0819,
+        "tokenize_ik_median_ms": 0.0812,
+        "tokenize_ik_stdev_ms": 0.0017,
+        "tokenize_beng_avg_ms": 0.0478,
+        "tokenize_beng_median_ms": 0.048,
+        "tokenize_beng_stdev_ms": 0.0004,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9635,
+        "query_cn_stdev_ms": 0.0193,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.3958,
+        "query_beng_stdev_ms": 0.0056,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.082,
+        "query_mixed_stdev_ms": 0.0016,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2546,
+        "query_limit_stdev_ms": 0.0086
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        2.49658203125,
+        2.72314453125,
+        2.93212890625
+      ],
+      "load_after": [
+        2.56396484375,
+        2.7236328125,
+        2.92626953125
+      ]
+    },
+    {
+      "label": "07-after",
+      "variant": "after",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0319,
+        "select1_stdev_ms": 0.0021,
+        "raw_load_sec": 1.592,
+        "raw_load_rows_per_sec": 12562.8,
+        "build_ik_all_sec": 4.796,
+        "build_ik_content_sec": 3.79,
+        "build_beng_en_sec": 1.963,
+        "build_total_sec": 10.585,
+        "tokenize_ik_avg_ms": 0.0822,
+        "tokenize_ik_median_ms": 0.0816,
+        "tokenize_ik_stdev_ms": 0.0012,
+        "tokenize_beng_avg_ms": 0.0476,
+        "tokenize_beng_median_ms": 0.0475,
+        "tokenize_beng_stdev_ms": 0.0002,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.969,
+        "query_cn_stdev_ms": 0.016,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.3999,
+        "query_beng_stdev_ms": 0.0043,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.0852,
+        "query_mixed_stdev_ms": 0.002,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2516,
+        "query_limit_stdev_ms": 0.0093
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        2.56396484375,
+        2.7236328125,
+        2.92626953125
+      ],
+      "load_after": [
+        2.18115234375,
+        2.62646484375,
+        2.88623046875
+      ]
+    },
+    {
+      "label": "08-before",
+      "variant": "before",
+      "version": "OceanBase 4.3.5.3 seekdb (r1.4.0.0) (Built 1-d0260b7dad52322e90306c604c9419fc15248846 Nov 11 2026)",
+      "metrics": {
+        "git_dirty": 1.0,
+        "rows": 20000.0,
+        "batch": 500.0,
+        "rounds": 3000.0,
+        "query_rounds": 200.0,
+        "samples": 3.0,
+        "warmup": 30.0,
+        "skip_load": 0.0,
+        "select1_avg_ms": 0.0338,
+        "select1_stdev_ms": 0.0021,
+        "raw_load_sec": 1.589,
+        "raw_load_rows_per_sec": 12586.5,
+        "build_ik_all_sec": 4.915,
+        "build_ik_content_sec": 3.798,
+        "build_beng_en_sec": 1.859,
+        "build_total_sec": 10.604,
+        "tokenize_ik_avg_ms": 0.082,
+        "tokenize_ik_median_ms": 0.0808,
+        "tokenize_ik_stdev_ms": 0.0024,
+        "tokenize_beng_avg_ms": 0.0475,
+        "tokenize_beng_median_ms": 0.047,
+        "tokenize_beng_stdev_ms": 0.0007,
+        "query_cn_hits": 8001.0,
+        "query_cn_avg_ms": 0.9719,
+        "query_cn_stdev_ms": 0.0177,
+        "query_beng_hits": 11000.0,
+        "query_beng_avg_ms": 1.409,
+        "query_beng_stdev_ms": 0.006,
+        "query_mixed_hits": 7332.0,
+        "query_mixed_avg_ms": 1.1019,
+        "query_mixed_stdev_ms": 0.0084,
+        "query_limit_hits": 20.0,
+        "query_limit_avg_ms": 1.2628,
+        "query_limit_stdev_ms": 0.0055
+      },
+      "correctness": {
+        "corpus_tokens": "118c61dd4b4d81a75d115c6e5ad9fae32a660b734655794463cc245d174b749a",
+        "match_cn": "1e527a96d693fe9b835c985a6d87f490f5aa2be938496d78c8e058be85340768",
+        "match_beng": "d78ad9d0285ae58fffb94fe515e82d58f9465ec902885b3bb6bc9ec2e9e25222",
+        "match_mixed": "d73bfe3d77c8eff81c99d1fd9faf0d2c5acdb253818319989b07531263a25108",
+        "match_content": "c3cbf56a5e2c5411263a8ee5c26ed7b38a2e11045d3756fb81f319acec4bdb14",
+        "match_limit": "2cd346ee7b55846f189ffd95386b1079027446cdc71cae9ab687da256b45d84e"
+      },
+      "load_before": [
+        2.18115234375,
+        2.62646484375,
+        2.88623046875
+      ],
+      "load_after": [
+        2.3779296875,
+        2.63818359375,
+        2.8828125
+      ]
+    }
+  ],
+  "hardware": [
+    "Apple M3",
+    "8589934592"
+  ],
+  "correctness_queries": {
+    "corpus_tokens": "SELECT id,TOKENIZE(title,'ik'),TOKENIZE(CAST(content AS CHAR CHARACTER SET utf8mb4),'ik'),TOKENIZE(title_en,'beng'),TOKENIZE(CAST(content_en AS CHAR CHARACTER SET utf8mb4),'beng') FROM fts_large_bench.docs ORDER BY id",
+    "match_cn": "SELECT id,MATCH(title,content) AGAINST('\u5168\u6587\u7d22\u5f15 \u5206\u8bcd\u5668') AS score FROM fts_large_bench.docs WHERE MATCH(title,content) AGAINST('\u5168\u6587\u7d22\u5f15 \u5206\u8bcd\u5668') ORDER BY id",
+    "match_beng": "SELECT id,MATCH(title_en,content_en) AGAINST('database performance audit') AS score FROM fts_large_bench.docs WHERE MATCH(title_en,content_en) AGAINST('database performance audit') ORDER BY id",
+    "match_mixed": "SELECT id,MATCH(title,content) AGAINST('OceanBase \u7a33\u5b9a database') AS score FROM fts_large_bench.docs WHERE MATCH(title,content) AGAINST('OceanBase \u7a33\u5b9a database') ORDER BY id",
+    "match_content": "SELECT id,MATCH(content) AGAINST('\u5012\u6392\u7d22\u5f15 tokenizer') AS score FROM fts_large_bench.docs WHERE MATCH(content) AGAINST('\u5012\u6392\u7d22\u5f15 tokenizer') ORDER BY id",
+    "match_limit": "SELECT id,MATCH(content) AGAINST('\u5012\u6392\u7d22\u5f15 tokenizer') AS score FROM fts_large_bench.docs WHERE MATCH(content) AGAINST('\u5012\u6392\u7d22\u5f15 tokenizer') ORDER BY id LIMIT 20"
+  }
+}

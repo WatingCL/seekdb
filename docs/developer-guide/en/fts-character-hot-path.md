@@ -1,7 +1,7 @@
 # IK character hot-path optimization
 
 IK classifies every input character during segmentation and again when resolving
-single-character output. Previously, each classification predicate independently
+single-character output. The scanner and arbitrator now share `first_char_info`: valid UTF-8 is decoded once for both width and classification, and ASCII code points use direct letter/digit checks. Invalid, truncated and surrogate inputs retain the original validation/error path; UTF-16 retains its existing decoding semantics. Previously, each classification predicate independently
 decoded the same UTF character. A Chinese character could be decoded three times;
 a separator could reach four decoding predicates. Classification now decodes once
 and applies the original Unicode predicates in their original order. In
@@ -30,8 +30,8 @@ python3 unittest/storage/fts/run_ik_char_classification.py \
   --build-dir /absolute/path/to/build_release --benchmark
 ```
 
-The runner compiles only the native test and Unicode utility translation unit,
-using the existing SDK include paths and runtime libraries. It does not modify
+The runner compiles only the native test translation unit,
+using the existing SDK include paths and production runtime libraries. It does not modify
 or rebuild the server. The benchmark is optional and is not the competition
 score. One Apple Silicon run of six balanced AB/BA samples, each classifying the
 same mixed-language text 200,000 times, measured a 159.045 ms median for the
@@ -88,3 +88,9 @@ retained-token frequencies, including 200 repeated mixed-case tokens. Its
 expected result was recorded on the original server. The fast path removes one
 normalization allocation/copy for eligible tokens; its complete server-level
 performance effect must be measured with the original benchmark described above.
+
+## Completed same-machine comparison
+
+The [task 4 closeout report](../zh/fts-task4-closeout.md) records four full A/B pairs in ABBAABBA order, all nine timing metrics, run-to-run standard deviations, source/binary hashes and complete corpus TOKENIZE/MATCH result digests. Final mean category-weighted elapsed time fell 0.76%, including 1.83% for IK TOKENIZE; the effect is small and is not a full-score or general performance guarantee. Earlier neutral/negative iterations are retained. The original benchmark, data, SQL, scoring code and fixed baseline are unchanged.
+
+The differential test also compares the fused reader's widths and errors for every encodable UTF-8 scalar, all two-byte prefixes and 131,072 deterministic random prefixes. The standalone runners link the actual production implementations rather than defining duplicate copies.

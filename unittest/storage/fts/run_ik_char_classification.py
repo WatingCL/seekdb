@@ -33,10 +33,8 @@ def main():
         objects = []
         sources = (
             repo / "unittest/storage/fts/test_english_normalizer.cpp",
-            repo / "src/share/text_analysis/ob_token_stream.cpp",
         ) if args.english else (
             repo / "unittest/storage/fts/test_ik_char_classification.cpp",
-            repo / "src/storage/fts/utils/unicode_utils.cpp",
         )
         for index, source in enumerate(sources):
             obj = temp / (str(index) + ".o")

@@ -81,6 +81,25 @@ int compare(ObCollationType coll, const char *bytes, uint8_t len)
                  int(coll), unsigned(len), expected_ret, int(expected), actual_ret, int(actual));
     return 1;
   }
+  // Also compare the fused width/classification path used by scanning and
+  // arbitration. Some standalone builds do not register UTF-16 collations;
+  // the direct-template oracle above still covers those encodings completely.
+  if (ObCharset::is_valid_collation(coll)) {
+    int64_t expected_len = 0, actual_len = 0;
+    CharType expected_type = CharType::USELESS, actual_type = CharType::USELESS;
+    int expected_info_ret = ObCharset::first_valid_char(coll, bytes, len, expected_len);
+    if (expected_info_ret == OB_SUCCESS) {
+      expected_info_ret = reference_classify<CS>(bytes, expected_len, expected_type);
+    }
+    const int actual_info_ret = ObFTCharUtil::first_char_info(coll, bytes, len, actual_len, actual_type);
+    if (expected_info_ret != actual_info_ret || expected_type != actual_type ||
+        (expected_info_ret == OB_SUCCESS && expected_len != actual_len)) {
+      std::fprintf(stderr, "width/class mismatch: collation=%d length=%u expected=(%d,%lld,%d) actual=(%d,%lld,%d)\n",
+          int(coll), unsigned(len), expected_info_ret, static_cast<long long>(expected_len), int(expected_type),
+          actual_info_ret, static_cast<long long>(actual_len), int(actual_type));
+      return 1;
+    }
+  }
   return 0;
 }
 
@@ -107,6 +126,23 @@ int check_charset(ObCollationType coll)
         return 1;
       }
       ++count;
+    }
+  }
+  if constexpr (CS == CHARSET_UTF8MB4) {
+    // Exhaust two-byte prefixes and deterministic random prefixes, including
+    // invalid lead/continuation combinations, to preserve validation errors.
+    for (unsigned value = 0; value < 65536; ++value) {
+      bytes[0] = value >> 8;
+      bytes[1] = value & 0xff;
+      if (compare<CS>(coll, reinterpret_cast<const char *>(bytes), 2)) return 1;
+    }
+    uint32_t state = 0x9e3779b9;
+    for (unsigned sample = 0; sample < 131072; ++sample) {
+      state ^= state << 13;
+      state ^= state >> 17;
+      state ^= state << 5;
+      for (unsigned i = 0; i < 4; ++i) bytes[i] = (state >> (8 * i)) & 0xff;
+      if (compare<CS>(coll, reinterpret_cast<const char *>(bytes), 1 + sample % 4)) return 1;
     }
   }
   // Truncation, zero length, invalid encodings and NULL retain their error/type behavior.

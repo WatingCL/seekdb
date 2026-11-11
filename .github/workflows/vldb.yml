@@ -27,6 +27,7 @@ jobs:
         run: |
           ./build.sh release --init
           python3 unittest/sql/parser/test_parser_generation_cache.py
+          python3 unittest/tools/test_fts_compare_binaries.py
           make -C build_release -j2 seekdb sql_tests storage_tests share_tests
       - name: Run focused native regressions
         env:
@@ -64,6 +65,10 @@ jobs:
         run: |
           python3 tools/deploy/run_ai_column_tests.py --port 2885 \
             --logdir "$RUNNER_TEMP/seekdb-competition/ai-column"
+      - name: Verify original FTS token and frequency results
+        run: |
+          python3 tools/deploy/run_fts_tests.py --port 2885 \
+            --logdir "$RUNNER_TEMP/seekdb-competition/fts-regressions"
       - name: Run the unchanged full FTS benchmark
         env:
           MYSQL: mysql -h127.0.0.1 -P2885 -uroot -N -s -A --default-character-set=utf8mb4
@@ -95,6 +100,7 @@ jobs:
           path: |
             ${{ runner.temp }}/seekdb-competition/*.out
             ${{ runner.temp }}/seekdb-competition/fts-*
+            ${{ runner.temp }}/seekdb-competition/fts-regressions/
             ${{ runner.temp }}/seekdb-competition/ai-column/
             ${{ runner.temp }}/seekdb-competition/log/seekdb.log
             build_release/Testing/Temporary/LastTest.log
