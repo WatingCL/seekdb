@@ -1,53 +1,101 @@
 /* Copyright (c) 2026 OceanBase. Licensed under the Apache License, Version 2.0. */
-// Standalone regression for the streaming reader; no database runtime required.
+// Streaming-reader regressions run in the SQL module Google Test binary.
 #include "sql/engine/basic/file_sql/file_reader.h"
-#include <cassert>
+#include <gtest/gtest.h>
+#include <filesystem>
 #include <fstream>
 using namespace oceanbase::sql::file_sql;
 static void write(const std::string &path, const std::string &data) {
   std::ofstream f(path); f << data; f.close();
 }
-int main(int argc,char **argv) {
-  char dir[] = "/tmp/file-reader-XXXXXX"; assert(mkdtemp(dir));
+namespace file_reader_test
+{
+class TemporaryDirectory
+{
+public:
+  TemporaryDirectory() { char name[] = "/tmp/file-reader-XXXXXX"; const char *p = mkdtemp(name); if (p) path = p; }
+  ~TemporaryDirectory() { if (!path.empty()) { std::error_code error; std::filesystem::remove_all(path, error); } }
+  std::string path;
+};
+}
+
+TEST(FileSqlReader, StreamingFormatsRescanTypesAndPathSafety) {
+  file_reader_test::TemporaryDirectory temporary;
+  ASSERT_FALSE(temporary.path.empty());
+  const std::string &dir = temporary.path;
   std::string path=std::string(dir)+"/test.csv";
   write(path,"id,id,note,day\r\n1,2,\"hello,\nworld\",2024-02-29\r\n3,4,\"say \"\"hi\"\"\",\r\n");
   Reader reader; Options o; o.path=path;
-  assert(reader.open(o,dir));assert(reader.columns.size()==4);assert(reader.columns[1].name=="id__2");
-  assert(reader.columns[3].type==Type::DATE&&reader.columns[3].nullable);
-  std::vector<Cell> row;bool end;assert(reader.next(row,end)&&!end&&row[2].text=="hello,\nworld");
-  assert(reader.next(row,end)&&!end&&row[2].text=="say \"hi\""&&row[3].null_value);
-  assert(reader.next(row,end)&&end);assert(reader.rescan());assert(reader.next(row,end)&&row[0].text=="1");
-  Reader decoded;assert(decode(encode(reader),decoded));assert(decoded.open(decoded.options,dir,false));
-  write(path,"id,id,note,day\n9,8,changed,2024-01-01\n");assert(!reader.next(row,end));assert(!decoded.rescan());
-  write(path,"a\n\"broken\n");assert(!reader.open(o,dir));
+  ASSERT_TRUE(reader.open(o,dir));ASSERT_TRUE(reader.columns.size()==4);ASSERT_TRUE(reader.columns[1].name=="id__2");
+  ASSERT_TRUE(reader.columns[3].type==Type::DATE&&reader.columns[3].nullable);
+  std::vector<Cell> row;bool end;ASSERT_TRUE(reader.next(row,end)&&!end&&row[2].text=="hello,\nworld");
+  ASSERT_TRUE(reader.next(row,end)&&!end&&row[2].text=="say \"hi\""&&row[3].null_value);
+  ASSERT_TRUE(reader.next(row,end)&&end);ASSERT_TRUE(reader.rescan());ASSERT_TRUE(reader.next(row,end)&&row[0].text=="1");
+  Reader decoded;ASSERT_TRUE(decode(encode(reader),decoded));ASSERT_TRUE(decoded.open(decoded.options,dir,false));
+  write(path,"id,id,note,day\n9,8,changed,2024-01-01\n");ASSERT_TRUE(!reader.next(row,end));ASSERT_TRUE(!decoded.rescan());
+  write(path,"a\n\"broken\n");ASSERT_TRUE(!reader.open(o,dir));
   path=std::string(dir)+"/test.jsonl";o.path=path;o.format="json";
   write(path,"{\"id\":1,\"name\":\"a\\u4e2d\"}\n{\"id\":2,\"score\":1.5}\n");
-  assert(reader.open(o,dir));assert(reader.columns.size()==3);assert(reader.columns[1].nullable);
-  assert(reader.next(row,end)&&row[1].text=="a中"&&row[2].null_value);
-  assert(reader.next(row,end)&&row[1].null_value&&row[2].text=="1.5");
-  write(path,"{\"x\":{\"nested\":1}}\n");assert(!reader.open(o,dir));
-  assert(infer(Cell("9223372036854775808"))==Type::VARCHAR);
-  assert(infer(Cell("2023-02-29"))==Type::VARCHAR);
-  assert(widen(Type::DOUBLE,Type::BIGINT)==widen(Type::BIGINT,Type::DOUBLE));
-  std::string resolved,error;assert(!canonical("/etc/passwd",dir,resolved,error));
-  if(argc>1){
-    Reader parquet;Options po;po.path=argv[1];po.format="parquet";
-    assert(parquet.open(po,"/tmp"));int count=0,sum=0;
-    while(true){assert(parquet.next(row,end));if(end)break;sum+=std::atoi(row[0].text.c_str());++count;}
-    assert(count==7&&sum==21);assert(parquet.rescan());assert(parquet.next(row,end)&&row[0].text=="0");
+  ASSERT_TRUE(reader.open(o,dir));ASSERT_TRUE(reader.columns.size()==3);ASSERT_TRUE(reader.columns[1].nullable);
+  ASSERT_TRUE(reader.next(row,end)&&row[1].text=="a中"&&row[2].null_value);
+  ASSERT_TRUE(reader.next(row,end)&&row[1].null_value&&row[2].text=="1.5");
+  write(path,"{\"x\":{\"nested\":1}}\n");ASSERT_TRUE(!reader.open(o,dir));
+  ASSERT_TRUE(infer(Cell("9223372036854775808"))==Type::VARCHAR);
+  ASSERT_TRUE(infer(Cell("2023-02-29"))==Type::VARCHAR);
+  ASSERT_TRUE(widen(Type::DOUBLE,Type::BIGINT)==widen(Type::BIGINT,Type::DOUBLE));
+  std::string resolved,error;ASSERT_TRUE(!canonical("/etc/passwd",dir,resolved,error));
+  // Seven INT32 rows 0..6, encoded as a genuine Parquet fixture.
+  static const unsigned char parquet_bytes[] = {
+    0x50, 0x41, 0x52, 0x31, 0x15, 0x06, 0x15, 0x3c, 0x15, 0x40, 0x5c, 0x15, 0x0e, 0x15, 0x00, 0x15,
+    0x0e, 0x15, 0x00, 0x15, 0x04, 0x15, 0x00, 0x11, 0x1c, 0x36, 0x00, 0x28, 0x04, 0x06, 0x00, 0x00,
+    0x00, 0x18, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x7f, 0x1c, 0x6c, 0x00, 0x00,
+    0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x04, 0x00,
+    0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x26, 0x94, 0x01, 0x1c, 0x15, 0x02,
+    0x19, 0x25, 0x06, 0x00, 0x19, 0x18, 0x02, 0x63, 0x31, 0x15, 0x02, 0x16, 0x0e, 0x16, 0x88, 0x01,
+    0x16, 0x8c, 0x01, 0x26, 0x08, 0x3c, 0x36, 0x00, 0x28, 0x04, 0x06, 0x00, 0x00, 0x00, 0x18, 0x04,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x15, 0x04, 0x19, 0x2c, 0x48, 0x04, 0x72, 0x6f, 0x6f,
+    0x74, 0x15, 0x02, 0x00, 0x15, 0x02, 0x25, 0x02, 0x18, 0x02, 0x63, 0x31, 0x00, 0x16, 0x0e, 0x19,
+    0x1c, 0x19, 0x1c, 0x26, 0x94, 0x01, 0x1c, 0x15, 0x02, 0x19, 0x25, 0x06, 0x00, 0x19, 0x18, 0x02,
+    0x63, 0x31, 0x15, 0x02, 0x16, 0x0e, 0x16, 0x88, 0x01, 0x16, 0x8c, 0x01, 0x26, 0x08, 0x3c, 0x36,
+    0x00, 0x28, 0x04, 0x06, 0x00, 0x00, 0x00, 0x18, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x16, 0x8c, 0x01, 0x16, 0x0e, 0x00, 0x19, 0x1c, 0x18, 0x0c, 0x41, 0x52, 0x52, 0x4f, 0x57, 0x3a,
+    0x73, 0x63, 0x68, 0x65, 0x6d, 0x61, 0x18, 0xbc, 0x01, 0x2f, 0x2f, 0x2f, 0x2f, 0x2f, 0x34, 0x51,
+    0x41, 0x41, 0x41, 0x41, 0x51, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x4b, 0x41, 0x41, 0x34,
+    0x41, 0x44, 0x41, 0x41, 0x4c, 0x41, 0x41, 0x51, 0x41, 0x43, 0x67, 0x41, 0x41, 0x41, 0x42, 0x51,
+    0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x42, 0x42, 0x41, 0x41, 0x4b, 0x41, 0x41, 0x77,
+    0x41, 0x41, 0x41, 0x41, 0x49, 0x41, 0x41, 0x51, 0x41, 0x43, 0x67, 0x41, 0x41, 0x41, 0x41, 0x67,
+    0x41, 0x41, 0x41, 0x41, 0x49, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x45,
+    0x41, 0x41, 0x41, 0x41, 0x55, 0x41, 0x41, 0x41, 0x41, 0x45, 0x41, 0x41, 0x55, 0x41, 0x42, 0x41,
+    0x41, 0x44, 0x67, 0x41, 0x50, 0x41, 0x41, 0x51, 0x41, 0x41, 0x41, 0x41, 0x49, 0x41, 0x42, 0x41,
+    0x41, 0x41, 0x41, 0x41, 0x59, 0x41, 0x41, 0x41, 0x41, 0x49, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
+    0x41, 0x41, 0x51, 0x49, 0x63, 0x41, 0x41, 0x41, 0x41, 0x43, 0x41, 0x41, 0x4d, 0x41, 0x41, 0x51,
+    0x41, 0x43, 0x77, 0x41, 0x49, 0x41, 0x41, 0x41, 0x41, 0x49, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
+    0x41, 0x41, 0x41, 0x45, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x67, 0x41, 0x41, 0x41, 0x47, 0x4d,
+    0x78, 0x41, 0x41, 0x41, 0x3d, 0x00, 0x18, 0x2c, 0x41, 0x72, 0x72, 0x6f, 0x77, 0x32, 0x20, 0x2d,
+    0x20, 0x4e, 0x61, 0x74, 0x69, 0x76, 0x65, 0x20, 0x52, 0x75, 0x73, 0x74, 0x20, 0x69, 0x6d, 0x70,
+    0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x20, 0x6f, 0x66, 0x20, 0x41,
+    0x72, 0x72, 0x6f, 0x77, 0x00, 0x4e, 0x01, 0x00, 0x00, 0x50, 0x41, 0x52, 0x31
+  };
+  const std::string parquet_path = dir + "/simple.parquet";
+  write(parquet_path, std::string(reinterpret_cast<const char *>(parquet_bytes), sizeof(parquet_bytes)));
+  {
+    Reader parquet;Options po;po.path=parquet_path;po.format="parquet";
+    ASSERT_TRUE(parquet.open(po,dir));int count=0,sum=0;
+    while(true){ASSERT_TRUE(parquet.next(row,end));if(end)break;sum+=std::atoi(row[0].text.c_str());++count;}
+    ASSERT_EQ(7,count);ASSERT_EQ(21,sum);ASSERT_TRUE(parquet.rescan());ASSERT_TRUE(parquet.next(row,end)&&row[0].text=="0");
   }
   std::string bom=std::string(dir)+"/bom.csv";
   write(bom, std::string("\xEF\xBB\xBF")+"id\n1\n");
-  o.path=bom;o.format="csv";assert(reader.open(o,dir));assert(reader.columns[0].name=="id");
-  assert(reader.next(row,end)&&!end&&row[0].text=="1");unlink(bom.c_str());
-  std::string fifo=std::string(dir)+"/pipe.csv";assert(mkfifo(fifo.c_str(),0600)==0);
-  o.path=fifo;o.format="csv";assert(!reader.open(o,dir));unlink(fifo.c_str());
+  o.path=bom;o.format="csv";ASSERT_TRUE(reader.open(o,dir));ASSERT_TRUE(reader.columns[0].name=="id");
+  ASSERT_TRUE(reader.next(row,end)&&!end&&row[0].text=="1");unlink(bom.c_str());
+  std::string fifo=std::string(dir)+"/pipe.csv";ASSERT_TRUE(mkfifo(fifo.c_str(),0600)==0);
+  o.path=fifo;o.format="csv";ASSERT_TRUE(!reader.open(o,dir));unlink(fifo.c_str());
   // A replaced ancestor is rejected even if the final component is regular.
-  std::string sub=std::string(dir)+"/sub";assert(mkdir(sub.c_str(),0700)==0);
-  std::string moved=std::string(dir)+"/moved";assert(rename(sub.c_str(),moved.c_str())==0);
+  std::string sub=std::string(dir)+"/sub";ASSERT_TRUE(mkdir(sub.c_str(),0700)==0);
+  std::string moved=std::string(dir)+"/moved";ASSERT_TRUE(rename(sub.c_str(),moved.c_str())==0);
   write(moved+"/test.csv", "a\n1\n");
-  assert(symlink(moved.c_str(),sub.c_str())==0);
-  assert(open_canonical(sub+"/test.csv",false)<0);
+  ASSERT_TRUE(symlink(moved.c_str(),sub.c_str())==0);
+  ASSERT_TRUE(open_canonical(sub+"/test.csv",false)<0);
   unlink(sub.c_str());unlink((moved+"/test.csv").c_str());rmdir(moved.c_str());
-  unlink(path.c_str());unlink((std::string(dir)+"/test.csv").c_str());rmdir(dir);
+  unlink(path.c_str());unlink((std::string(dir)+"/test.csv").c_str());rmdir(dir.c_str());
 }

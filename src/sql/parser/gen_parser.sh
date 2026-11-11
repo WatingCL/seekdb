@@ -5,6 +5,7 @@
 # DESCRIPTION:
 #
 set +x
+set -e
 CURDIR="$(dirname $(readlink -f "$0"))"
 ITEM_TYPE_HEADER="$CURDIR/../../query/api/query/parser/ob_item_type.h"
 #export PATH=/usr/local/bin:$PATH
@@ -82,18 +83,18 @@ bison_parser ../../../src/sql/parser/ftsparser.y ../../../src/sql/parser/ftspars
 flex -Cfa -B -8 -o ../../../src/sql/parser/ftsblex_lex.c ../../../src/sql/parser/ftsblex.l ../../../src/sql/parser/ftsparser_tab.h
 
 sed_inplace '/This var may be unused depending upon options./d' ../../../src/sql/parser/ftsblex_lex.c
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/int i/d}" ../../../src/sql/parser/ftsblex_lex.c
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/for ( i = 0; i < _yybytes_len; ++i )/d}" ../../../src/sql/parser/ftsblex_lex.c
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{s/\tbuf\[i\] = yybytes\[i\]/memcpy(buf, yybytes, _yybytes_len)/g}" ../../../src/sql/parser/ftsblex_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/int i/d;}" ../../../src/sql/parser/ftsblex_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/for ( i = 0; i < _yybytes_len; ++i )/d;}" ../../../src/sql/parser/ftsblex_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{s/\tbuf\[i\] = yybytes\[i\]/memcpy(buf, yybytes, _yybytes_len)/g;}" ../../../src/sql/parser/ftsblex_lex.c
 
 # generate mysql sql_parser
 bison_parser ../../../src/sql/parser/sql_parser_mysql_mode.y ../../../src/sql/parser/sql_parser_mysql_mode_tab.c
 flex -Cfa -B -8 -o ../../../src/sql/parser/sql_parser_mysql_mode_lex.c ../../../src/sql/parser/sql_parser_mysql_mode.l ../../../src/sql/parser/sql_parser_mysql_mode_tab.h
 
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/int i/d}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/for ( i = 0; i < _yybytes_len; ++i )/d}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
-sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{s/\tbuf\[i\] = yybytes\[i\]/memcpy(buf, yybytes, _yybytes_len)/g}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
-sed_inplace "/obsql_mysql_yylex_init is special because it creates the scanner itself/,/Initialization is the same as for the non-reentrant scanner/{s/return 1/return errno/g}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/int i/d;}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{/for ( i = 0; i < _yybytes_len; ++i )/d;}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
+sed_inplace "/Setup the input buffer state to scan the given bytes/,/}/{s/\tbuf\[i\] = yybytes\[i\]/memcpy(buf, yybytes, _yybytes_len)/g;}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
+sed_inplace "/obsql_mysql_yylex_init is special because it creates the scanner itself/,/Initialization is the same as for the non-reentrant scanner/{s/return 1/return errno/g;}" ../../../src/sql/parser/sql_parser_mysql_mode_lex.c
 
 
 # generate type name

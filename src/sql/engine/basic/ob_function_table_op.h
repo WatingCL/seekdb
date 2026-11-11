@@ -24,6 +24,10 @@
 
 namespace oceanbase
 {
+namespace pl
+{
+class ObPLCollection;
+}
 namespace sql
 {
 

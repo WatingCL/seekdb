@@ -51,7 +51,12 @@ target_include_directories(
 include(CheckCXXCompilerFlag)
 set(CMAKE_REQUIRED_FLAGS "-Werror")
 check_cxx_compiler_flag("-Wno-vla-cxx-extension" COMPILER_SUPPORTS_VLA_CXX_EXTENSION)
+check_cxx_compiler_flag("-Wno-enum-constexpr-conversion" COMPILER_SUPPORTS_ENUM_CONSTEXPR_CONVERSION)
 unset(CMAKE_REQUIRED_FLAGS)
+set(ENUM_CONSTEXPR_WARN_FLAG "")
+if(COMPILER_SUPPORTS_ENUM_CONSTEXPR_CONVERSION)
+  set(ENUM_CONSTEXPR_WARN_FLAG "-Wno-enum-constexpr-conversion")
+endif()
 if(COMPILER_SUPPORTS_VLA_CXX_EXTENSION)
   set(VLA_WARN_FLAG "-Wno-vla-cxx-extension")
 else()
@@ -123,7 +128,7 @@ if (OB_USE_CLANG)
       $<$<COMPILE_LANGUAGE:C>:-Wno-unused-parameter>
       -Wno-unused-but-set-variable -Wno-null-pointer-subtraction -Wno-compound-token-split-by-macro
       -Wno-packed-non-pod -Wno-format -Wno-shorten-64-to-32 -Wno-unused-but-set-parameter -Wno-single-bit-bitfield-constant-conversion
-      -Wno-enum-constexpr-conversion -Wno-covered-switch-default
+      ${ENUM_CONSTEXPR_WARN_FLAG} -Wno-covered-switch-default
       -Wno-bitwise-instead-of-logical -Wno-suggest-override -Wno-non-virtual-dtor -Wno-cast-qual
       -Wno-unused-value -Wno-macro-redefined -Wno-reinterpret-base-class -Wno-register
       -Wno-implicit-fallthrough -Wno-deprecated-non-prototype
@@ -132,6 +137,27 @@ if (OB_USE_CLANG)
       -Wno-vla ${VLA_WARN_FLAG})
   endif()
   target_compile_options(oblib_base_without_pass INTERFACE ${OBLIB_COMPILE_DEFINITIONS})
+  if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND
+     CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 21)
+    # Existing allocator and serialization types intentionally use these idioms.
+    target_compile_options(oblib_base_without_pass INTERFACE
+      $<$<COMPILE_LANGUAGE:CXX>:-Wno-unnecessary-virtual-specifier;-Wno-nontrivial-memcall;-Wno-cast-function-type-mismatch;-Wno-explicit-specialization-storage-class>)
+    # Backport Boost numeric_conversion's enum-trait fix without modifying the
+    # downloaded SDK. https://github.com/boostorg/numeric_conversion/commit/50a1eae
+    # AppleClang 21 makes out-of-range constexpr enum conversions a hard error.
+    set(SEEKDB_BOOST_COMPAT "${CMAKE_BINARY_DIR}/boost_compat")
+    foreach(SEEKDB_BOOST_TRAIT int_float_mixture sign_mixture udt_builtin_mixture)
+      set(SEEKDB_BOOST_HEADER "boost/numeric/conversion/detail/${SEEKDB_BOOST_TRAIT}.hpp")
+      file(READ "${DEP_DIR}/include/${SEEKDB_BOOST_HEADER}" SEEKDB_BOOST_CONTENT)
+      string(REPLACE "boost/mpl/integral_c.hpp" "boost/type_traits/integral_constant.hpp"
+        SEEKDB_BOOST_CONTENT "${SEEKDB_BOOST_CONTENT}")
+      string(REPLACE "mpl::integral_c<" "boost::integral_constant<"
+        SEEKDB_BOOST_CONTENT "${SEEKDB_BOOST_CONTENT}")
+      file(CONFIGURE OUTPUT "${SEEKDB_BOOST_COMPAT}/${SEEKDB_BOOST_HEADER}"
+        CONTENT "${SEEKDB_BOOST_CONTENT}" @ONLY)
+    endforeach()
+    target_include_directories(oblib_base_without_pass BEFORE INTERFACE "${SEEKDB_BOOST_COMPAT}")
+  endif()
 else()
   target_compile_options(oblib_base_without_pass
     INTERFACE

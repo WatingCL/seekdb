@@ -188,7 +188,7 @@ void benchmark()
 
 } // namespace
 
-int main(int argc, char **argv)
+int run_ik_classification(int argc, char **argv)
 {
   if (ObCharset::init_charset() != OB_SUCCESS) return 1;
   if (check_chinese_numerals()
@@ -202,3 +202,13 @@ int main(int argc, char **argv)
   }
   return 0;
 }
+
+#ifdef SEEKDB_FTS_STANDALONE_TEST
+int main(int argc, char **argv) { return run_ik_classification(argc, argv); }
+#else
+#include <gtest/gtest.h>
+TEST(IkCharacterClassification, MatchesReferenceAcrossCharsets)
+{
+  ASSERT_EQ(0, run_ik_classification(0, nullptr));
+}
+#endif

@@ -68,6 +68,9 @@ struct AiColumnTask
   bool is_valid() const;
   bool is_terminal() const { return state_ == AiColumnState::READY || state_ == AiColumnState::FAILED; }
   int deep_copy(common::ObIAllocator &allocator, const AiColumnTask &other);
+  TO_STRING_KV(K_(table_id), K_(column_id), K_(definition_version),
+               K_(request_id), K_(lease_owner), K_(state),
+               K_(attempts), K_(lease_epoch));
 };
 
 // The DML adapter must use the supplied transaction and compare every row's

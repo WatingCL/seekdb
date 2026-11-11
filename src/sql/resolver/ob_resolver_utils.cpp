@@ -19,6 +19,7 @@
 #include "sql/resolver/cmd/ob_load_data_stmt.h"
 
 #include "sql/engine/cmd/ob_load_data_parser.h"
+#include "sql/engine/basic/file_sql/file_reader.h"
 #include "sql/resolver/cmd/ob_load_data_stmt.h"
 #include "sql/resolver/ob_resolver_utils.h"
 #include "sql/code_generator/ob_column_index_provider.h"
@@ -122,6 +123,28 @@ int ObResolverUtils::get_all_function_table_column_names(const TableItem &table_
 {
   int ret = OB_SUCCESS;
   ObRawExpr *table_expr = NULL;
+  // Native file tables carry their inferred schema in the bound constant.
+  // Resolve these names before the PL collection path, which requires a UDT id.
+  if (table_item.function_table_expr_ != nullptr &&
+      table_item.function_table_expr_->is_const_raw_expr()) {
+    const ObObj &value = static_cast<const ObConstRawExpr *>(table_item.function_table_expr_)->get_value();
+    if (value.get_type() == ObVarcharType) {
+      const ObString payload = value.get_string();
+      file_sql::Reader reader;
+      if (file_sql::decode(std::string(payload.ptr(), payload.length()), reader)) {
+        for (const auto &column : reader.columns) {
+          ObString name;
+          if (OB_FAIL(ob_write_string(*params.allocator_,
+                  ObString(column.name.size(), column.name.data()), name))) {
+            break;
+          } else if (OB_FAIL(column_names.push_back(name))) {
+            break;
+          }
+        }
+        return ret;
+      }
+    }
+  }
   ObPLPackageGuard *package_guard = nullptr;
   const ObUserDefinedType *user_type = NULL;
   ObExecContext *exec_ctx = params.session_info_->get_cur_exec_ctx();

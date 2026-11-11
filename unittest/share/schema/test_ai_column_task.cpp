@@ -169,9 +169,3 @@ TEST(AiColumnTasks, DeepCopyOwnsRequestAndInput)
   EXPECT_EQ(ObString("request-1"), copy.request_id_);
   EXPECT_EQ(ObString("original"), copy.model_input_);
 }
-
-int main(int argc, char **argv)
-{
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

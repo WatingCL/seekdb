@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Native file-SQL integration checks against a disposable seekdb instance."""
 import argparse
+import base64
 import json
 import pathlib
 import subprocess
@@ -58,6 +59,25 @@ def main():
                 'ON c.id=j.id ORDER BY c.id' % (c,j), '1\tfirst\n2\tNULL\n3\tthird')
             sql('SELECT id*2 AS doubled FROM read_csv(%s) WHERE score>1.5 ORDER BY doubled DESC LIMIT 1' % c,
                 '6')
+            schema = sql('DESCRIBE SELECT * FROM read_csv(%s)' % c)
+            fields = [line.split('\t')[:2] for line in schema.splitlines()]
+            assert fields == [['id', 'BIGINT'], ['label', 'VARCHAR'], ['score', 'DOUBLE'],
+                              ['active', 'BOOLEAN'], ['day', 'DATE']], schema
+            fixture = (pathlib.Path(__file__).resolve().parents[4] /
+                       'tools/deploy/mysql_test/test_suite/file_sql/data/simple.parquet.b64')
+            parquet = root / 'simple.parquet'
+            parquet.write_bytes(base64.b64decode(fixture.read_bytes(), validate=False))
+            sql('SELECT COUNT(*),MIN(c1),MAX(c1),SUM(c1) FROM read_parquet(%s)' % literal(parquet),
+                '7\t0\t6\t21')
+            sql("SELECT SUBSTRING_INDEX(file,'/',-1) FROM glob(%s) ORDER BY file" % literal(root / '*'),
+                'items.csv\nitems.jsonl\nsimple.parquet')
+            exported = root / 'export.csv'
+            copy = ('COPY (SELECT id,label FROM read_csv(%s) ORDER BY id) TO %s '
+                    "(FORMAT CSV, HEADER, NULLSTR 'NULL')") % (c, literal(exported))
+            sql(copy)
+            sql("SELECT id,REPLACE(label,CHAR(10),'<NL>') FROM read_csv(%s) ORDER BY id" % literal(exported),
+                '1\ta,b\n2\tline<NL>break\n3\tquote "yes"')
+            sql(copy, fail=True)
             sql('SELECT * FROM read_csv(%s,sample_size=1)' % c, fail=True)
             sql('SELECT * FROM read_csv(%s,unexpected=1)' % c, fail=True)
             raw = root/'headerless.csv'

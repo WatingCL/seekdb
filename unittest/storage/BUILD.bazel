@@ -16,6 +16,7 @@ seekdb_module_cc_test(
     ),
     module_interface = "//src/storage:storage_unit_test_interface",
     unity_exceptions = {
+        'fts/test_ik_char_classification.cpp': 'rewrites C++ access control to compare private character classification helpers',
         'blocksstable/encoding/test_encoding_util.cpp': 'rewrites C++ access control before including production headers',
         'blocksstable/encoding/test_micro_block_decoder.cpp': 'rewrites C++ access control before including production headers',
         'blocksstable/encoding/test_micro_block_encoder.cpp': 'rewrites C++ access control before including production headers',

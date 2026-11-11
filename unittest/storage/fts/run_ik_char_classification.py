@@ -43,7 +43,7 @@ def main():
             # This test exercises pure character helpers, with a standard main
             # rather than Observer's allocator/bootstrap entry point.
             production_includes = [item for item in command if item.startswith("-I")]
-            compile_command = command[:1] + ["-std=gnu++20", "-O2", "-DNDEBUG",
+            compile_command = command[:1] + ["-std=gnu++20", "-O2", "-DNDEBUG", "-DSEEKDB_FTS_STANDALONE_TEST",
                 "-Wno-format", "-Wno-deprecated-declarations",
                 "-Wno-inconsistent-missing-override"] + includes + production_includes
             if args.english:

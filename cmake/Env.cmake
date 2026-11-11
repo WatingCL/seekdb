@@ -199,6 +199,18 @@ elseif(APPLE)
   add_definitions(-D_DARWIN_C_SOURCE)
   set(OB_CLANG_BIN "clang")
   set(OB_CLANGXX_BIN "clang++")
+  # Match the compiler to the active Xcode SDK. The packaged LLVM may predate
+  # libc++ builtins required by a newly installed SDK. Preserve explicit choices.
+  if(NOT OB_CC)
+    execute_process(COMMAND xcrun --find clang
+      OUTPUT_VARIABLE OB_CC OUTPUT_STRIP_TRAILING_WHITESPACE
+      COMMAND_ERROR_IS_FATAL ANY)
+  endif()
+  if(NOT OB_CXX)
+    execute_process(COMMAND xcrun --find clang++
+      OUTPUT_VARIABLE OB_CXX OUTPUT_STRIP_TRAILING_WHITESPACE
+      COMMAND_ERROR_IS_FATAL ANY)
+  endif()
   set(CMAKE_TOOLCHAIN_PATH "/usr")
   set(GCC_DEVTOOL_PATH "/usr/lib/")
   # Set macOS deployment target to match the current system version
@@ -388,8 +400,8 @@ if (OB_BUILD_CCLS)
 endif()
 
 if (OB_CC AND OB_CXX)
-  set(CMAKE_C_COMPILER ${OB_CC})
-  set(CMAKE_CXX_COMPILER ${OB_CXX})
+  set(CMAKE_C_COMPILER "${OB_CC}" CACHE FILEPATH "C compiler" FORCE)
+  set(CMAKE_CXX_COMPILER "${OB_CXX}" CACHE FILEPATH "C++ compiler" FORCE)
 else()
   message(FATAL_ERROR "can't find suitable compiler")
 endif()

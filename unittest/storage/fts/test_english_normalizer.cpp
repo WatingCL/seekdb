@@ -73,7 +73,7 @@ int check_document(ObCollationType coll, const std::string &input)
   return OB_SUCCESS;
 }
 
-int main()
+int run_english_normalization()
 {
   if (ObCharset::init_charset() != OB_SUCCESS) return 1;
   const char *cases[] = {
@@ -108,3 +108,13 @@ int main()
   std::puts("English normalization: reference outputs, mixed fast/fallback paths and long tokens agree");
   return 0;
 }
+
+#ifdef SEEKDB_FTS_STANDALONE_TEST
+int main() { return run_english_normalization(); }
+#else
+#include <gtest/gtest.h>
+TEST(EnglishNormalization, MatchesReferenceAndPreservesTokenSlices)
+{
+  ASSERT_EQ(0, run_english_normalization());
+}
+#endif
