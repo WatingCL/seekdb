@@ -82,7 +82,13 @@ int ObExplainResolver::resolve_file_describe(const ParseNode &tree)
 
 int ObExplainResolver::resolve(const ParseNode &parse_tree)
 {
-  if (parse_tree.value_ == 0x46494c45) return resolve_file_describe(parse_tree);
+  // The root's value_ stores the statement's parameter count. The DESCRIBE
+  // marker belongs in the format child, not in that reserved root field.
+  if (parse_tree.num_child_ == 5 && parse_tree.children_[0] != nullptr &&
+      parse_tree.children_[0]->type_ == T_DEFAULT &&
+      parse_tree.children_[0]->value_ == 0x46494c45) {
+    return resolve_file_describe(parse_tree);
+  }
   int ret = OB_SUCCESS;
   ObExplainStmt *explain_stmt = NULL;
   if (!(T_EXPLAIN == parse_tree.type_  && 5 == parse_tree.num_child_)) {

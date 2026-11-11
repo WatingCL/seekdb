@@ -12,15 +12,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--client', required=True)
     parser.add_argument('--port', type=int, default=2885)
+    parser.add_argument('--admin-socket', help='local Unix socket for secure_file_priv administration (defaults to @@socket)')
     args = parser.parse_args()
     client = [args.client, '--no-defaults', '-h127.0.0.1', '-P%d' % args.port,
               '-uroot', '-N', '-s', '--default-character-set=utf8mb4', '-Dtest']
     count = 0
+    admin_client = None
 
-    def sql(query, expected=None, fail=False, enable=True):
+    def sql(query, expected=None, fail=False, enable=True, admin=False):
         nonlocal count
         prefix = 'SET SESSION enable_file_sql=ON;' if enable else ''
-        run = subprocess.run(client + ['-e', prefix + query], capture_output=True,
+        run = subprocess.run((admin_client if admin else client) + ['-e', prefix + query], capture_output=True,
                              text=True, timeout=60)
         assert (run.returncode != 0) == fail, (query, run.stdout, run.stderr)
         result = run.stdout.strip()
@@ -31,6 +33,10 @@ def main():
 
     def literal(value):
         return "'" + str(value).replace("'", "''") + "'"
+
+    socket = args.admin_socket or sql('SELECT @@socket', enable=False)
+    admin_client = [args.client, '--no-defaults', '--protocol=SOCKET', '--socket=' + socket,
+                    '-uroot', '-N', '-s', '--default-character-set=utf8mb4', '-Dtest']
 
     with tempfile.TemporaryDirectory(prefix='native-file-sql-') as directory:
         root = pathlib.Path(directory)
@@ -45,7 +51,7 @@ def main():
         sql('SELECT @@session.enable_file_sql', '0', enable=False)
         sql('SELECT * FROM read_csv(%s)' % c, fail=True, enable=False)
         previous = sql('SELECT @@global.secure_file_priv')
-        sql('SET GLOBAL secure_file_priv=%s' % literal(root))
+        sql('SET GLOBAL secure_file_priv=%s' % literal(root), enable=False, admin=True)
         try:
             sql('SELECT COUNT(*),SUM(id),SUM(score),SUM(active) FROM read_csv(%s)' % c,
                 '3\t6\t7\t2')
@@ -105,7 +111,8 @@ def main():
             sql('SELECT 1+2', '3', enable=False)
             print('PASS: %d native file-SQL checks (scans, expressions, aggregation, JOIN, NULL and security)' % count)
         finally:
-            sql('SET GLOBAL secure_file_priv=%s' % ('NULL' if previous=='NULL' else literal(previous)))
+            sql('SET GLOBAL secure_file_priv=%s' % ('NULL' if previous=='NULL' else literal(previous)),
+                enable=False, admin=True)
 
 
 if __name__ == '__main__':

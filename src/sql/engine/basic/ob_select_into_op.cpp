@@ -45,7 +45,7 @@ OB_SERIALIZE_MEMBER((ObSelectIntoSpec, ObOpSpec), into_type_, user_vars_, outfil
 
 int ObSelectIntoOp::inner_open()
 {
-  if (MY_SPEC.outfile_name_.is_varchar()) {
+  if (MY_SPEC.outfile_name_.get_type() == ObVarcharType) {
     ObString payload=MY_SPEC.outfile_name_.get_string();
     if (file_sql::is_payload(std::string(payload.ptr(),payload.length()))) {
       file_copy_config_=new (std::nothrow) file_sql::Reader();

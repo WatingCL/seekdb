@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: competition-validation-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-22.04
@@ -25,7 +29,7 @@ jobs:
           make -C build_release -j2 seekdb sql_tests storage_tests share_tests
       - name: Run focused native regressions
         env:
-          GTEST_FILTER: FileSql*:*AiColumn*:*AIColumn*:ObAIPromptTest.*:ObOpenAIUtilsTest.*:FileTableColumns.*:IkCharacterClassification.*:EnglishNormalization.*
+          GTEST_FILTER: FileSql*:FileDescribeParser.*:*AiColumn*:*AIColumn*:ObAIPromptTest.*:ObOpenAIUtilsTest.*:FileTableColumns.*:IkCharacterClassification.*:EnglishNormalization.*
         run: |
           ./build_release/unittest/run_tests.sh -R '^(sql|storage|share)_tests_shard_[0-9]+$' --output-on-failure
       - name: Start a disposable instance and Mock AI service
@@ -41,9 +45,11 @@ jobs:
             > "$RUNNER_TEMP/seekdb-competition/mock.out" 2>&1 &
           echo $! > "$RUNNER_TEMP/seekdb-competition/mock.pid"
           for attempt in $(seq 1 120); do
-            if mysql --no-defaults -h127.0.0.1 -P2885 -uroot -e 'SELECT 1'; then
-              mysql --no-defaults -h127.0.0.1 -P2885 -uroot -e 'CREATE DATABASE IF NOT EXISTS test'
-              exit 0
+            if version=$(mysql --no-defaults -h127.0.0.1 -P2885 -uroot -N -s -e 'SELECT @@version_comment'); then
+              if [[ "$version" == *"$(git rev-parse HEAD)"* ]]; then
+                mysql --no-defaults -h127.0.0.1 -P2885 -uroot -e 'CREATE DATABASE IF NOT EXISTS test'
+                exit 0
+              fi
             fi
             kill -0 "$(cat "$RUNNER_TEMP/seekdb-competition/server.pid")"
             sleep 2

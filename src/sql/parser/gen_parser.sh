@@ -13,6 +13,7 @@ export PATH=$CURDIR/../../../deps/3rd/usr/local/oceanbase/devtools/bin/:$PATH
 export BISON_PKGDATADIR=$CURDIR/../../../deps/3rd/usr/local/oceanbase/devtools/share/bison
 CACHE_MD5_FILE=$CURDIR/_MD5
 TEMP_FILE=$(mktemp)
+trap 'rm -f "$TEMP_FILE"' EXIT
 
 # Detect OS and set sed inplace option for compatibility between Linux and Mac
 # Mac requires sed -i '' while Linux requires sed -i
@@ -38,6 +39,8 @@ fi
 cat ../../../src/sql/parser/sql_parser_mysql_mode.y >> $TEMP_FILE
 cat ../../../src/sql/parser/sql_parser_mysql_mode.l >> $TEMP_FILE
 cat "$ITEM_TYPE_HEADER" >> $TEMP_FILE
+cat "$CURDIR/ftsparser.y" "$CURDIR/ftsblex.l" \
+    "$CURDIR/gen_parser.sh" "$CURDIR/gen_type_name.sh" >> "$TEMP_FILE"
 
 md5sum_value=$(md5sum "$TEMP_FILE" | awk '{ print $1 }')
 
@@ -61,9 +64,12 @@ outputs_missing() {
 }
 
 bison_parser() {
-BISON_OUTPUT="$(bison -v -Werror -d $1 -o $2 2>&1)"
-BISON_RETURN="$?"
-echo $BISON_OUTPUT
+if BISON_OUTPUT="$(bison -v -Werror -d "$1" -o "$2" 2>&1)"; then
+  BISON_RETURN=0
+else
+  BISON_RETURN=$?
+fi
+printf '%s\n' "$BISON_OUTPUT"
 if [ $BISON_RETURN -ne 0 ]
   then
   >&2 echo "Compile error: $BISON_OUTPUT, abort."
@@ -115,5 +121,3 @@ else
     echo "generate sql parser without cache"
     generate_parser
 fi
-
-rm -rf $TEMP_FILE

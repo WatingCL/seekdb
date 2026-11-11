@@ -70,7 +70,11 @@ if(ANDROID)
 else()
   target_link_directories(oblib_lib PUBLIC
     ${DEP_DIR}/lib ${DEP_DIR}/lib/vsag_lib)
-  if(UNIX)
+  if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+    # AppleClang supports OpenMP in the frontend, but its driver does not
+    # accept -fopenmp. The arm64 SDK already supplies libomp_static below.
+    target_compile_options(oblib_lib PUBLIC -Xpreprocessor -fopenmp)
+  elseif(UNIX)
     target_compile_options(oblib_lib PUBLIC -fopenmp)
   endif()
 

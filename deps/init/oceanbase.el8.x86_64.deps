@@ -6,7 +6,7 @@ repo=http://mirrors.oceanbase.com/oceanbase/development-kit/el/8/x86_64/
 [target-community]
 os=8
 arch=x86_64
-repo=http://mirrors.oceanbase.com/oceanbase/community/stable/el/8/x86_64/
+repo=https://mirrors.oceanbase.com/oceanbase/community/stable/el/8/x86_64/
 
 
 [deps]
@@ -41,8 +41,7 @@ obdevtools-gcc-12.3.0-32024122017.el8.x86_64.rpm
 obdevtools-llvm-17.0.6-202026032415.el8.x86_64.rpm
 
 [tools-deps]
-obshell-4.5.0.1-52026082614.el8.x86_64.rpm target=community
-#obshell-4.5.0.0-12026050816.el8.x86_64.rpm target=community
+obshell-4.5.0.0-12026050816.el8.x86_64.rpm target=community
 
 [test-utils]
 ob-deploy-4.1.0-2.el8.x86_64.rpm target=community
