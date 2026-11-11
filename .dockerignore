@@ -1,0 +1,5 @@
+# The judged image only needs the MiniVectorDB sources. Without this file,
+# `docker build .` streams the whole repository clone, .git included, as build context.
+*
+!minivectordb
+!minivectordb/**
