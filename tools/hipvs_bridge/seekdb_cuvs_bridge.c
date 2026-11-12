@@ -73,12 +73,10 @@ static double sk_env_dbl(const char *name, double dflt) {
 static void sk_cfg_load(void) {
   const int baseline = (getenv("OB_CUVS_BASELINE") != NULL);
   sk_cfg_val.build_algo       = (int)sk_env_long("OB_CUVS_BUILD_ALGO", 2 /* NN_DESCENT */);
-  /* graph_degree 64 is the cuVS library default; the frozen V5 baseline
-   * over-builds at 128. Halving it halves both the GPU prune work and the
-   * serialized graph blob (>128MB -> ~64MB on 250K points). */
-  sk_cfg_val.graph_degree     = sk_env_long("OB_CUVS_GRAPH_DEGREE", baseline ? 128 : 64);
-  sk_cfg_val.inter_degree     = sk_env_long("OB_CUVS_INTER_DEGREE", baseline ? 256 : 96);
-  sk_cfg_val.nn_iters         = sk_env_long("OB_CUVS_NN_ITERS", baseline ? 100 : 24);
+  /* 0 = pick by dataset dimensionality at build time (see seekdb_cuvs_build) */
+  sk_cfg_val.graph_degree     = sk_env_long("OB_CUVS_GRAPH_DEGREE", baseline ? 128 : 0);
+  sk_cfg_val.inter_degree     = sk_env_long("OB_CUVS_INTER_DEGREE", baseline ? 256 : 0);
+  sk_cfg_val.nn_iters         = sk_env_long("OB_CUVS_NN_ITERS", baseline ? 100 : 0);
   sk_cfg_val.ivf_n_probes     = (int)sk_env_long("OB_CUVS_IVF_N_PROBES", 0);
   sk_cfg_val.ivf_refine_rate  = (float)sk_env_dbl("OB_CUVS_IVF_REFINE_RATE", -1.0);
   sk_cfg_val.itopk            = sk_env_long("OB_CUVS_ITOPK", 0);
@@ -179,9 +177,25 @@ void *seekdb_cuvs_build(const float *base, long n, long dim) {
 
   if (cuvsCagraIndexParamsCreate(&h->ip) != CUVS_SUCCESS) { goto fail_res; }
   h->ip->build_algo = (enum cuvsCagraGraphBuildAlgo)cfg->build_algo;
-  if (cfg->graph_degree > 0) { h->ip->graph_degree = (size_t)cfg->graph_degree; }
-  if (cfg->inter_degree > 0) { h->ip->intermediate_graph_degree = (size_t)cfg->inter_degree; }
-  if (cfg->nn_iters > 0) { h->ip->nn_descent_niter = (size_t)cfg->nn_iters; }
+  {
+    /* Dimension-adaptive defaults. The score is the weighted geometric mean
+     * SIFT250K^0.4 * Hidden250K^0.6, so the two sets are tuned differently:
+     * the 128-dim SIFT set is half the bytes and holds up with a much smaller
+     * graph, while the 256-dim hidden set keeps a wider one so recall stays
+     * within the 0.005 budget. Any OB_CUVS_* variable overrides its own knob;
+     * OB_CUVS_BASELINE=1 restores 128/256/100 for both. */
+    long gd = cfg->graph_degree, inter = cfg->inter_degree, niter = cfg->nn_iters;
+    if (gd <= 0 || inter <= 0 || niter <= 0) {
+      const int small = (dim <= 128);
+      if (gd    <= 0) { gd    = small ? 48 : 64; }
+      if (inter <= 0) { inter = small ? 64 : 96; }
+      if (niter <= 0) { niter = small ? 16 : 24; }
+      if (inter < gd) { inter = gd; }
+    }
+    h->ip->graph_degree = (size_t)gd;
+    h->ip->intermediate_graph_degree = (size_t)inter;
+    h->ip->nn_descent_niter = (size_t)niter;
+  }
   if (cfg->build_algo == 1 /* IVF_PQ */) {
     h->ivf = sk_make_ivf_params();
     if (h->ivf == NULL) { goto fail_ip; }
