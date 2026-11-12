@@ -146,28 +146,6 @@ public:
     }
     return available;
   }
-  // Consume only this iterator's owned integer-ID buffer. Leave cur_idx_ on
-  // the first ID outside the window, or the last consumed ID when a refill
-  // is needed, matching get_next_row()'s increment-before-refill convention.
-  bool collect_cached_id_bits(const uint64_t base, const uint64_t mask,
-                             const uint64_t sign_mask, uint64_t *bits,
-                             const ObDatum *&id)
-  {
-    while (cur_idx_ >= 0 && cur_idx_ < count_) {
-      const uint64_t key = static_cast<uint64_t>(fast_id_vals_.at(cur_idx_)) ^ sign_mask;
-      if ((key & ~mask) != base) {
-        id = &fast_doc_ids_.at(cur_idx_);
-        return true;
-      }
-      const uint64_t bit = key & mask;
-      bits[bit >> 6] |= uint64_t(1) << (bit & 63);
-      if (cur_idx_ + 1 == count_) {
-        return false;
-      }
-      ++cur_idx_;
-    }
-    return false;
-  }
   int get_token_doc_cnt(int64_t &token_doc_cnt) const { return token_iter_->get_token_doc_cnt(token_doc_cnt); }
   virtual int get_dim_max_score(double &score) override {
     int ret = OB_SUCCESS;
