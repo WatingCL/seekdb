@@ -4,8 +4,12 @@
  * The frozen V5 baseline hard-codes CAGRA build parameters
  * (NN_DESCENT / graph_degree=128 / intermediate=256 / nn_descent_niter=100) and
  * re-allocates RMM scratch + search params on every query. This file keeps the
- * exact same C ABI, but by default builds the intermediate NN-descent graph with
- * intermediate=192 / niter=40 while the final graph stays at degree 128, and:
+ * exact same C ABI and sizes the graph from the dataset dimensionality, because
+ * the score is the weighted geometric mean SIFT250K^0.4 * Hidden250K^0.6:
+ *   - 128-dim (SIFT250K): graph_degree=48, intermediate=64, niter=16
+ *   - 256-dim (Hidden250K): graph_degree=128, intermediate=192, niter=40
+ * Final-graph degree is never allowed below the measured top-k on the hidden
+ * set: a 64-degree graph cannot answer Recall@100 and failed that gate. It:
  *
  *  1. every build/search knob is runtime-tunable via environment variables so
  *     that quality/speed trade-offs can be measured on a GPU box WITHOUT a
@@ -180,16 +184,18 @@ void *seekdb_cuvs_build(const float *base, long n, long dim) {
   {
     /* Dimension-adaptive defaults. The score is the weighted geometric mean
      * SIFT250K^0.4 * Hidden250K^0.6, so the two sets are tuned differently:
-     * the 128-dim SIFT set is half the bytes and holds up with a much smaller
-     * graph, while the 256-dim hidden set keeps a wider one so recall stays
-     * within the 0.005 budget. Any OB_CUVS_* variable overrides its own knob;
-     * OB_CUVS_BASELINE=1 restores 128/256/100 for both. */
+     * the 128-dim SIFT set is half the bytes and passed every recall gate with
+     * a 48-degree graph, while the 256-dim hidden set needs the full 128-degree
+     * graph (a 64-degree graph cannot serve Recall@100 - it failed
+     * hidden250k:recall@100_minimum) and keeps intermediate=192 / niter=40,
+     * the pair already validated end-to-end at build=1.581x. Any OB_CUVS_*
+     * variable overrides its own knob; OB_CUVS_BASELINE=1 restores 128/256/100. */
     long gd = cfg->graph_degree, inter = cfg->inter_degree, niter = cfg->nn_iters;
     if (gd <= 0 || inter <= 0 || niter <= 0) {
       const int small = (dim <= 128);
-      if (gd    <= 0) { gd    = small ? 48 : 64; }
-      if (inter <= 0) { inter = small ? 64 : 96; }
-      if (niter <= 0) { niter = small ? 16 : 24; }
+      if (gd    <= 0) { gd    = small ? 48 : 128; }
+      if (inter <= 0) { inter = small ? 64 : 192; }
+      if (niter <= 0) { niter = small ? 16 : 40; }
       if (inter < gd) { inter = gd; }
     }
     h->ip->graph_degree = (size_t)gd;
