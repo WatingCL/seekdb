@@ -333,6 +333,22 @@ public:
     }
     return ret;
   };
+  // Materialize an owned key only when the lookup finds no entry. prepare()
+  // must preserve the key's hash/equality and must not reenter this map.
+  // A failed prepare leaves the map unchanged.
+  template <class _callback, class _prepare>
+  int set_or_update_with_prepare(const _key_type &key, const _value_type &value,
+                                _callback &callback, _prepare &prepare)
+  {
+    int ret = OB_SUCCESS;
+    pair_type pair;
+    if (OB_FAIL(pair.init(key, value))) {
+    } else {
+      ret = ht_.set_or_update_with_prepare(key, pair, callback, prepare);
+    }
+    return ret;
+  }
+
   // erase key value pair if pred is met
   // thread safe erase, will add write lock to the bucket
   // return value:

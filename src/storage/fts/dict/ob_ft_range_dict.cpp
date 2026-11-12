@@ -399,18 +399,41 @@ int ObFTRangeDict::find_first_char_range(const ObString &single_word, ObIFTDict 
   }
   int found_idx = -1;
   bool found = false;
-  for (int i = 0; OB_SUCC(ret) && !found && i < range_dicts_.size(); ++i) {
-    if (ObCharset::strcmp(ObCollationType::CS_TYPE_UTF8MB4_BIN,
-                          range_dicts_[i].start_.get_word(),
-                          single_word)
-            <= 0
-        && ObCharset::strcmp(ObCollationType::CS_TYPE_UTF8MB4_BIN,
-                             range_dicts_[i].end_.get_word(),
-                             single_word)
-               >= 0) {
-      dict = range_dicts_[i].dict_;
-      found_idx = i;
+  if (ranges_ordered_) {
+    // Find the first inclusive end >= the character. Using the first such
+    // range preserves the linear scan's choice even at shared boundaries.
+    int64_t left = 0;
+    int64_t right = range_dicts_.size();
+    while (left < right) {
+      const int64_t mid = left + (right - left) / 2;
+      if (ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
+                            range_dicts_[mid].end_.get_word(), single_word) < 0) {
+        left = mid + 1;
+      } else {
+        right = mid;
+      }
+    }
+    if (left < range_dicts_.size()
+        && ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
+                              range_dicts_[left].start_.get_word(), single_word) <= 0) {
+      found_idx = left;
+      dict = range_dicts_[left].dict_;
       found = true;
+    }
+  } else {
+    for (int i = 0; OB_SUCC(ret) && !found && i < range_dicts_.size(); ++i) {
+      if (ObCharset::strcmp(ObCollationType::CS_TYPE_UTF8MB4_BIN,
+                            range_dicts_[i].start_.get_word(),
+                            single_word)
+              <= 0
+          && ObCharset::strcmp(ObCollationType::CS_TYPE_UTF8MB4_BIN,
+                               range_dicts_[i].end_.get_word(),
+                               single_word)
+                 >= 0) {
+        dict = range_dicts_[i].dict_;
+        found_idx = i;
+        found = true;
+      }
     }
   }
   if (!found) {
@@ -446,6 +469,14 @@ int ObFTRangeDict::build_dict_from_cache(const ObFTCacheRangeContainer &range_co
       range.start_ = dat->start_word_;
       range.end_ = dat->end_word_;
       range.dict_ = dict;
+      if (range_dicts_.size() > 0) {
+        const ObFTRange &previous = range_dicts_[range_dicts_.size() - 1];
+        ranges_ordered_ = ranges_ordered_
+            && ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
+                                  previous.start_.get_word(), range.start_.get_word()) <= 0
+            && ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
+                                  previous.end_.get_word(), range.end_.get_word()) <= 0;
+      }
       if (OB_FAIL(range_dicts_.push_back(range))) {
       }
     }

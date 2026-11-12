@@ -126,9 +126,10 @@ public:
 
 private:
   bool is_min_max_word(const int64_t c_len) const;
-  int casedown_word(const ObFTWord &src, ObFTWord &dst);
+  int casedown_word(const ObFTWord &src, ObFTWord &dst, char *buffer,
+                    int64_t capacity, bool &owns_bytes);
   int check_stopword(const ObFTWord &word, bool &is_stopword);
-  int groupby_word(const ObFTWord &word, const int64_t word_cnt);
+  int groupby_word(const ObFTWord &word, const int64_t word_cnt, bool owns_bytes);
   // copy the word bytes into the parse allocator so a map key outlives the
   // parser-owned buffer it was produced in
   int dup_word(const ObFTWord &src, ObFTWord &dst);

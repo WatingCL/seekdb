@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--build-dir', required=True, type=Path)
     parser.add_argument('--baseline-ref')
     parser.add_argument('--benchmark', action='store_true')
+    parser.add_argument('--reference-optimizations', action='store_true')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[3]
     build = args.build_dir.resolve()
@@ -32,14 +33,18 @@ def main():
         replacements = {}
         if args.baseline_ref:
             for name in ('ik/ob_ik_arbitrator.cpp', 'ik/ob_ik_arbitrator.h',
-                         'utils/unicode_utils.cpp', 'utils/unicode_utils.h'):
+                         'utils/unicode_utils.cpp', 'utils/unicode_utils.h',
+                         'dict/ob_ft_range_dict.cpp', 'dict/ob_ft_range_dict.h',
+                         'ob_fts_stop_word.cpp', 'ob_fts_stop_word.h',
+                         'ob_ik_ft_parser.cpp', 'ob_beng_ft_parser.cpp'):
                 relative = 'src/storage/fts/' + name
                 target = overlay / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(subprocess.check_output(
                     ['git', 'show', args.baseline_ref + ':' + relative], cwd=repo))
                 replacements[str(repo / relative)] = str(target)
-        sources = [repo / 'unittest/storage/fts/test_ik_chain_lookup.cpp']
+        test = 'test_fts_reference_optimizations.cpp' if args.reference_optimizations else 'test_ik_chain_lookup.cpp'
+        sources = [repo / 'unittest/storage/fts' / test]
         for index, entry in enumerate(entries):
             source = temp / f'unity_{index}.cpp'
             content = Path(entry['file']).read_text()
@@ -54,6 +59,8 @@ def main():
             obj = temp / f'{index}.o'
             command[command.index('-o') + 1] = str(obj)
             command[command.index('-c') + 1] = str(source)
+            if args.baseline_ref:
+                command[1:1] = ['-DFTS_BASELINE']
             command[1:1] = ['-I' + str(overlay), '-I' + str(overlay / 'src')]
             subprocess.run(command, cwd=entry['directory'], check=True)
             objects.append(str(obj))

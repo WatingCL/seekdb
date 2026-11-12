@@ -135,7 +135,7 @@ int ObStopWordChecker::check_stopword(const ObFTWord &word, bool &is_stopword)
 
 namespace
 {
-// set_or_update() callback: folds this occurrence's count into the existing map
+// Existing-key callback: folds this occurrence's count into the existing map
 // entry. When the stored key already carries this occurrence's bytes -- the
 // common case, a word repeated verbatim -- the count is updated in place and
 // the stored key is left alone (no copy, no re-point). When the bytes differ
@@ -144,9 +144,8 @@ namespace
 // that the key bytes follow the last occurrence, which is what the upstream
 // set_refactored(word, count, 1) overwrite did. The replacement cannot run
 // inside this callback because the callback holds the bucket write lock.
-// ObHashMap::set_or_update hands the callback the whole (key, value) pair (the
-// hashtable's default pre_proc is the identity on the pair), hence the pair
-// parameter and the direct access to pair.first.
+// The callback receives the stored (key, value) pair, so it can compare
+// the retained bytes without a second map lookup.
 class WordCountUpdater
 {
 public:
@@ -176,6 +175,32 @@ private:
   int64_t word_freq_;
   bool need_replace_;
   int64_t updated_count_;
+};
+// Called only on a new map entry: short normalized tokens live on the stack,
+// and analyzer tokens may be overwritten by the next get_next_token().
+class WordKeyMaterializer
+{
+public:
+  WordKeyMaterializer(ObIAllocator &allocator, const ObObjMeta &meta, bool owns_bytes)
+    : allocator_(allocator), meta_(meta), owns_bytes_(owns_bytes) {}
+  int operator()(common::hash::HashMapPair<ObFTWord, int64_t> &pair)
+  {
+    int ret = OB_SUCCESS;
+    if (owns_bytes_) return ret; // long-token fallback already made a stable copy
+    const ObString word = pair.first.get_word().get_string();
+    char *bytes = static_cast<char *>(allocator_.alloc(word.length()));
+    if (OB_ISNULL(bytes)) {
+      ret = OB_ALLOCATE_MEMORY_FAILED;
+    } else {
+      MEMCPY(bytes, word.ptr(), word.length());
+      pair.first = ObFTWord(word.length(), bytes, meta_);
+    }
+    return ret;
+  }
+private:
+  ObIAllocator &allocator_;
+  const ObObjMeta &meta_;
+  bool owns_bytes_;
 };
 }  // anonymous namespace
 
@@ -209,15 +234,17 @@ int ObAddWordT<MapType>::process_word(
   bool is_stopword = false;
   ObFTWord src_word(word_len, word, word_meta_);
   ObFTWord dst_word;
+  bool owns_bytes = false;
+  char case_buffer[256]; // valid through stop-word checking and map insertion
   if (OB_ISNULL(word) || OB_UNLIKELY(0 >= word_len || 0 >= char_cnt || 0 >= word_freq)) {
     ret = OB_INVALID_ARGUMENT;
   } else if (is_min_max_word(char_cnt)) {
     ++min_max_word_cnt_;
-  } else if (OB_FAIL(casedown_word(src_word, dst_word))) {
+  } else if (OB_FAIL(casedown_word(src_word, dst_word, case_buffer, sizeof(case_buffer), owns_bytes))) {
   } else if (OB_FAIL(check_stopword(dst_word, is_stopword))) {
   } else if (OB_UNLIKELY(is_stopword)) {
     ++stopword_cnt_;
-  } else if (OB_FAIL(groupby_word(dst_word, word_freq))) {
+  } else if (OB_FAIL(groupby_word(dst_word, word_freq, owns_bytes))) {
   } else {
     non_stopword_cnt_ += word_freq;
   }
@@ -231,21 +258,29 @@ bool ObAddWordT<MapType>::is_min_max_word(const int64_t c_len) const
 }
 
 template <class MapType>
-int ObAddWordT<MapType>::casedown_word(const ObFTWord &src, ObFTWord &dst)
+int ObAddWordT<MapType>::casedown_word(
+    const ObFTWord &src, ObFTWord &dst, char *buffer, int64_t capacity, bool &owns_bytes)
 {
   int ret = OB_SUCCESS;
+  owns_bytes = false;
   if (OB_UNLIKELY(src.empty())) {
     ret = OB_INVALID_ARGUMENT;
   } else if (flag_.casedown()) {
-    ObString dst_str;
-    if (OB_FAIL(ObCharset::tolower(
-                    word_meta_.get_collation_type(),
-                    src.get_word().get_string(),
-                    dst_str,
-                    allocator_))) {
+    const ObString input = src.get_word().get_string();
+    const ObCharsetInfo *cs = ObCharset::get_charset(word_meta_.get_collation_type());
+    if (OB_ISNULL(cs) || OB_ISNULL(cs->cset) || cs->casedn_multiply <= 0) {
+      ret = OB_ERR_UNEXPECTED;
+    } else if (input.length() <= capacity / cs->casedn_multiply) {
+      const size_t length = cs->cset->casedn(cs, const_cast<char *>(input.ptr()),
+                                           input.length(), buffer, capacity);
+      dst = ObFTWord(length, buffer, word_meta_);
     } else {
-      ObFTWord tmp(dst_str.length(), dst_str.ptr(), word_meta_);
-      dst = tmp;
+      ObString dst_str;
+      if (OB_FAIL(ObCharset::tolower(word_meta_.get_collation_type(), input, dst_str, allocator_))) {
+      } else {
+        dst = ObFTWord(dst_str.length(), dst_str.ptr(), word_meta_);
+        owns_bytes = true;
+      }
     }
   } else {
     dst = src;
@@ -270,71 +305,38 @@ int ObAddWordT<MapType>::check_stopword(const ObFTWord &ft_word, bool &is_stopwo
 }
 
 template <class MapType>
-int ObAddWordT<MapType>::groupby_word(const ObFTWord &word, const int64_t word_freq)
+int ObAddWordT<MapType>::groupby_word(
+    const ObFTWord &word, const int64_t word_freq, bool owns_bytes)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(word.empty() || word_freq <= 0)) {
     ret = OB_INVALID_ARGUMENT;
   } else if (!flag_.groupby_word()) {
-    if (OB_FAIL(word_map_.set_refactored(word, 1/*word count*/))) {
-    }
-  } else {
-    // Single map operation per token on the common path: set_or_update()
-    // hashes the key once and either inserts (key, 1) for a distinct word or
-    // runs the in-place update callback for a repeated one. The original
-    // get-then-set flow hashed the same key twice on every token.
-    //
-    // The token bytes may live in a parser-owned buffer that is reused by the
-    // next get_next_token() call (e.g. the beng normalizer buffer), so the key
-    // is materialized into the parse allocator before it can be stored. With
-    // the casedown flag on, `word` is already a fresh copy produced by
-    // casedown_word() in this parse allocator (it can never alias the
-    // transient token buffer), so it serves as the map key directly and the
-    // per-word memcpy is skipped. Any other producer still goes through
-    // dup_word(); on the update path the copied bytes are only used when the
-    // key has to be replaced, and are otherwise left unused in the parse
-    // arena, which is reset wholesale at the end of the call.
-    //
-    // Key bytes follow the last collation-equal occurrence, which is the
-    // upstream behavior. Upstream (5bce9e06d) copied every beng token into the
-    // parse arena inside ObBEngFTParser::get_next_token() and then called
-    // set_refactored(word, count, 1/*overwrite*/) on every occurrence; the
-    // overwrite replaces the whole (key, value) pair, so the surviving key is
-    // a stable copy of the bytes of the last occurrence. That is deterministic
-    // last-wins, not a read of recycled memory: each token had its own arena
-    // copy that lived until the call returned. a320797ef dropped the
-    // per-token copy and materialized the key only on the first insertion,
-    // which turned the semantics into first-wins; d3cff803c (set_or_update)
-    // kept first-wins. The difference was observable only for keys that compare
-    // equal under the collation but differ in bytes (e.g. two different emoji
-    // under utf8mb4_general_ci): 14 of the 476 special-character corpus cases,
-    // none of the 52 frozen TOKENIZE snapshot rows, the official fts_index
-    // cases or the benchmark texts.
-    //
-    // This implementation restores last-wins. A repeated word whose bytes match
-    // the stored key is counted in place, without copying or re-pointing the
-    // key; a repeated word whose bytes differ replaces the (key, value) pair
-    // with the materialized bytes of this occurrence through the same
-    // set_refactored(..., 1/*overwrite*/) pair replacement upstream used, so
-    // the bucket position, the chain order and therefore the iteration order
-    // stay the same. The replacement runs after set_or_update() returns
-    // because the callback holds the bucket lock.
     ObFTWord stable_word;
-    if (flag_.casedown()) {
+    if (owns_bytes) {
       stable_word = word;
     } else if (OB_FAIL(dup_word(word, stable_word))) {
-      // ret already carries the dup_word failure
     }
-    if (OB_SUCC(ret)) {
-      WordCountUpdater updater(stable_word, word_freq);
-      if (OB_FAIL(word_map_.set_or_update(stable_word, 1/*initial word count*/, updater))) {
-      } else if (updater.need_replace()
-                 && OB_FAIL(word_map_.set_refactored(stable_word,
-                                                     updater.get_updated_count(),
-                                                     1/*overwrite*/))) {
+    if (OB_SUCC(ret) && OB_FAIL(word_map_.set_refactored(stable_word, 1/*word count*/))) {
+    }
+  } else {
+    // Hash once; only a new or byte-distinct collation-equal key needs owned
+    // bytes. Verbatim repeats update the count without any allocation.
+    WordCountUpdater updater(word, word_freq);
+    WordKeyMaterializer materializer(allocator_, word_meta_, owns_bytes);
+    if (OB_FAIL(word_map_.set_or_update_with_prepare(word, 1, updater, materializer))) {
+    } else if (updater.need_replace()) {
+      ObFTWord stable_word;
+      if (owns_bytes) {
+        stable_word = word;
+      } else if (OB_FAIL(dup_word(word, stable_word))) {
+      }
+      if (OB_SUCC(ret) && OB_FAIL(word_map_.set_refactored(stable_word,
+                                                          updater.get_updated_count(), 1))) {
       }
     }
   }
+
   return ret;
 }
 

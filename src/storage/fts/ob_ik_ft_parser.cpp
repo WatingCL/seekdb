@@ -594,13 +594,15 @@ void ObIKFTParser::release_to_pool()
     ctx_->release_scratch();
   }
 
-  // 3. recycle the per-call scratch memory. reset() (not reuse()): the
-  //    retained-page path of reuse() was measured to grow RSS linearly with
-  //    large documents (page list bookkeeping vs. the per-call big-page
-  //    churn), while reset() returns every page to the module allocator, so
-  //    the per-call footprint is exactly what a fresh parser would have
-  //    allocated. The pool still saves the parser/ctx/segmenter/dict builds.
-  allocator_.reset();
+  // Retain only a bounded small-document working set. Unbounded reuse can
+  // retain pages after large inputs; resetting above the cap prevents that
+  // growth while short documents avoid allocating/freeing arena pages each time.
+  constexpr int64_t MAX_RETAINED_SCRATCH_BYTES = 64 * 1024;
+  if (allocator_.total() > MAX_RETAINED_SCRATCH_BYTES) {
+    allocator_.reset();
+  } else {
+    allocator_.reuse();
+  }
 
   is_inited_ = false;
 }

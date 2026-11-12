@@ -168,9 +168,13 @@ void ObBEngFTParser::release_to_pool()
   doc_.reset();
   token_stream_ = nullptr;
   is_inited_ = false;
-  // return the per-call scratch pages (see the ik release_to_pool() note for
-  // why reset() instead of reuse())
-  allocator_.reset();
+  // Keep small working sets for reuse, but return all pages after large inputs.
+  constexpr int64_t MAX_RETAINED_SCRATCH_BYTES = 64 * 1024;
+  if (allocator_.total() > MAX_RETAINED_SCRATCH_BYTES) {
+    allocator_.reset();
+  } else {
+    allocator_.reuse();
+  }
 }
 
 namespace
