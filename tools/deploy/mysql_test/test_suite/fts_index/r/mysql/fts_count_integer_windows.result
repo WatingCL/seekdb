@@ -1,0 +1,56 @@
+drop table if exists fts_count_signed;
+drop table if exists fts_count_unsigned;
+drop table if exists fts_count_digits;
+create table fts_count_digits(n int primary key);
+insert into fts_count_digits values(0),(1),(2),(3),(4),(5),(6),(7),(8),(9);
+create table fts_count_signed(id bigint primary key,body text);
+insert into fts_count_signed select n-5000,case when mod(n,3)=0 then 'alpha beta' when mod(n,3)=1 then 'beta gamma' else 'delta' end from (select a.n+10*b.n+100*c.n+1000*d.n n from fts_count_digits a cross join fts_count_digits b cross join fts_count_digits c cross join fts_count_digits d) v;
+insert into fts_count_signed values(-9223372036854775808,'alpha'),(-8193,'alpha'),(8192,'gamma'),(9223372036854775807,'delta');
+create fulltext index fti_count_signed on fts_count_signed(body) with parser beng;
+select count(*) from fts_count_signed where match(body) against('alpha beta');
+count(*)
+6669
+select count(*) from fts_count_signed where match(body) against('alpha gamma');
+count(*)
+6670
+select count(*) from fts_count_signed where match(body) against('delta');
+count(*)
+3334
+select count(*) from fts_count_signed where match(body) against('absenttoken');
+count(*)
+0
+select count(1) from fts_count_signed where match(body) against('alpha beta');
+count(1)
+6669
+select count(*) from (select id from fts_count_signed where match(body) against('alpha beta') limit 20 offset 10) v;
+count(*)
+20
+prepare fts_bitmap_counter from 'select count(*) from fts_count_signed where match(body) against(?)';
+set @fts_bitmap_term='alpha';
+execute fts_bitmap_counter using @fts_bitmap_term;
+count(*)
+3336
+set @fts_bitmap_term='gamma';
+execute fts_bitmap_counter using @fts_bitmap_term;
+count(*)
+3334
+deallocate prepare fts_bitmap_counter;
+create table fts_count_unsigned(id bigint unsigned primary key,body text);
+insert into fts_count_unsigned select id+5000,body from fts_count_signed where id between -5000 and 4999;
+insert into fts_count_unsigned values(9223372036854775808,'gamma'),(18446744073709551615,'alpha');
+create fulltext index fti_count_unsigned on fts_count_unsigned(body) with parser beng;
+select count(*) from fts_count_unsigned where match(body) against('alpha beta');
+count(*)
+6668
+select count(*) from fts_count_unsigned where match(body) against('alpha gamma');
+count(*)
+6669
+select count(*) from fts_count_unsigned where match(body) against('delta');
+count(*)
+3333
+select count(1) from fts_count_unsigned where match(body) against('alpha beta');
+count(1)
+6668
+drop table fts_count_unsigned;
+drop table fts_count_signed;
+drop table fts_count_digits;

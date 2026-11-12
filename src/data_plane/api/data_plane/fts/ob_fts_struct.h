@@ -61,8 +61,16 @@ private:
 // per map get/set). NoPthreadDefendMode drops only the locking: hashing,
 // bucket count, chain insertion and iteration order are unchanged, so the
 // TOKENIZE JSON output stays byte-identical.
+// The node pool has the same single-call ownership as the buckets. Its
+// default spin mutex would otherwise still lock for every insertion and free.
+using FTWordMapNode = common::hash::HashMapTypes<ObFTWord, int64_t>::AllocType;
+using FTWordNodeAllocator = common::hash::SimpleAllocer<FTWordMapNode,
+    common::hash::NodeNumTraits<FTWordMapNode>::NODE_NUM,
+    common::hash::NoPthreadDefendMode>;
 typedef common::hash::ObHashMap<ObFTWord, int64_t,
-    common::hash::NoPthreadDefendMode> ObFTWordMap;
+    common::hash::NoPthreadDefendMode,
+    common::hash::hash_func<ObFTWord>, common::hash::equal_to<ObFTWord>,
+    FTWordNodeAllocator> ObFTWordMap;
 // Kept for the query-side tokenize paths (optimizer/das retrieval iters) that
 // create their own locked map instances and call ObFTParseHelper::segment
 // with them; their behavior is unchanged.

@@ -49,7 +49,100 @@ int ObTextDaaTIter::get_next_rows(const int64_t capacity, int64_t &count)
       || dim_iters_->count() > 8) {
     return ObSRDaaTIterImpl::get_next_rows(capacity, count);
   }
+  const ObObjType id_type = iter_param_->id_proj_expr_->datum_meta_.type_;
+  if (iter_param_->count_only_ && iter_param_->eval_ctx_->is_vectorized()
+      && (ObIntType == id_type || ObUInt64Type == id_type)
+      && !iter_param_->limit_param_->is_valid() && iter_param_->limit_param_->offset_ == 0
+      && static_cast<ObSRDaaTInnerProductRelevanceCollector *>(
+             relevance_collector_)->minimum_should_match() <= 1) {
+    return count_union_next_rows(capacity, count);
+  }
   return union_next_rows(capacity, count);
+}
+
+// Count-only natural-language unions need no ordered row materialization.
+// A fixed 8192-ID window deduplicates postings with bit operations and a
+// popcount, rather than comparing every output ID against every query term.
+// Sparse IDs jump straight to the next occupied window; memory stays at 1KB
+// regardless of the ID range or posting count. LIMIT scans use the streaming
+// merge above so this bounded lookahead cannot delay their early termination.
+int ObTextDaaTIter::count_union_next_rows(const int64_t capacity, int64_t &count)
+{
+  int ret = OB_SUCCESS;
+  count = 0;
+  const int64_t real_capacity = MIN(capacity, iter_param_->max_batch_size_);
+  const uint64_t sign_mask = ObIntType == iter_param_->id_proj_expr_->datum_meta_.type_
+      ? uint64_t(1) << 63 : 0;
+  constexpr uint64_t WINDOW_MASK = 8191;
+  // next_round_cnt_ is nonzero only for the initial/refreshed set of iterators.
+  for (int64_t i = 0; real_capacity > 0 && OB_SUCC(ret) && i < next_round_cnt_; ++i) {
+    const int64_t index = next_round_iter_idxes_[i];
+    auto *iter = static_cast<ObTextRetrievalDaaTTokenIter *>(dim_iters_->at(index));
+    if (OB_FAIL(iter->get_next_row())) {
+      if (OB_ITER_END == ret) {
+        ret = OB_SUCCESS;
+        iter_domain_ids_[index] = nullptr;
+      }
+    } else if (OB_FAIL(iter->get_curr_id(iter_domain_ids_[index]))) {
+    }
+  }
+  if (real_capacity > 0 && OB_SUCC(ret)) {
+    next_round_cnt_ = 0;
+  }
+  while (OB_SUCC(ret) && count < real_capacity) {
+    if (pending_union_count_ > 0) {
+      const int64_t emitted = MIN(pending_union_count_, real_capacity - count);
+      count += emitted;
+      input_row_cnt_ += emitted;
+      output_row_cnt_ += emitted;
+      pending_union_count_ -= emitted;
+    } else {
+      bool found = false;
+      uint64_t minimum = 0;
+      for (int64_t i = 0; i < dim_iters_->count(); ++i) {
+        const ObDatum *id = iter_domain_ids_[i];
+        if (nullptr != id) {
+          const uint64_t key = id->get_uint64() ^ sign_mask;
+          if (!found || key < minimum) {
+            minimum = key;
+            found = true;
+          }
+        }
+      }
+      if (!found) {
+        // Preserve scalar wrapper conventions too: end is reported on the
+        // call after the final nonempty batch.
+        if (count == 0) {
+          ret = OB_ITER_END;
+        }
+        break;
+      }
+      const uint64_t base = minimum & ~WINDOW_MASK;
+      uint64_t bits[(WINDOW_MASK + 1) / 64] = {};
+      for (int64_t i = 0; OB_SUCC(ret) && i < dim_iters_->count(); ++i) {
+        auto *iter = static_cast<ObTextRetrievalDaaTTokenIter *>(dim_iters_->at(i));
+        const ObDatum *&id = iter_domain_ids_[i];
+        while (OB_SUCC(ret) && nullptr != id
+               && ((id->get_uint64() ^ sign_mask) & ~WINDOW_MASK) == base) {
+          if (iter->collect_cached_id_bits(base, WINDOW_MASK, sign_mask, bits, id)) {
+            break;
+          } else if (OB_FAIL(iter->get_next_row())) {
+            if (OB_ITER_END == ret) {
+              ret = OB_SUCCESS;
+              id = nullptr;
+            }
+          } else if (OB_FAIL(iter->get_curr_id(id))) {
+          }
+        }
+      }
+      if (OB_SUCC(ret)) {
+        for (int64_t i = 0; i < static_cast<int64_t>(ARRAYSIZEOF(bits)); ++i) {
+          pending_union_count_ += __builtin_popcountll(bits[i]);
+        }
+      }
+    }
+  }
+  return ret;
 }
 
 int ObTextDaaTIter::union_next_rows(const int64_t capacity, int64_t &count)
@@ -141,6 +234,7 @@ int ObTextDaaTIter::union_next_rows(const int64_t capacity, int64_t &count)
 
 void ObTextDaaTIter::reset()
 {
+  pending_union_count_ = 0;
   bm25_param_estimator_.reset();
   // this class can know the type of dim_iters_, but ObSRDaaTIterImpl maybe not
   if (OB_NOT_NULL(dim_iters_)) {
@@ -153,6 +247,7 @@ void ObTextDaaTIter::reset()
 
 void ObTextDaaTIter::reuse(const bool switch_tablet)
 {
+  pending_union_count_ = 0;
   if ((OB_NOT_NULL(dim_iters_) && 0 == dim_iters_->count())
       || (OB_NOT_NULL(iter_param_) && !iter_param_->need_project_relevance())) {
     // do nothing
