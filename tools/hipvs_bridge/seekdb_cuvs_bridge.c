@@ -73,9 +73,12 @@ static double sk_env_dbl(const char *name, double dflt) {
 static void sk_cfg_load(void) {
   const int baseline = (getenv("OB_CUVS_BASELINE") != NULL);
   sk_cfg_val.build_algo       = (int)sk_env_long("OB_CUVS_BUILD_ALGO", 2 /* NN_DESCENT */);
-  sk_cfg_val.graph_degree     = sk_env_long("OB_CUVS_GRAPH_DEGREE", 128);
-  sk_cfg_val.inter_degree     = sk_env_long("OB_CUVS_INTER_DEGREE", baseline ? 256 : 192);
-  sk_cfg_val.nn_iters         = sk_env_long("OB_CUVS_NN_ITERS", baseline ? 100 : 40);
+  /* graph_degree 64 is the cuVS library default; the frozen V5 baseline
+   * over-builds at 128. Halving it halves both the GPU prune work and the
+   * serialized graph blob (>128MB -> ~64MB on 250K points). */
+  sk_cfg_val.graph_degree     = sk_env_long("OB_CUVS_GRAPH_DEGREE", baseline ? 128 : 64);
+  sk_cfg_val.inter_degree     = sk_env_long("OB_CUVS_INTER_DEGREE", baseline ? 256 : 96);
+  sk_cfg_val.nn_iters         = sk_env_long("OB_CUVS_NN_ITERS", baseline ? 100 : 24);
   sk_cfg_val.ivf_n_probes     = (int)sk_env_long("OB_CUVS_IVF_N_PROBES", 0);
   sk_cfg_val.ivf_refine_rate  = (float)sk_env_dbl("OB_CUVS_IVF_REFINE_RATE", -1.0);
   sk_cfg_val.itopk            = sk_env_long("OB_CUVS_ITOPK", 0);

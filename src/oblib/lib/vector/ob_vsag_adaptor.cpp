@@ -28,6 +28,9 @@
 #include <ostream>
 #include <algorithm>
 #include <cstdlib>
+#if defined(__linux__)
+#include <sys/syscall.h>
+#endif
 #include <cstdio>
 #include <cstring>
 #include <pthread.h>
@@ -346,14 +349,30 @@ static bool ob_cuvs_try_search(void *key, vsag::Allocator *alloc,
 }
 
 static const char OB_CUVS_SNAPSHOT_MAGIC[8] = {'O', 'B', 'C', 'U', 'V', 'S', '0', '2'};
-struct ObCuvsSnapshotFile {
-  FILE *file_ = ::tmpfile();
-  char path_[64] = {};
-  ObCuvsSnapshotFile() {
-    if (file_ != nullptr) {
-      ::snprintf(path_, sizeof(path_), "/proc/self/fd/%d", ::fileno(file_));
-    }
+// [AMD contest] The serialized CAGRA graph is >100MB for the 250K evaluation
+// datasets and is written and then immediately read back inside the same
+// snapshot statement. An anonymous memory-backed file keeps that blob in RAM
+// instead of doing two large /tmp round trips. tmpfile() is kept as the
+// fallback wherever memfd is unavailable, so behaviour stays correct.
+static FILE *ob_cuvs_open_graph_file(char *path, size_t path_len) {
+  FILE *file = nullptr;
+#if defined(__linux__) && defined(SYS_memfd_create)
+  const int fd = static_cast<int>(::syscall(SYS_memfd_create, "ob_cuvs_graph", 0u));
+  if (fd >= 0) {
+    file = ::fdopen(fd, "w+b");
+    if (file == nullptr) { ::close(fd); }
   }
+#endif
+  if (file == nullptr) { file = ::tmpfile(); }
+  if (file != nullptr) {
+    ::snprintf(path, path_len, "/proc/self/fd/%d", ::fileno(file));
+  }
+  return file;
+}
+struct ObCuvsSnapshotFile {
+  FILE *file_ = nullptr;
+  char path_[64] = {};
+  ObCuvsSnapshotFile() { file_ = ob_cuvs_open_graph_file(path_, sizeof(path_)); }
   ~ObCuvsSnapshotFile() { if (file_ != nullptr) { ::fclose(file_); } }
   ObCuvsSnapshotFile(const ObCuvsSnapshotFile &) = delete;
   ObCuvsSnapshotFile &operator=(const ObCuvsSnapshotFile &) = delete;
