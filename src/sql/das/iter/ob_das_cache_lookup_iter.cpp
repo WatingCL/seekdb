@@ -256,6 +256,10 @@ int ObDASCacheLookupIter::inner_get_next_rows(int64_t &count, int64_t capacity)
   int ret = OB_SUCCESS;
   bool get_next_rows = false;
   const bool need_index_proj = index_proj_rows_.index_scan_proj_exprs_.count() > 0;
+  // Honor a partial batch request instead of collecting a full lookup batch
+  // through repeated small reads from the index iterator (notably LIMIT).
+  const int64_t lookup_batch_size = capacity > 0 && capacity < max_size_
+      ? std::min(default_batch_row_count_, capacity) : default_batch_row_count_;
 
   do {
     switch (state_) {
@@ -263,9 +267,9 @@ int ObDASCacheLookupIter::inner_get_next_rows(int64_t &count, int64_t capacity)
         reset_lookup_state();
         int64_t storage_count = 0;
         int64_t index_capacity = 0;
-        while (OB_SUCC(ret) && !index_end_ && lookup_rowkey_cnt_ < default_batch_row_count_) {
+        while (OB_SUCC(ret) && !index_end_ && lookup_rowkey_cnt_ < lookup_batch_size) {
           storage_count = 0;
-          index_capacity = std::min(capacity, std::min(max_size_, default_batch_row_count_ - lookup_rowkey_cnt_));
+          index_capacity = std::min(capacity, std::min(max_size_, lookup_batch_size - lookup_rowkey_cnt_));
           index_table_iter_->clear_evaluated_flag();
           if (OB_FAIL(index_table_iter_->get_next_rows(storage_count, index_capacity))) {
             if (OB_UNLIKELY(OB_ITER_END != ret)) {

@@ -955,6 +955,16 @@ int ObTableScanOp::init_attach_scan_rtdef(const ObDASBaseCtDef *attach_ctdef,
     attach_rtdef->ctdef_ = attach_ctdef;
     attach_rtdef->children_cnt_ = attach_ctdef->children_cnt_;
     attach_rtdef->eval_ctx_ = &eval_ctx_;
+    if (DAS_OP_IR_SCAN == attach_ctdef->op_type_ && MY_SPEC.output_.empty()
+        && MY_SPEC.filters_.empty() && !MY_SPEC.is_index_back()
+        && MY_CTDEF.scan_ctdef_.pd_expr_spec_.pushdown_filters_.empty()) {
+      const auto *ir_ctdef = static_cast<const ObDASIRScanCtDef *>(attach_ctdef);
+      if (!ir_ctdef->need_calc_relevance() && nullptr == ir_ctdef->match_filter_) {
+        // Truth filtering is complete in the retrieval iterator. No upper
+        // operator can read a column or require a main-table lookup here.
+        static_cast<ObDASIRScanRtDef *>(attach_rtdef)->count_only_ = true;
+      }
+    }
     if (attach_ctdef->children_cnt_ > 0) {
       if (OB_ISNULL(attach_rtdef->children_ = OB_NEW_ARRAY(ObDASBaseRtDef*,
                                                            &ctx_.get_allocator(),
@@ -2202,6 +2212,8 @@ int ObTableScanOp::inner_get_next_batch(const int64_t max_row_cnt)
   if (OB_UNLIKELY(rand_scan_processor_.use_rand_scan())) {
     if (OB_FAIL(rand_scan_processor_.inner_get_next_batch(max_row_cnt))) {
     }
+  } else if (MY_SPEC.is_fts_ddl_ && nullptr == tsc_rtdef_.scan_rtdef_.sample_info_) {
+    ret = inner_get_next_fts_index_batch(max_row_cnt);
   } else if (OB_FAIL(inner_get_next_batch_for_tsc(max_row_cnt))) {
   }
 
@@ -3643,6 +3655,50 @@ int ObTableScanOp::inner_get_next_fts_index_row()
   return ret;
 }
 
+int ObTableScanOp::inner_get_next_fts_index_batch(const int64_t max_row_cnt)
+{
+  if (OB_UNLIKELY(max_row_cnt <= 0)) {
+    return OB_INVALID_ARGUMENT;
+  }
+  int ret = OB_SUCCESS;
+  const int64_t capacity = MIN(max_row_cnt, MY_SPEC.max_batch_size_);
+  brs_.skip_->reset(capacity);
+  blocksstable::ObDatumRow *row = nullptr;
+  brs_.size_ = 0;
+  brs_.end_ = false;
+  ObEvalCtx::BatchInfoScopeGuard guard(eval_ctx_);
+  guard.set_batch_idx(0);
+  guard.set_batch_size(1);
+  clear_evaluated_flag();
+  if (OB_FAIL(fts_index_.get_next_row(row))) {
+    if (OB_ITER_END != ret) {
+    } else if (OB_FAIL(fetch_next_fts_index_rows())) {
+      if (OB_ITER_END == ret) {
+        ret = OB_SUCCESS;
+        brs_.end_ = true;
+      }
+    } else if (OB_FAIL(fts_index_.get_next_row(row))) {
+    }
+  }
+  // Emit only this document: fetching another one resets the arena that owns
+  // the word bytes and doc id referenced by the current batch.
+  guard.set_batch_size(capacity);
+  while (OB_SUCC(ret) && !brs_.end_ && brs_.size_ < capacity) {
+    guard.set_batch_idx(brs_.size_);
+    if (OB_FAIL(fill_generated_fts_cols(row))) {
+    } else {
+      ++brs_.size_;
+      if (brs_.size_ < capacity && OB_FAIL(fts_index_.get_next_row(row))) {
+        if (OB_ITER_END == ret) {
+          ret = OB_SUCCESS;
+          break;
+        }
+      }
+    }
+  }
+  return ret;
+}
+
 int ObTableScanOp::fetch_next_fts_index_rows()
 {
   int ret = OB_SUCCESS;
@@ -3703,6 +3759,9 @@ int ObTableScanOp::fill_generated_fts_cols(blocksstable::ObDatumRow *row)
         } else {
           eval_info.evaluated_ = true;
           eval_info.projected_ = true;
+          if (expr->is_batch_result()) {
+            expr->get_evaluated_flags(eval_ctx_).set(eval_ctx_.get_batch_idx());
+          }
         }
       }
     }

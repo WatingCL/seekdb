@@ -179,7 +179,7 @@ int ObTransformPreProcess::transform_one_stmt(common::ObIArray<ObParentDMLStmt> 
     }
     if (OB_SUCC(ret)) {
       if (stmt->get_match_exprs().count() > 0 &&
-          OB_FAIL(preserve_order_for_fulltext_search(stmt, is_happened))) {
+          OB_FAIL(preserve_order_for_fulltext_search(parent_stmts, stmt, is_happened))) {
       } else {
         trans_happened |= is_happened;
       }
@@ -3790,12 +3790,19 @@ int ObTransformPreProcess::do_flatten_conditions(ObDMLStmt *stmt, ObIArray<ObRaw
 
 // full-text index queries on a single base table are processed with order preservation. 
 // (Order is not preserved in multi-table join scenarios.)
-int ObTransformPreProcess::preserve_order_for_fulltext_search(ObDMLStmt *stmt, bool& trans_happened)
+// The implicit order is skipped when the query is used as a view whose rows are only
+// counted by the parent statement, see check_fts_view_order_irrelevant() for details.
+int ObTransformPreProcess::preserve_order_for_fulltext_search(
+    const common::ObIArray<ObParentDMLStmt> &parent_stmts,
+    ObDMLStmt *stmt,
+    bool& trans_happened)
 {
   int ret = OB_SUCCESS;
   trans_happened = false;
   TableItem *table_item = NULL;
   ObRawExpr *match_expr = nullptr;
+  bool order_irrelevant = false;
+  bool project_pruned = false;
   if (OB_ISNULL(stmt)) {
     ret = OB_ERR_UNEXPECTED;
   } else if (stmt->get_table_items().count() != 1 || stmt->get_order_item_size() != 0) {
@@ -3936,13 +3943,117 @@ int ObTransformPreProcess::preserve_order_for_fulltext_search(ObDMLStmt *stmt, b
       }
     }
   }
-  if (OB_SUCC(ret) && nullptr != match_expr && !static_cast<ObMatchFunRawExpr*>(match_expr)->is_es_match()) {
+  if (OB_FAIL(ret)) {
+  } else if (nullptr == match_expr || static_cast<ObMatchFunRawExpr*>(match_expr)->is_es_match()) {
+    // do nothing
+  } else if (OB_FAIL(check_fts_view_order_irrelevant(parent_stmts, *stmt, order_irrelevant, project_pruned))) {
+  } else if (order_irrelevant) {
+    // the parent statement only depends on the row count of this query, see
+    // check_fts_view_order_irrelevant() for the reason
+    trans_happened = project_pruned;
+    OPT_TRACE("skip preserve order for fulltext search: the parent only counts rows");
+  } else {
     OrderItem item(match_expr, default_desc_direction());
     if (OB_FAIL(stmt->add_order_item(item))) {
     } else {
       trans_happened = true;
     }
-  } 
+  }
+  return ret;
+}
+
+// The implicit ORDER BY MATCH(...) DESC of a fulltext query only decides which rows are
+// kept by a LIMIT of that query. If the query is referenced as a generated table by a
+// SELECT statement that reads no column of it, the parent result depends on the row
+// count only: "LIMIT n" always yields min(n, matched rows) rows no matter which ones
+// they are, so dropping the implicit order does not change the parent result.
+// parent_stmts is the recursion stack of ObTransformRule::transform_children(): the last
+// element is the direct parent, and pos_ is the index of the current statement in
+// parent->get_child_stmts(), whose order is [set query branches, generated/lateral
+// tables, subquery expressions] (see ObSelectStmt::get_child_stmts(),
+// ObDMLStmt::get_child_stmts() and ObTransformRule::set_child_stmt()).
+int ObTransformPreProcess::check_fts_view_order_irrelevant(
+    const common::ObIArray<ObParentDMLStmt> &parent_stmts,
+    const ObDMLStmt &stmt,
+    bool &is_irrelevant, bool &project_pruned)
+{
+  int ret = OB_SUCCESS;
+  is_irrelevant = false;
+  project_pruned = false;
+  if (parent_stmts.empty() || !stmt.is_select_stmt()
+      || !stmt.has_limit() || stmt.is_fetch_with_ties()
+      || static_cast<const ObSelectStmt &>(stmt).has_for_update()) {
+    // a top level statement or a non select statement keeps its order
+  } else {
+    const ObParentDMLStmt &parent_info = parent_stmts.at(parent_stmts.count() - 1);
+    ObDMLStmt *parent_stmt = parent_info.stmt_;
+    ObSEArray<ObSelectStmt *, 4> child_stmts;
+    if (OB_ISNULL(parent_stmt) || !parent_stmt->is_select_stmt()) {
+      // only a select statement used by a select statement is considered
+    } else if (OB_FAIL(parent_stmt->get_child_stmts(child_stmts))) {
+    } else if (parent_info.pos_ < 0 || parent_info.pos_ >= child_stmts.count() ||
+               child_stmts.at(parent_info.pos_) != &stmt) {
+      // the current statement is not the pos_ child of its parent (for example a temp
+      // table query, whose parent is not pushed on the stack), keep the order
+    } else {
+      // locate the table item that generates the current statement
+      const ObIArray<TableItem *> &table_items = parent_stmt->get_table_items();
+      TableItem *view_table = nullptr;
+      for (int64_t i = 0; OB_SUCC(ret) && OB_ISNULL(view_table) && i < table_items.count(); ++i) {
+        TableItem *cur_table = table_items.at(i);
+        if (OB_ISNULL(cur_table)) {
+          ret = OB_ERR_UNEXPECTED;
+        } else if (!cur_table->is_generated_table() || cur_table->ref_query_ != &stmt) {
+          // not the generated table of the current statement
+        } else {
+          view_table = cur_table;
+        }
+      }
+      const ObSelectStmt *parent_select = static_cast<const ObSelectStmt *>(parent_stmt);
+      const bool count_only = parent_select->get_table_size() == 1
+          && parent_select->get_aggr_item_size() == 1
+          && parent_select->get_aggr_item(0)->get_expr_type() == T_FUN_COUNT
+          && parent_select->get_aggr_item(0)->get_param_count() == 0
+          && parent_select->get_condition_size() == 0
+          && parent_select->is_scala_group_by()
+          && !parent_select->has_having()
+          && !parent_select->has_window_function()
+          && !parent_select->has_distinct()
+          && !parent_select->is_set_stmt();
+      if (OB_SUCC(ret) && OB_NOT_NULL(view_table) && count_only) {
+        // every column reference of the parent, including the correlated ones of its
+        // subqueries, is recorded as a column item of the parent statement
+        ObSelectStmt &child = *view_table->ref_query_;
+        bool has_assignment = false;
+        bool simple_projection = true;
+        for (int64_t i = 0; simple_projection && i < child.get_select_item_size(); ++i) {
+          const ObRawExpr *expr = child.get_select_item(i).expr_;
+          simple_projection = nullptr != expr && (expr->is_column_ref_expr() || expr->is_const_expr());
+        }
+        if (OB_FAIL(ObTransformUtils::check_has_assignment(child, has_assignment))) {
+        } else if (simple_projection && !has_assignment
+                   && 0 == parent_stmt->get_column_size(view_table->table_id_)) {
+          is_irrelevant = true;
+          bool valid = false;
+          if (OB_FAIL(ObTransformUtils::check_project_pruning_validity(child, valid))) {
+          } else if (valid) {
+            ObSqlBitSet<> removed;
+            for (int64_t i = 0; OB_SUCC(ret) && i < child.get_select_item_size(); ++i) {
+              if (OB_FAIL(removed.add_member(i))) {
+              }
+            }
+            if (OB_SUCC(ret) && !removed.is_empty()) {
+              if (OB_FAIL(ObTransformUtils::remove_select_items(
+                              ctx_, view_table->table_id_, child, *parent_stmt, removed))) {
+              } else {
+                project_pruned = true;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
   return ret;
 }
 

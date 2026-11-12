@@ -204,7 +204,7 @@ public:
   ObDASIRScanRtDef()
     : ObDASAttachRtDef(DAS_OP_IR_SCAN),
       fts_idx_(OB_INVALID_INDEX),
-      minimum_should_match_(0) {}
+      minimum_should_match_(0), count_only_(false) {}
 
   virtual ~ObDASIRScanRtDef() {}
 
@@ -255,6 +255,9 @@ public:
   // fts_idx_ is dynamically generated during execution based on the rtdef tree and does not need to be serialized.
   int64_t fts_idx_;
   int64_t minimum_should_match_;
+  // Local execution hint only; default false on deserialization. Not part of
+  // the wire format: remote execution may safely retain ordinary projection.
+  bool count_only_;
 };
 
 struct ObDASIRAuxLookupCtDef : ObDASAttachCtDef

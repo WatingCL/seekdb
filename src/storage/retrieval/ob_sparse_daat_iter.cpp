@@ -278,7 +278,8 @@ int ObSRDaaTIterImpl::get_next_rows(const int64_t capacity, int64_t &count)
     }
 
     if (OB_SUCC(ret) || OB_ITER_END == ret) {
-      if (count > 0 && !direct_project_ && OB_FAIL(project_results(count))) {
+      if (count > 0 && !direct_project_ && !iter_param_->count_only_
+          && OB_FAIL(project_results(count))) {
       }
     }
 
@@ -301,7 +302,8 @@ int ObSRDaaTIterImpl::do_one_merge_round(int64_t &count)
     if (OB_UNLIKELY(OB_ITER_END != ret)) {
     }
   } else if (OB_FAIL(collect_dims_by_id(id_datum, relevance, need_project))) {
-  } else if (need_project && !use_fast_filter_ && OB_FAIL(filter_on_demand(count, relevance, need_project))) {
+  } else if (need_project && (iter_param_->need_filter() || iter_param_->need_project_relevance())
+             && !use_fast_filter_ && OB_FAIL(filter_on_demand(count, relevance, need_project))) {
   }
   if (OB_SUCC(ret) && need_project && use_fast_filter_) {
     // bit-identical to eval of the bool-cast filter checked at init, see init()
@@ -441,6 +443,12 @@ int ObSRDaaTIterImpl::cache_result(int64_t &count, const ObDatum &id_datum, cons
     // don't need to project
   } else if (OB_UNLIKELY(count >= buffered_domain_ids_.count() || count >= buffered_relevances_.count())) {
     ret = OB_INVALID_ARGUMENT;
+  } else if (iter_param_->count_only_) {
+    ++count;
+    ++output_row_cnt_;
+    if (limit_param->is_valid() && output_row_cnt_ >= limit) {
+      ret = OB_ITER_END;
+    }
   } else if (OB_LIKELY(direct_project_)) {
     // Single-phase projection for value-copyable doc ids (vectorized + the
     // set_datum_int case checked at init): write the row straight into the
@@ -521,9 +529,11 @@ int ObSRDaaTIterImpl::project_results(const int64_t count)
     ObDatum &id_proj_datum = id_proj_expr->locate_datum_for_write(*eval_ctx);
     set_datum_func_(id_proj_datum, buffered_domain_ids_[0]);
     id_proj_expr->set_evaluated_projected(*eval_ctx);
-    ObDatum &relevance_proj_datum = relevance_proj_expr->locate_datum_for_write(*eval_ctx);
-    relevance_proj_datum.set_double(buffered_relevances_[0]);
-    relevance_proj_expr->set_evaluated_projected(*eval_ctx);
+    if (iter_param_->need_project_relevance()) {
+      ObDatum &relevance_proj_datum = relevance_proj_expr->locate_datum_for_write(*eval_ctx);
+      relevance_proj_datum.set_double(buffered_relevances_[0]);
+      relevance_proj_expr->set_evaluated_projected(*eval_ctx);
+    }
   }
   return ret;
 }

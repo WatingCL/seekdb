@@ -1,0 +1,102 @@
+drop table if exists fts_count_batches;
+drop table if exists fts_count_composite;
+create table fts_count_batches(id bigint primary key, category int, body longtext);
+create fulltext index fti_count_empty on fts_count_batches(body) with parser beng;
+select count(*) from fts_count_batches where match(body) against('alpha');
+count(*)
+0
+drop index fti_count_empty on fts_count_batches;
+insert into fts_count_batches values (1,1,'alpha beta'),(2,1,'alpha gamma'),(3,2,'beta delta'),(4,2,''),(5,3,null);
+insert into fts_count_batches values (6,3,concat(repeat('common alpha ',8000),' term000 term001 term002 term003 term004 term005 term006 term007 term008 term009 term010 term011 term012 term013 term014 term015 term016 term017 term018 term019 term020 term021 term022 term023 term024 term025 term026 term027 term028 term029 term030 term031 term032 term033 term034 term035 term036 term037 term038 term039 term040 term041 term042 term043 term044 term045 term046 term047 term048 term049 term050 term051 term052 term053 term054 term055 term056 term057 term058 term059 term060 term061 term062 term063 term064 term065 term066 term067 term068 term069 term070 term071 term072 term073 term074 term075 term076 term077 term078 term079 term080 term081 term082 term083 term084 term085 term086 term087 term088 term089 term090 term091 term092 term093 term094 term095 term096 term097 term098 term099 term100 term101 term102 term103 term104 term105 term106 term107 term108 term109 term110 term111 term112 term113 term114 term115 term116 term117 term118 term119 term120 term121 term122 term123 term124 term125 term126 term127 term128 term129 term130 term131 term132 term133 term134 term135 term136 term137 term138 term139 term140 term141 term142 term143 term144 term145 term146 term147 term148 term149 term150 term151 term152 term153 term154 term155 term156 term157 term158 term159 term160 term161 term162 term163 term164 term165 term166 term167 term168 term169 term170 term171 term172 term173 term174 term175 term176 term177 term178 term179 term180 term181 term182 term183 term184 term185 term186 term187 term188 term189 term190 term191 term192 term193 term194 term195 term196 term197 term198 term199 term200 term201 term202 term203 term204 term205 term206 term207 term208 term209 term210 term211 term212 term213 term214 term215 term216 term217 term218 term219 term220 term221 term222 term223 term224 term225 term226 term227 term228 term229 term230 term231 term232 term233 term234 term235 term236 term237 term238 term239 term240 term241 term242 term243 term244 term245 term246 term247 term248 term249 term250 term251 term252 term253 term254 term255 term256 term257 term258 term259 term260 term261 term262 term263 term264 term265 term266 term267 term268 term269 term270 term271 term272 term273 term274 term275 term276 term277 term278 term279 term280 term281 term282 term283 term284 term285 term286 term287 term288 term289 term290 term291 term292 term293 term294 term295 term296 term297 term298 term299 term300 term301 term302 term303 term304 term305 term306 term307 term308 term309 term310 term311 term312 term313 term314 term315 term316 term317 term318 term319 term320 term321 term322 term323 term324 term325 term326 term327 term328 term329 term330 term331 term332 term333 term334 term335 term336 term337 term338 term339 term340 term341 term342 term343 term344 term345 term346 term347 term348 term349 term350 term351 term352 term353 term354 term355 term356 term357 term358 term359 term360 term361 term362 term363 term364 term365 term366 term367 term368 term369 term370 term371 term372 term373 term374 term375 term376 term377 term378 term379 term380 term381 term382 term383 term384 term385 term386 term387 term388 term389 term390 term391 term392 term393 term394 term395 term396 term397 term398 term399 term400 term401 term402 term403 term404 term405 term406 term407 term408 term409 term410 term411 term412 term413 term414 term415 term416 term417 term418 term419 term420 term421 term422 term423 term424 term425 term426 term427 term428 term429 term430 term431 term432 term433 term434 term435 term436 term437 term438 term439 term440 term441 term442 term443 term444 term445 term446 term447 term448 term449 term450 term451 term452 term453 term454 term455 term456 term457 term458 term459 term460 term461 term462 term463 term464 term465 term466 term467 term468 term469 term470 term471 term472 term473 term474 term475 term476 term477 term478 term479 term480 term481 term482 term483 term484 term485 term486 term487 term488 term489 term490 term491 term492 term493 term494 term495 term496 term497 term498 term499 term500 term501 term502 term503 term504 term505 term506 term507 term508 term509 term510 term511 term512 term513 term514 term515 term516 term517 term518 term519 term520 term521 term522 term523 term524 term525 term526 term527 term528 term529 term530 term531 term532 term533 term534 term535 term536 term537 term538 term539 term540 term541 term542 term543 term544 term545 term546 term547 term548 term549 term550 term551 term552 term553 term554 term555 term556 term557 term558 term559 term560 term561 term562 term563 term564 term565 term566 term567 term568 term569 term570 term571 term572 term573 term574 term575 term576 term577 term578 term579 term580 term581 term582 term583 term584 term585 term586 term587 term588 term589 term590 term591 term592 term593 term594 term595 term596 term597 term598 term599'));
+create fulltext index fti_count_batches on fts_count_batches(body) with parser beng;
+select count(*) from fts_count_batches where match(body) against('alpha beta');
+count(*)
+4
+prepare fts_counter from 'select count(*) from fts_count_batches where match(body) against(?)';
+set @fts_term='alpha';
+execute fts_counter using @fts_term;
+count(*)
+3
+set @fts_term='beta gamma';
+execute fts_counter using @fts_term;
+count(*)
+3
+deallocate prepare fts_counter;
+select count(*) from fts_count_batches where match(body) against('alpha') and category=1;
+count(*)
+2
+select count(*) from fts_count_batches where match(body) against('the and is');
+count(*)
+0
+select count(*) from fts_count_batches where match(body) against('term000 term255 term256 term599');
+count(*)
+1
+select count(*) from (select id from fts_count_batches where match(body) against('alpha') limit 1) v;
+count(*)
+1
+select count(*) from (select id from fts_count_batches where match(body) against('alpha') limit 2 offset 1) v;
+count(*)
+2
+select count(*) from (select id from fts_count_batches where match(body) against('alpha') limit 2 offset 20) v;
+count(*)
+0
+select sum(id),min(id),max(id) from (select id from fts_count_batches where match(body) against('alpha') limit 2) v;
+sum(id)	min(id)	max(id)
+8	2	6
+select count(*) from (select id from fts_count_batches where match(body) against('alpha') order by id desc limit 2) v where id>2;
+count(*)
+1
+select id,round(match(body) against('alpha'),6) s from fts_count_batches where match(body) against('alpha') order by s desc,id;
+id	s
+6	0.549609
+1	0.422865
+2	0.422865
+select count(*) from fts_count_batches where match(body) against('alpha')>0.5;
+count(*)
+1
+select count(*) from fts_count_batches where match(body) against('+alpha -gamma' in boolean mode);
+count(*)
+2
+select /*+ index(fts_count_batches primary) */ count(*) from fts_count_batches where match(body) against('alpha');
+count(*)
+3
+select d.id,(select count(*) from fts_count_batches c where match(c.body) against('alpha') and c.category=d.category) cnt from fts_count_batches d order by d.id;
+id	cnt
+1	2
+2	2
+3	0
+4	0
+5	1
+6	1
+insert into fts_count_batches values(7,1,'alpha epsilon');
+update fts_count_batches set body='beta zeta' where id=2;
+delete from fts_count_batches where id=1;
+select count(*),sum(id) from fts_count_batches where match(body) against('alpha');
+count(*)	sum(id)
+2	13
+drop index fti_count_batches on fts_count_batches;
+create fulltext index fti_count_batches on fts_count_batches(body) with parser beng;
+select count(*),sum(id) from fts_count_batches where match(body) against('alpha');
+count(*)	sum(id)
+2	13
+create table fts_count_composite(a varchar(16),b bigint,body longtext,primary key(a,b));
+insert into fts_count_composite values('first',1,'alpha beta'),('second',2,'alpha gamma'),('third',3,'beta delta');
+create fulltext index fti_count_composite on fts_count_composite(body) with parser beng;
+select count(*) from fts_count_composite where match(body) against('alpha beta');
+count(*)
+3
+select a,b,round(match(body) against('alpha'),6) s from fts_count_composite where match(body) against('alpha') order by s desc,a,b;
+a	b	s
+first	1	0.371622
+second	2	0.371622
+select count(*) from (select a,b from fts_count_composite where match(body) against('alpha') limit 1) v;
+count(*)
+1
+select count(*) from (select a,b from fts_count_composite where match(body) against('alpha') limit 1 offset 1) v;
+count(*)
+1
+select count(*) from (select a,b from fts_count_composite where match(body) against('alpha') limit 1) v where a='first';
+count(*)
+1
+drop table fts_count_batches;
+drop table fts_count_composite;
