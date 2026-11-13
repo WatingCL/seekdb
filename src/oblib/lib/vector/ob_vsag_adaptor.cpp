@@ -226,16 +226,13 @@ struct ObCuvsJob {
 static void *ob_cuvs_job(void *arg) {
   ObCuvsJob *j = static_cast<ObCuvsJob *>(arg);
   if (j->need_build) {
-    // [AMD contest] Build on its own freshly created 32MB-stack pthread, not on
-    // the reused query worker. Measured on the evaluation box: running the build
-    // on the long-lived worker thread costs ~20% build throughput (2.560x ->
-    // 2.035-2.077x) even though the build call itself is unchanged, so the build
-    // keeps the exact thread lifecycle the frozen baseline used.
-    std::shared_ptr<void> nb = ob_cuvs_build_big_stack(j->ent->buf_vecs_.data(),
-                                                      static_cast<long>(j->n),
-                                                      static_cast<long>(j->dim));
+    // This job only reaches here on ob_cuvs_run_fresh_big_stack (see the caller),
+    // i.e. on a dedicated 32MB-stack thread exactly like the frozen baseline, so
+    // the build runs inline and no nested thread is created.
+    void *nb = seekdb_cuvs_build(j->ent->buf_vecs_.data(), static_cast<long>(j->n),
+                                 static_cast<long>(j->dim));
     if (nb != nullptr) {
-      j->ent->bridge_ = nb; j->ent->built_n_ = j->n; j->ent->ids_ = j->ent->buf_ids_;
+      j->ent->bridge_ = ob_cuvs_wrap(nb); j->ent->built_n_ = j->n; j->ent->ids_ = j->ent->buf_ids_;
       j->built_ = true;
     }
   }
@@ -282,6 +279,15 @@ static void *ob_cuvs_worker_main(void *arg) {
     w->cv.notify_all();
   }
   return nullptr;
+}
+// Runs fn(arg) on a freshly created 32MB-stack pthread and joins it. Used for
+// the build-bearing first query so the build keeps exactly the thread lifecycle
+// the frozen baseline used.
+static void ob_cuvs_run_fresh_big_stack(void *(*fn)(void *), void *arg) {
+  pthread_t tid; pthread_attr_t attr; pthread_attr_init(&attr);
+  pthread_attr_setstacksize(&attr, 32UL * 1024 * 1024);
+  if (pthread_create(&tid, &attr, fn, arg) == 0) { pthread_join(tid, nullptr); }
+  pthread_attr_destroy(&attr);
 }
 // Runs fn(arg) on the reusable 32MB-stack worker (inline if it cannot start).
 static void ob_cuvs_run_big_stack(void *(*fn)(void *), void *arg) {
@@ -378,8 +384,17 @@ static bool ob_cuvs_try_search(void *key, vsag::Allocator *alloc,
   off.resize(static_cast<size_t>(topk));
   dst.resize(static_cast<size_t>(topk));
   ObCuvsJob job{ent, query, topk, static_cast<int>(ent->dim_), n, need_build, &off, &dst, -1, false};
-  // [AMD contest] Reuse one 32MB-stack worker instead of create/join per query.
-  ob_cuvs_run_big_stack(ob_cuvs_job, &job);
+  // [AMD contest] Reuse one 32MB-stack worker instead of create/join per query -
+  // but NOT for the query that carries the build. Measured on the evaluation box:
+  // as soon as the persistent worker exists, build drops from 2.560x to
+  // 2.035-2.109x even when the build itself runs on its own thread, so the
+  // build-bearing call keeps the baseline's fresh-thread lifecycle and only
+  // build-free searches go through the worker.
+  if (need_build) {
+    ob_cuvs_run_fresh_big_stack(ob_cuvs_job, &job);
+  } else {
+    ob_cuvs_run_big_stack(ob_cuvs_job, &job);
+  }
   if (job.built_) { ob_vsag_trace("cuvs_build", key, static_cast<long>(ent->dim_), static_cast<long>(n)); }
   if (ent->bridge_ == nullptr || job.rc_ != 0) { return false; }
   // Post-filter: cuVS returned UNFILTERED top-k. Apply the query's row filter
