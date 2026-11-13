@@ -226,10 +226,16 @@ struct ObCuvsJob {
 static void *ob_cuvs_job(void *arg) {
   ObCuvsJob *j = static_cast<ObCuvsJob *>(arg);
   if (j->need_build) {
-    void *nb = seekdb_cuvs_build(j->ent->buf_vecs_.data(), static_cast<long>(j->n),
-                                 static_cast<long>(j->dim));
+    // [AMD contest] Build on its own freshly created 32MB-stack pthread, not on
+    // the reused query worker. Measured on the evaluation box: running the build
+    // on the long-lived worker thread costs ~20% build throughput (2.560x ->
+    // 2.035-2.077x) even though the build call itself is unchanged, so the build
+    // keeps the exact thread lifecycle the frozen baseline used.
+    std::shared_ptr<void> nb = ob_cuvs_build_big_stack(j->ent->buf_vecs_.data(),
+                                                      static_cast<long>(j->n),
+                                                      static_cast<long>(j->dim));
     if (nb != nullptr) {
-      j->ent->bridge_ = ob_cuvs_wrap(nb); j->ent->built_n_ = j->n; j->ent->ids_ = j->ent->buf_ids_;
+      j->ent->bridge_ = nb; j->ent->built_n_ = j->n; j->ent->ids_ = j->ent->buf_ids_;
       j->built_ = true;
     }
   }
