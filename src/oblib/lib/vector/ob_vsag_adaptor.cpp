@@ -20,6 +20,7 @@
 #include <map>
 #include <set>
 #include <mutex>
+#include <condition_variable>
 #include <vector>
 #include <memory>
 #include <limits>
@@ -243,6 +244,66 @@ static void *ob_cuvs_job(void *arg) {
   return nullptr;
 }
 
+// [AMD contest] cuVS needs the large stack, but creating and joining a 32MB-stack
+// pthread for EVERY query costs more than the CAGRA search itself (8192 queries
+// per dataset). One detached worker is created on first use and then reused, so
+// the hot path is a condvar handoff instead of mmap/clone/join. Callers of this
+// helper hold g_ob_cuvs_mu, so at most one task is ever in flight.
+struct ObCuvsWorker {
+  std::mutex mu;
+  std::condition_variable cv;
+  void *(*fn)(void *) = nullptr;
+  void *arg = nullptr;
+  bool has = false;
+  bool done = false;
+  bool started = false;
+  pthread_t tid;
+};
+static ObCuvsWorker g_ob_cuvs_worker;  // intentionally never destroyed
+
+static void *ob_cuvs_worker_main(void *arg) {
+  ObCuvsWorker *w = static_cast<ObCuvsWorker *>(arg);
+  std::unique_lock<std::mutex> lock(w->mu);
+  for (;;) {
+    w->cv.wait(lock, [w] { return w->has; });
+    void *(*fn)(void *) = w->fn;
+    void *a = w->arg;
+    lock.unlock();
+    fn(a);
+    lock.lock();
+    w->has = false;
+    w->done = true;
+    w->cv.notify_all();
+  }
+  return nullptr;
+}
+// Runs fn(arg) on the reusable 32MB-stack worker (inline if it cannot start).
+static void ob_cuvs_run_big_stack(void *(*fn)(void *), void *arg) {
+  ObCuvsWorker *w = &g_ob_cuvs_worker;
+  {
+    std::lock_guard<std::mutex> lock(w->mu);
+    if (!w->started) {
+      pthread_attr_t attr;
+      if (pthread_attr_init(&attr) == 0) {
+        pthread_attr_setstacksize(&attr, 32UL * 1024 * 1024);
+        if (pthread_create(&w->tid, &attr, ob_cuvs_worker_main, w) == 0) {
+          pthread_detach(w->tid);
+          w->started = true;
+        }
+        pthread_attr_destroy(&attr);
+      }
+    }
+  }
+  {
+    std::lock_guard<std::mutex> lock(w->mu);
+    if (!w->started) { fn(arg); return; }
+    w->fn = fn; w->arg = arg; w->done = false; w->has = true;
+  }
+  std::unique_lock<std::mutex> lock(w->mu);
+  w->cv.notify_all();
+  w->cv.wait(lock, [w] { return w->done; });
+}
+
 // [BATCH] Feed nq probe vectors to ONE cuVS call (nq>1). Same large-stack
 // pthread pattern as the single-query path (cuVS overflows the OB worker stack).
 struct ObCuvsBatchJob {
@@ -311,10 +372,8 @@ static bool ob_cuvs_try_search(void *key, vsag::Allocator *alloc,
   off.resize(static_cast<size_t>(topk));
   dst.resize(static_cast<size_t>(topk));
   ObCuvsJob job{ent, query, topk, static_cast<int>(ent->dim_), n, need_build, &off, &dst, -1, false};
-  pthread_t tid; pthread_attr_t attr; pthread_attr_init(&attr);
-  pthread_attr_setstacksize(&attr, 32UL * 1024 * 1024);
-  if (pthread_create(&tid, &attr, ob_cuvs_job, &job) == 0) { pthread_join(tid, nullptr); }
-  pthread_attr_destroy(&attr);
+  // [AMD contest] Reuse one 32MB-stack worker instead of create/join per query.
+  ob_cuvs_run_big_stack(ob_cuvs_job, &job);
   if (job.built_) { ob_vsag_trace("cuvs_build", key, static_cast<long>(ent->dim_), static_cast<long>(n)); }
   if (ent->bridge_ == nullptr || job.rc_ != 0) { return false; }
   // Post-filter: cuVS returned UNFILTERED top-k. Apply the query's row filter
