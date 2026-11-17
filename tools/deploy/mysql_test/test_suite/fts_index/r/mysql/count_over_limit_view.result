@@ -1,0 +1,107 @@
+drop table if exists t_cnt_view;
+create table t_cnt_view(id int primary key, cat int, c varchar(200), fulltext index ft_c(c) with parser ik);
+insert into t_cnt_view values (1, 1, '全文索引 OceanBase tokenizer 文档1'),
+(2, 2, '分词器 倒排索引 database 文档2'),
+(3, 3, 'OceanBase 性能 全文索引 文档3'),
+(4, 0, 'database 分词器 稳定 文档4'),
+(5, 1, 'search search search 文档5'),
+(6, 2, '倒排索引 稳定 分词器 文档6'),
+(7, 3, 'tokenizer 全文索引 性能 文档7'),
+(8, 0, '稳定 database 倒排索引 文档8'),
+(9, 1, '性能 tokenizer OceanBase 文档9'),
+(10, 2, '数据库 数据库 数据库 文档10'),
+(11, 3, '全文索引 OceanBase tokenizer 文档11'),
+(12, 0, '分词器 倒排索引 database 文档12'),
+(13, 1, 'OceanBase 性能 全文索引 文档13'),
+(14, 2, 'database 分词器 稳定 文档14'),
+(15, 3, 'search search search 文档15'),
+(16, 0, '倒排索引 稳定 分词器 文档16'),
+(17, 1, 'tokenizer 全文索引 性能 文档17'),
+(18, 2, '稳定 database 倒排索引 文档18'),
+(19, 3, '性能 tokenizer OceanBase 文档19'),
+(20, 0, '数据库 数据库 数据库 文档20'),
+(21, 1, '全文索引 OceanBase tokenizer 文档21'),
+(22, 2, '分词器 倒排索引 database 文档22'),
+(23, 3, 'OceanBase 性能 全文索引 文档23'),
+(24, 0, 'database 分词器 稳定 文档24'),
+(25, 1, 'search search search 文档25'),
+(26, 2, '倒排索引 稳定 分词器 文档26'),
+(27, 3, 'tokenizer 全文索引 性能 文档27'),
+(28, 0, '稳定 database 倒排索引 文档28'),
+(29, 1, '性能 tokenizer OceanBase 文档29'),
+(30, 2, '数据库 数据库 数据库 文档30'),
+(31, 3, '全文索引 OceanBase tokenizer 文档31'),
+(32, 0, '分词器 倒排索引 database 文档32'),
+(33, 1, 'OceanBase 性能 全文索引 文档33'),
+(34, 2, 'database 分词器 稳定 文档34'),
+(35, 3, 'search search search 文档35'),
+(36, 0, '倒排索引 稳定 分词器 文档36'),
+(37, 1, 'tokenizer 全文索引 性能 文档37'),
+(38, 2, '稳定 database 倒排索引 文档38'),
+(39, 3, '性能 tokenizer OceanBase 文档39'),
+(40, 0, '数据库 数据库 数据库 文档40');
+select count(*) from (select id from t_cnt_view where match(c) against('倒排索引 tokenizer') limit 5) t;
+count(*)
+5
+select count(*) from (select id from t_cnt_view where match(c) against('倒排索引 tokenizer') limit 100) t;
+count(*)
+24
+select count(*) from (select id from t_cnt_view where match(c) against('倒排索引 tokenizer') limit 4 offset 10) t;
+count(*)
+4
+select count(*) from (select id from t_cnt_view where match(c) against('不存在 zzzqqq') limit 5) t;
+count(*)
+0
+select count(*) from (select 1 from t_cnt_view where match(c) against('数据库 search') limit 7 offset 3) t;
+count(*)
+5
+select count(*) from (select count(*) from (select id from t_cnt_view where match(c) against('倒排索引 tokenizer') limit 5) a) b;
+count(*)
+1
+select sum(id), count(id) from (select id from t_cnt_view where match(c) against('倒排索引 tokenizer') limit 5) t;
+sum(id)	count(id)
+44	5
+select t.id from (select id from t_cnt_view where match(c) against('倒排索引 tokenizer') limit 3) t;
+id
+6
+8
+2
+select * from (select id, cat from t_cnt_view where match(c) against('数据库 search') limit 4) t;
+id	cat
+5	1
+20	0
+15	3
+10	2
+select count(*), min(x) from (select id x from t_cnt_view where match(c) against('倒排索引 tokenizer') order by id limit 5) t;
+count(*)	min(x)
+5	1
+select cat, count(*) from (select cat from t_cnt_view where match(c) against('倒排索引 tokenizer') limit 6) t group by cat order by cat;
+cat	count(*)
+0	3
+2	3
+select count(*) from t_cnt_view where id in (select id from (select id from t_cnt_view where match(c) against('倒排索引 tokenizer') limit 4) v);
+count(*)
+4
+select count(*) from (select id from t_cnt_view where match(c) against('倒排索引 tokenizer') and cat = 1 limit 5) t;
+count(*)
+5
+select count(*) from (select id from t_cnt_view where match(c) against('+数据库 -search' in boolean mode) limit 5) t;
+count(*)
+4
+select round(sum(s), 6) from (select match(c) against('倒排索引 tokenizer') s from t_cnt_view where match(c) against('倒排索引 tokenizer') limit 5) t;
+round(sum(s), 6)
+9.854272
+select distinct 1 from t_cnt_view where match(c) against('倒排索引 tokenizer');
+1
+1
+select count(*) from (select distinct cat from t_cnt_view where match(c) against('倒排索引 tokenizer') limit 3) t;
+count(*)
+3
+select id, round(match(c) against('倒排索引 tokenizer'), 6) s from t_cnt_view where match(c) against('倒排索引 tokenizer') order by s desc, id limit 5;
+id	s
+2	1.970854
+6	1.970854
+8	1.970854
+12	1.970854
+16	1.970854
+drop table t_cnt_view;
