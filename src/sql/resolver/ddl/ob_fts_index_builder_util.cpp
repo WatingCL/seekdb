@@ -98,8 +98,21 @@ int ObFtsIndexBuilderUtil::determine_docid_type(const ObTableSchema &table_schem
   int ret = OB_SUCCESS;
   uint64_t docid_col_id = OB_INVALID_ID;
   static constexpr bool ENABLE_DOC_ID_OPT = true;
+  bool use_base_rowkey = table_schema.is_table_with_hidden_pk_column();
+  if (!use_base_rowkey
+      && table_schema.is_user_table()
+      && !table_schema.is_partitioned_table()
+      && 1 == table_schema.get_rowkey_info().get_size()) {
+    uint64_t rowkey_col_id = OB_INVALID_ID;
+    const ObColumnSchemaV2 *rowkey_col = nullptr;
+    if (OB_SUCC(table_schema.get_rowkey_info().get_column_id(0, rowkey_col_id))
+        && OB_NOT_NULL(rowkey_col = table_schema.get_column_schema(rowkey_col_id))) {
+      use_base_rowkey = rowkey_col->is_autoincrement()
+          && ob_is_integer_type(rowkey_col->get_data_type());
+    }
+  }
   // Choose the document-id representation from the current table layout.
-  if (!table_schema.is_table_with_hidden_pk_column()) {
+  if (!use_base_rowkey) {
     doc_id_type = ObDocIDType::TABLET_SEQUENCE;
   } else if (OB_FAIL(table_schema.get_docid_col_id(docid_col_id))) {
     if (OB_ERR_INDEX_KEY_NOT_FOUND == ret) {
@@ -906,11 +919,34 @@ int ObFtsIndexBuilderUtil::adjust_fts_arg(
                                                 allocator))) {
         }
       } else if (is_doc_word) {
+        ObSEArray<const ObColumnSchemaV2 *, 4> doc_word_cols;
+        const ObColumnSchemaV2 *rowkey_col = nullptr;
+        uint64_t rowkey_col_id = OB_INVALID_ID;
+        const ObIArray<const ObColumnSchemaV2 *> *adjusted_cols = &fts_cols;
+        bool use_rowkey = false;
+        if (!data_schema.is_partitioned_table()
+            && data_schema.is_user_table()
+            && 1 == data_schema.get_rowkey_info().get_size()
+            && OB_SUCC(data_schema.get_rowkey_info().get_column_id(0, rowkey_col_id))
+            && OB_NOT_NULL(rowkey_col = data_schema.get_column_schema(rowkey_col_id))) {
+          use_rowkey = rowkey_col->is_autoincrement()
+              && ob_is_integer_type(rowkey_col->get_data_type());
+        }
         if (OB_FAIL(ret)) {
-        } else if (OB_FAIL(inner_adjust_fts_arg(index_arg,
-                                                fts_cols,
-                                                OB_FTS_DOC_WORD_TABLE_INDEX_COL_CNT,
-                                                allocator))) {
+        } else if (use_rowkey
+                   && (OB_FAIL(doc_word_cols.push_back(rowkey_col))
+                       || OB_FAIL(doc_word_cols.push_back(fts_cols.at(1)))
+                       || OB_FAIL(doc_word_cols.push_back(fts_cols.at(2)))
+                       || OB_FAIL(doc_word_cols.push_back(fts_cols.at(3))))) {
+        } else {
+          if (use_rowkey) {
+            adjusted_cols = &doc_word_cols;
+          }
+          if (OB_FAIL(inner_adjust_fts_arg(index_arg,
+                                           *adjusted_cols,
+                                           OB_FTS_DOC_WORD_TABLE_INDEX_COL_CNT,
+                                           allocator))) {
+          }
         }
       }
     }
@@ -1047,7 +1083,9 @@ int ObFtsIndexBuilderUtil::decide_parallelism(
       case share::schema::ObIndexType::INDEX_TYPE_DOC_ID_ROWKEY_LOCAL:
       case share::schema::ObIndexType::INDEX_TYPE_FTS_INDEX_LOCAL:
       case share::schema::ObIndexType::INDEX_TYPE_FTS_DOC_WORD_LOCAL:
-        decided_parallelism = MAX(original_parallelism / 3, 1L);
+        // The fulltext build scales close to linearly with the worker count, and the previous
+        // divisor of three left most of the machine idle (measured: about 2.1 of 8 cores).
+        decided_parallelism = MAX(original_parallelism, 1L);
         break;
       case share::schema::ObIndexType::INDEX_TYPE_NORMAL_MULTIVALUE_LOCAL:
       case share::schema::ObIndexType::INDEX_TYPE_UNIQUE_MULTIVALUE_LOCAL:

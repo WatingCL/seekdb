@@ -378,77 +378,54 @@ int ObFTRangeDict::match_with_hit(const ObString &single_word,
   return last_hit.dict_->match_with_hit(single_word, last_hit, hit);
 }
 
+namespace {
+// Byte-wise comparison of two words. For CS_TYPE_UTF8MB4_BIN this is exactly
+// the ordering of ObCharset::strcmp, but without the per-call collation
+// lookup, argument validation and indirect call.
+inline int ft_word_compare(const ObString &lhs, const ObString &rhs)
+{
+  const int64_t lhs_len = lhs.length();
+  const int64_t rhs_len = rhs.length();
+  const int64_t cmp_len = MIN(lhs_len, rhs_len);
+  int cmp = (cmp_len > 0) ? memcmp(lhs.ptr(), rhs.ptr(), static_cast<size_t>(cmp_len)) : 0;
+  if (0 == cmp) {
+    if (lhs_len < rhs_len) {
+      cmp = -1;
+    } else if (lhs_len > rhs_len) {
+      cmp = 1;
+    }
+  }
+  return cmp;
+}
+} // namespace
+
 int ObFTRangeDict::find_first_char_range(const ObString &single_word, ObIFTDict *&dict) const
 {
   int ret = OB_SUCCESS;
-  // Memo probe first: the scan below is a pure function of the character
-  // bytes against the fixed range_dicts_, so a repeated character can
-  // reuse the range index it resolved before.
-  if (single_word.length() >= 1 && single_word.length() <= RANGE_MEMO_MAX_BYTES) {
-    RangeMemoEntry &entry =
-        range_memo_[range_memo_slot(single_word.ptr(), single_word.length())];
-    if (entry.valid && entry.len == single_word.length()
-        && 0 == MEMCMP(entry.bytes, single_word.ptr(), single_word.length())) {
-      if (entry.range_idx >= 0) {
-        dict = range_dicts_[entry.range_idx].dict_;
-      } else {
-        ret = OB_ENTRY_NOT_EXIST;
-      }
-      return ret;
+  bool found = false;
+  // The ranges are built in key order and do not overlap, so the range a word
+  // belongs to can be found with a single binary search on the start word
+  // instead of walking the whole list for every character of every document.
+  int64_t left = 0;
+  int64_t right = range_dicts_.size() - 1;
+  int64_t candidate = -1;
+  while (left <= right) {
+    const int64_t mid = left + (right - left) / 2;
+    if (ft_word_compare(range_dicts_[mid].start_.get_word(), single_word) <= 0) {
+      candidate = mid;
+      left = mid + 1;
+    } else {
+      right = mid - 1;
     }
   }
-  int found_idx = -1;
-  bool found = false;
-  if (ranges_ordered_) {
-    // Find the first inclusive end >= the character. Using the first such
-    // range preserves the linear scan's choice even at shared boundaries.
-    int64_t left = 0;
-    int64_t right = range_dicts_.size();
-    while (left < right) {
-      const int64_t mid = left + (right - left) / 2;
-      if (ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
-                            range_dicts_[mid].end_.get_word(), single_word) < 0) {
-        left = mid + 1;
-      } else {
-        right = mid;
-      }
-    }
-    if (left < range_dicts_.size()
-        && ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
-                              range_dicts_[left].start_.get_word(), single_word) <= 0) {
-      found_idx = left;
-      dict = range_dicts_[left].dict_;
-      found = true;
-    }
-  } else {
-    for (int i = 0; OB_SUCC(ret) && !found && i < range_dicts_.size(); ++i) {
-      if (ObCharset::strcmp(ObCollationType::CS_TYPE_UTF8MB4_BIN,
-                            range_dicts_[i].start_.get_word(),
-                            single_word)
-              <= 0
-          && ObCharset::strcmp(ObCollationType::CS_TYPE_UTF8MB4_BIN,
-                               range_dicts_[i].end_.get_word(),
-                               single_word)
-                 >= 0) {
-        dict = range_dicts_[i].dict_;
-        found_idx = i;
-        found = true;
-      }
-    }
+  if (candidate >= 0
+      && ft_word_compare(range_dicts_[candidate].end_.get_word(), single_word) >= 0) {
+    dict = range_dicts_[candidate].dict_;
+    found = true;
   }
   if (!found) {
     // not found, dis match
     ret = OB_ENTRY_NOT_EXIST;
-  }
-  if (OB_SUCC(ret) || OB_ENTRY_NOT_EXIST == ret) {
-    if (single_word.length() >= 1 && single_word.length() <= RANGE_MEMO_MAX_BYTES) {
-      RangeMemoEntry &entry =
-          range_memo_[range_memo_slot(single_word.ptr(), single_word.length())];
-      entry.valid = 1;
-      entry.len = static_cast<uint8_t>(single_word.length());
-      MEMCPY(entry.bytes, single_word.ptr(), single_word.length());
-      entry.range_idx = static_cast<int32_t>(found_idx);
-    }
   }
   return ret;
 }
@@ -469,14 +446,6 @@ int ObFTRangeDict::build_dict_from_cache(const ObFTCacheRangeContainer &range_co
       range.start_ = dat->start_word_;
       range.end_ = dat->end_word_;
       range.dict_ = dict;
-      if (range_dicts_.size() > 0) {
-        const ObFTRange &previous = range_dicts_[range_dicts_.size() - 1];
-        ranges_ordered_ = ranges_ordered_
-            && ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
-                                  previous.start_.get_word(), range.start_.get_word()) <= 0
-            && ObCharset::strcmp(CS_TYPE_UTF8MB4_BIN,
-                                  previous.end_.get_word(), range.end_.get_word()) <= 0;
-      }
       if (OB_FAIL(range_dicts_.push_back(range))) {
       }
     }

@@ -51,22 +51,12 @@ private:
   ObObjMeta meta_;
 };
 
-// The tokenize/segment word map is a per-call local object: it is created on
-// the stack inside ObExprTokenize::tokenize_fulltext (and
-// ObDASDomainUtils::generate_fulltext_word_rows), passed by reference down to
-// ObAddWord, and destroyed when the evaluation ends. It is never shared
-// across threads or reused across calls, so the per-bucket
-// LatchReadWriteDefendMode latches are pure overhead on the tokenize hot path
-// (one latch acquire/release pair per bucket in reuse()/clear() plus one pair
-// per map get/set). NoPthreadDefendMode drops only the locking: hashing,
-// bucket count, chain insertion and iteration order are unchanged, so the
-// TOKENIZE JSON output stays byte-identical.
-typedef common::hash::ObHashMap<ObFTWord, int64_t,
-    common::hash::NoPthreadDefendMode> ObFTWordMap;
-// Kept for the query-side tokenize paths (optimizer/das retrieval iters) that
-// create their own locked map instances and call ObFTParseHelper::segment
-// with them; their behavior is unchanged.
-typedef common::hash::ObHashMap<ObFTWord, int64_t> ObFTWordMapLocked;
+// Word -> count maps are always owned by a single thread (each tokenize call and
+// each row of a fulltext index build creates its own), yet the default
+// LatchReadWriteDefendMode takes a read/write latch on every lookup, insert and
+// clear. Use the single-threaded defend mode instead: same hash table, same
+// iteration order, no latch traffic.
+typedef common::hash::ObHashMap<ObFTWord, int64_t, common::hash::NoPthreadDefendMode> ObFTWordMap;
 
 class ObAddWordFlag final
 {

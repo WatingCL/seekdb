@@ -76,33 +76,12 @@ int ObStopWordChecker::check_stopword(const ObFTWord &word, bool &is_stopword)
   int ret = OB_SUCCESS;
   
   
+  common::ObArenaAllocator allocator(lib::ObMemAttr("ChkStopWord"));
   if (OB_UNLIKELY(!inited_)) {
     ret = OB_NOT_INIT;
   } else if (OB_UNLIKELY(word.empty())) {
     ret = OB_INVALID_ARGUMENT;
-  } else if (CHARSET_UTF8MB4
-             == common::ObCharset::charset_type_by_coll(word.get_collation_type())) {
-    // Same-charset fast path: with equal charsets charset_convert() aliases the
-    // input bytes (no copy), so hashing the raw bytes under the stopword
-    // collation yields exactly the same hash and comparison result as the
-    // converted word. This keeps the per-token check allocation free while
-    // preserving the case-insensitive semantics of the GENERAL_CI lookup.
-    ObFTWord converted(word.get_word().get_string().length(),
-                       word.get_word().get_string().ptr(),
-                       stopword_type_);
-    ret = stopword_set_.exist_refactored(converted);
-    if (OB_HASH_NOT_EXIST == ret) {
-      is_stopword = false;
-      ret = OB_SUCCESS;
-    } else if (OB_HASH_EXIST == ret) {
-      is_stopword = true;
-      ret = OB_SUCCESS;
-    } else if (OB_SUCC(ret)) {
-      ret = OB_ERR_UNEXPECTED;
-    } else {
-    }
   } else {
-    common::ObArenaAllocator allocator(lib::ObMemAttr("ChkStopWord"));
     common::ObString cmp_str;
     // do nothing set out with in if type is the same.
     if (OB_FAIL(common::ObCharset::charset_convert(
@@ -131,86 +110,12 @@ int ObStopWordChecker::check_stopword(const ObFTWord &word, bool &is_stopword)
 
 ////////////////////////////////////////////////////////////////////////////////
 // class ObAddWord
-
-
-namespace
-{
-// Existing-key callback: folds this occurrence's count into the existing map
-// entry. When the stored key already carries this occurrence's bytes -- the
-// common case, a word repeated verbatim -- the count is updated in place and
-// the stored key is left alone (no copy, no re-point). When the bytes differ
-// even though the keys compare equal under the collation (e.g. two different
-// emoji under utf8mb4_general_ci) the pair has to be replaced afterwards so
-// that the key bytes follow the last occurrence, which is what the upstream
-// set_refactored(word, count, 1) overwrite did. The replacement cannot run
-// inside this callback because the callback holds the bucket write lock.
-// The callback receives the stored (key, value) pair, so it can compare
-// the retained bytes without a second map lookup.
-class WordCountUpdater
-{
-public:
-  WordCountUpdater(const ObFTWord &word, const int64_t word_freq)
-    : word_(word),
-      word_freq_(word_freq),
-      need_replace_(false),
-      updated_count_(0)
-  {}
-  int operator()(common::hash::HashMapPair<ObFTWord, int64_t> &pair)
-  {
-    const ObString stored = pair.first.get_word().get_string();
-    const ObString incoming = word_.get_word().get_string();
-    if (stored.compare_equal(incoming)) {
-      pair.second += word_freq_;
-    } else {
-      need_replace_ = true;
-      updated_count_ = pair.second + word_freq_;
-    }
-    return OB_SUCCESS;
-  }
-  bool need_replace() const { return need_replace_; }
-  int64_t get_updated_count() const { return updated_count_; }
-private:
-  // the key that would be stored if this occurrence has to replace the entry
-  const ObFTWord &word_;
-  int64_t word_freq_;
-  bool need_replace_;
-  int64_t updated_count_;
-};
-// Called only on a new map entry: short normalized tokens live on the stack,
-// and analyzer tokens may be overwritten by the next get_next_token().
-class WordKeyMaterializer
-{
-public:
-  WordKeyMaterializer(ObIAllocator &allocator, const ObObjMeta &meta, bool owns_bytes)
-    : allocator_(allocator), meta_(meta), owns_bytes_(owns_bytes) {}
-  int operator()(common::hash::HashMapPair<ObFTWord, int64_t> &pair)
-  {
-    int ret = OB_SUCCESS;
-    if (owns_bytes_) return ret; // long-token fallback already made a stable copy
-    const ObString word = pair.first.get_word().get_string();
-    char *bytes = static_cast<char *>(allocator_.alloc(word.length()));
-    if (OB_ISNULL(bytes)) {
-      ret = OB_ALLOCATE_MEMORY_FAILED;
-    } else {
-      MEMCPY(bytes, word.ptr(), word.length());
-      pair.first = ObFTWord(word.length(), bytes, meta_);
-    }
-    return ret;
-  }
-private:
-  ObIAllocator &allocator_;
-  const ObObjMeta &meta_;
-  bool owns_bytes_;
-};
-}  // anonymous namespace
-
-template <class MapType>
-ObAddWordT<MapType>::ObAddWordT(
+ObAddWord::ObAddWord(
     const ObFTParserProperty &property,
     const ObObjMeta &meta,
     const ObAddWordFlag &flag,
     common::ObIAllocator &allocator,
-    MapType &word_map)
+    ObFTWordMap &word_map)
   : word_meta_(meta),
     allocator_(allocator),
     word_map_(word_map),
@@ -223,8 +128,7 @@ ObAddWordT<MapType>::ObAddWordT(
 {
 }
 
-template <class MapType>
-int ObAddWordT<MapType>::process_word(
+int ObAddWord::process_word(
     const char *word,
     const int64_t word_len,
     const int64_t char_cnt,
@@ -234,53 +138,41 @@ int ObAddWordT<MapType>::process_word(
   bool is_stopword = false;
   ObFTWord src_word(word_len, word, word_meta_);
   ObFTWord dst_word;
-  bool owns_bytes = false;
-  char case_buffer[256]; // valid through stop-word checking and map insertion
   if (OB_ISNULL(word) || OB_UNLIKELY(0 >= word_len || 0 >= char_cnt || 0 >= word_freq)) {
     ret = OB_INVALID_ARGUMENT;
   } else if (is_min_max_word(char_cnt)) {
     ++min_max_word_cnt_;
-  } else if (OB_FAIL(casedown_word(src_word, dst_word, case_buffer, sizeof(case_buffer), owns_bytes))) {
+  } else if (OB_FAIL(casedown_word(src_word, dst_word))) {
   } else if (OB_FAIL(check_stopword(dst_word, is_stopword))) {
   } else if (OB_UNLIKELY(is_stopword)) {
     ++stopword_cnt_;
-  } else if (OB_FAIL(groupby_word(dst_word, word_freq, owns_bytes))) {
+  } else if (OB_FAIL(groupby_word(dst_word, word_freq))) {
   } else {
     non_stopword_cnt_ += word_freq;
   }
   return ret;
 }
 
-template <class MapType>
-bool ObAddWordT<MapType>::is_min_max_word(const int64_t c_len) const
+bool ObAddWord::is_min_max_word(const int64_t c_len) const
 {
   return flag_.min_max_word() && (c_len < min_token_size_ || c_len > max_token_size_);
 }
 
-template <class MapType>
-int ObAddWordT<MapType>::casedown_word(
-    const ObFTWord &src, ObFTWord &dst, char *buffer, int64_t capacity, bool &owns_bytes)
+int ObAddWord::casedown_word(const ObFTWord &src, ObFTWord &dst)
 {
   int ret = OB_SUCCESS;
-  owns_bytes = false;
   if (OB_UNLIKELY(src.empty())) {
     ret = OB_INVALID_ARGUMENT;
   } else if (flag_.casedown()) {
-    const ObString input = src.get_word().get_string();
-    const ObCharsetInfo *cs = ObCharset::get_charset(word_meta_.get_collation_type());
-    if (OB_ISNULL(cs) || OB_ISNULL(cs->cset) || cs->casedn_multiply <= 0) {
-      ret = OB_ERR_UNEXPECTED;
-    } else if (input.length() <= capacity / cs->casedn_multiply) {
-      const size_t length = cs->cset->casedn(cs, const_cast<char *>(input.ptr()),
-                                           input.length(), buffer, capacity);
-      dst = ObFTWord(length, buffer, word_meta_);
+    ObString dst_str;
+    if (OB_FAIL(ObCharset::tolower(
+                    word_meta_.get_collation_type(),
+                    src.get_word().get_string(),
+                    dst_str,
+                    allocator_))) {
     } else {
-      ObString dst_str;
-      if (OB_FAIL(ObCharset::tolower(word_meta_.get_collation_type(), input, dst_str, allocator_))) {
-      } else {
-        dst = ObFTWord(dst_str.length(), dst_str.ptr(), word_meta_);
-        owns_bytes = true;
-      }
+      ObFTWord tmp(dst_str.length(), dst_str.ptr(), word_meta_);
+      dst = tmp;
     }
   } else {
     dst = src;
@@ -288,8 +180,7 @@ int ObAddWordT<MapType>::casedown_word(
   return ret;
 }
 
-template <class MapType>
-int ObAddWordT<MapType>::check_stopword(const ObFTWord &ft_word, bool &is_stopword)
+int ObAddWord::check_stopword(const ObFTWord &ft_word, bool &is_stopword)
 {
   int ret = OB_SUCCESS;
   if (OB_UNLIKELY(ft_word.empty())) {
@@ -304,61 +195,27 @@ int ObAddWordT<MapType>::check_stopword(const ObFTWord &ft_word, bool &is_stopwo
   return ret;
 }
 
-template <class MapType>
-int ObAddWordT<MapType>::groupby_word(
-    const ObFTWord &word, const int64_t word_freq, bool owns_bytes)
+int ObAddWord::groupby_word(const ObFTWord &word, const int64_t word_freq)
 {
   int ret = OB_SUCCESS;
+  int64_t word_count = 0;
   if (OB_UNLIKELY(word.empty() || word_freq <= 0)) {
     ret = OB_INVALID_ARGUMENT;
   } else if (!flag_.groupby_word()) {
-    ObFTWord stable_word;
-    if (owns_bytes) {
-      stable_word = word;
-    } else if (OB_FAIL(dup_word(word, stable_word))) {
+    if (OB_FAIL(word_map_.set_refactored(word, 1/*word count*/))) {
     }
-    if (OB_SUCC(ret) && OB_FAIL(word_map_.set_refactored(stable_word, 1/*word count*/))) {
-    }
+  } else if (OB_FAIL(word_map_.get_refactored(word, word_count)) && OB_HASH_NOT_EXIST != ret) {
   } else {
-    // Hash once; only a new or byte-distinct collation-equal key needs owned
-    // bytes. Verbatim repeats update the count without any allocation.
-    WordCountUpdater updater(word, word_freq);
-    WordKeyMaterializer materializer(allocator_, word_meta_, owns_bytes);
-    if (OB_FAIL(word_map_.set_or_update_with_prepare(word, 1, updater, materializer))) {
-    } else if (updater.need_replace()) {
-      ObFTWord stable_word;
-      if (owns_bytes) {
-        stable_word = word;
-      } else if (OB_FAIL(dup_word(word, stable_word))) {
-      }
-      if (OB_SUCC(ret) && OB_FAIL(word_map_.set_refactored(stable_word,
-                                                          updater.get_updated_count(), 1))) {
-      }
+    if (OB_HASH_NOT_EXIST == ret) {
+      word_count = 1;
+    } else {
+      word_count += word_freq;
     }
-  }
-
-  return ret;
-}
-
-template <class MapType>
-int ObAddWordT<MapType>::dup_word(const ObFTWord &src, ObFTWord &dst)
-{
-  int ret = OB_SUCCESS;
-  const ObString src_str = src.get_word().get_string();
-  char *buf = nullptr;
-  if (OB_UNLIKELY(0 >= src_str.length())) {
-    ret = OB_INVALID_ARGUMENT;
-  } else if (OB_ISNULL(buf = static_cast<char *>(allocator_.alloc(src_str.length())))) {
-    ret = OB_ALLOCATE_MEMORY_FAILED;
-  } else {
-    MEMCPY(buf, src_str.ptr(), src_str.length());
-    dst = ObFTWord(src_str.length(), buf, word_meta_);
+    if (OB_FAIL(word_map_.set_refactored(word, word_count, 1/*overwrite*/))) {
+    }
   }
   return ret;
 }
-
-template class ObAddWordT<ObFTWordMap>;
-template class ObAddWordT<ObFTWordMapLocked>;
 
 } // end namespace storage
 } // end namespace oceanbase

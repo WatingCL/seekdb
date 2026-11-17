@@ -35,7 +35,6 @@ void ObITextAnalyzer::reset()
   allocator_ = nullptr;
   ctx_ = nullptr;
   analyze_pipeline_.reset();
-  normalizers_.reset();
   is_inited_ = false;
 }
 
@@ -55,27 +54,6 @@ int ObITextAnalyzer::init(const ObTextAnalysisCtx &ctx, ObIAllocator &allocator)
 
   if (OB_FAIL(ret)) {
     reset();
-  }
-  return ret;
-}
-
-int ObITextAnalyzer::refresh(const ObTextAnalysisCtx &ctx)
-{
-  int ret = OB_SUCCESS;
-  if (IS_NOT_INIT) {
-    if (OB_ISNULL(allocator_)) {
-      ret = OB_NOT_INIT;
-    } else if (OB_FAIL(init(ctx, *allocator_))) {
-    }
-  } else if (OB_UNLIKELY(!ctx.is_valid())) {
-    ret = OB_INVALID_ARGUMENT;
-  } else {
-    // the pipeline itself is collation-agnostic; only the normalizers cache
-    // the charset info, so refresh them in place for the new document
-    ctx_ = &ctx;
-    for (int64_t i = 0; OB_SUCC(ret) && i < normalizers_.count(); ++i) {
-      normalizers_.at(i)->set_cs(ctx.cs_);
-    }
   }
   return ret;
 }
@@ -137,7 +115,6 @@ int ObITextAnalyzer::add_normalizer(
       ObTokenNormalizer *normalizer = static_cast<ObTokenNormalizer *>(token_stream);
       if (OB_FAIL(normalizer->init(ctx.cs_, *get_tail_token_stream()))) {
       } else if (OB_FAIL(analyze_pipeline_.push_back(normalizer))) {
-      } else if (OB_FAIL(normalizers_.push_back(normalizer))) {
       }
     }
   }

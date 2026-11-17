@@ -34,31 +34,13 @@ class ObFTDictHub;
 class ObIKFTParser final : public ObITokenIterator
 {
 public:
-  // Single-allocator form (per-call usage): object and per-call scratch share
-  // one allocator (historically the eval arena passed via ObFTParserParam).
   ObIKFTParser(ObIAllocator &allocator, ObFTDictHub *hub)
-      : ObIKFTParser(allocator, allocator, hub)
-  {
-  }
-
-  // Two-allocator form (pooled reuse): obj_alloc_ owns everything that lives
-  // for the whole pool-slot lifetime (context object, segmenters, pinned
-  // dicts and their dict-hub containers); allocator_ is the per-call scratch
-  // arena, recycled by release_to_pool() when the parser goes back to sleep
-  // in its slot.
-  ObIKFTParser(ObIAllocator &scratch_alloc, ObIAllocator &obj_alloc, ObFTDictHub *hub)
-      : allocator_(scratch_alloc),
-        obj_alloc_(obj_alloc),
+      : allocator_(allocator),
         is_inited_(false),
-        pooled_(false),
-        built_(false),
         coll_type_(ObCollationType::CS_TYPE_INVALID),
         ctx_(nullptr),
         hub_(hub),
-        segmenters_{nullptr, nullptr, nullptr, nullptr},
-        cache_main_(obj_alloc),
-        cache_quan_(obj_alloc),
-        cache_stop_(obj_alloc),
+        segmenters_(allocator_),
         dict_main_(nullptr),
         dict_quan_(nullptr),
         dict_stop_(nullptr)
@@ -68,26 +50,6 @@ public:
   virtual ~ObIKFTParser() { reset(); }
 
   int init(const ObFTParserParam &param);
-
-  // Re-apply the per-fulltext state on top of the persistent objects built by
-  // init(): collation, fulltext pointer/length, smart mode and every
-  // cross-call mutable state enumerated in release_to_pool(). The dicts
-  // pinned by init() are reused as-is: their content is a pure function of
-  // the compiled-in dict text and the (type, range_id) cache keys, so it
-  // cannot drift between two calls.
-  int reuse_parser(const ObFTParserParam &param);
-
-  // Drop every piece of per-call scratch state so the parser can sleep in its
-  // pool slot without referencing recycled memory or stale text. Walks the
-  // per-call containers while their memory is valid; the caller recycles the
-  // scratch allocator afterwards. No-op for a non-pooled parser (its scratch
-  // is the eval arena and free_token_iter destroys the object as before).
-  void release_to_pool();
-
-  bool is_built() const { return built_; }
-  bool is_inited() const { return is_inited_; }
-  bool is_pooled() const { return pooled_; }
-  void set_pooled() { pooled_ = true; }
 
   int get_next_token(const char *&word,
                      int64_t &word_len,
@@ -109,8 +71,6 @@ private:
 private:
   int init_dict(const ObFTParserParam &param);
 
-  int init_single_dict(ObFTDictDesc desc, ObFTCacheRangeContainer &container);
-
   int init_segmenter(const ObFTParserParam &param);
 
   int init_ctx(const ObFTParserParam &param);
@@ -119,38 +79,18 @@ private:
 
   bool should_read_newest_table() const;
 
-  int build_dict_from_cache(const ObFTDictDesc &desc,
-                            ObFTCacheRangeContainer &container,
-                            ObIFTDict *&dict);
-
 private:
   static constexpr int SEGMENT_LIMIT = 1000;
-  // per-call scratch (dicts were per-call in the legacy layout, ctx internals
-  // always are); for the pooled layout this is the slot scratch arena
   ObIAllocator &allocator_;
-  // long-lived object storage: ctx object, segmenters, pinned dicts; equals
-  // allocator_ in the legacy single-allocator layout
-  ObIAllocator &obj_alloc_;
   bool is_inited_;
-  bool pooled_;
-  // persistent objects (ctx object, segmenters, pinned dicts) are built and
-  // usable; cleared only by reset(), never by release_to_pool()
-  bool built_;
 
   ObCollationType coll_type_;
   TokenizeContext *ctx_;
   ObFTDictHub *hub_;
-  // fixed slot array instead of an ObList: 4 segmenters, insertion order
-  // (letter -> quantifier -> cjk -> surrogate) is the processing order and
-  // is preserved; the per-character loop no longer walks list nodes.
-  static constexpr int64_t SEGMENTER_SLOT_CNT = 4;
-  ObIIKProcessor *segmenters_[SEGMENTER_SLOT_CNT];
+  ObList<ObIIKProcessor *, ObIAllocator> segmenters_;
 
-  // For now there's no change of dict in one query, so we can pin dict this level.
-  ObFTCacheRangeContainer cache_main_;
-  ObFTCacheRangeContainer cache_quan_;
-  ObFTCacheRangeContainer cache_stop_;
-
+  // The IK dictionaries are immutable built-in dictionaries shared through the
+  // dict hub, they are not owned by the parser.
   ObIFTDict *dict_main_;
   ObIFTDict *dict_quan_;
   ObIFTDict *dict_stop_;

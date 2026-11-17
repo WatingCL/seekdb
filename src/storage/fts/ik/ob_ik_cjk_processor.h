@@ -19,7 +19,6 @@
 
 #include "lib/allocator/ob_allocator.h"
 #include "storage/fts/dict/ob_ft_dict.h"
-#include "storage/fts/ik/ob_ft_token_vec.h"
 #include "storage/fts/ik/ob_ik_processor.h"
 
 namespace oceanbase
@@ -34,7 +33,7 @@ public:
       : hits_(alloc), dict_main_(dict_main), cjk_start_(-1), cjk_end_(-1)
   {
   }
-  ~ObIKCJKProcessor() override { hits_.release_blocks(); }
+  ~ObIKCJKProcessor() override { hits_.reset(); }
 
 public:
   int do_process(TokenizeContext &ctx,
@@ -42,17 +41,8 @@ public:
                  const uint8_t char_len,
                  const ObFTCharUtil::CharType type) override;
 
-  void reset_state() override
-  {
-    // release the block table too: the backing scratch arena pages are
-    // recycled right after this by release_to_pool()
-    hits_.release_blocks();
-    cjk_start_ = -1;
-    cjk_end_ = -1;
-  }
-
 private:
-  ObFTSegVec<ObDATrieHit> hits_;
+  ObList<ObDATrieHit, ObIAllocator> hits_;
   const ObIFTDict &dict_main_;
   int64_t cjk_start_;
   int64_t cjk_end_;

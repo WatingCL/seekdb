@@ -46,17 +46,14 @@ struct ObSRMergeCmp
   int init(sql::ObDatumMeta id_meta, const ObFixedArray<const ObDatum *, ObIAllocator> *iter_ids);
   int cmp(const ObSRMergeItem &l, const ObSRMergeItem &r, int64_t &cmp_ret);
 private:
-  inline const ObDatum &get_id_datum(const int64_t iter_idx)
-  {
-    const ObDatum *datum = iter_ids_->at(iter_idx);
-    OB_ASSERT(nullptr != datum);
-    return *datum;
-  }
-private:
   common::ObDatumCmpFuncType cmp_func_;
   // TODO: if memory lifetime of docid datum is guaranteed by dim_iters, we can use pointer to datum directly
   //       and avoid deep copy into merge heap here
-  const ObFixedArray<const ObDatum *, ObIAllocator> *iter_ids_;
+  // Raw backing array of the dimension iterators' domain id datums.  The array itself does not change
+  // after init() and its elements are the dimension iterators' own datum slots, so reading it directly
+  // keeps the comparator from paying a non inlined accessor (twice) on every merge heap comparison.
+  const ObDatum *const *iter_ids_data_;
+  bool is_fixed_binary_doc_id_;
   bool is_inited_;
 };
 
@@ -93,108 +90,51 @@ protected:
   virtual int cache_result(int64_t &count, const ObDatum &id_datum, const double relevance);
   virtual int project_results(const int64_t count);
   int init_merge_heap(const int64_t count);
-  // Non-virtual fast paths around the merge heap. init_merge_heap() fixes the
-  // concrete heap type (simple merger for <= 3 dims, loser tree otherwise) and
-  // nothing derives from these two for ObSRMergeItem, so the qualified calls
-  // below are behavior-identical to the virtual interface calls while skipping
-  // the per-candidate virtual dispatch.
-  inline int merge_heap_push(const ObSRMergeItem &item);
-  inline int merge_heap_pop();
-  inline int merge_heap_top(const ObSRMergeItem *&item);
-  inline bool merge_heap_empty() const;
-  inline bool merge_heap_unique_champion() const;
-  inline int merge_heap_rebuild();
+  // Recognises the common shape where every dimension is served by the text retrieval DaaT token
+  // iterator, so that fill_merge_heap() can call it through the concrete type and inline its two
+  // tiny accessors (the two files share a unity translation unit).
+  int check_all_text_token_iters(const ObIArray<ObISRDaaTDimIter *> &dim_iters);
+  // The merge heap is accessed several times per output row.  When it is the simple merger (the
+  // usual case: at most ObSRSimpleMerger::USE_SIMPLE_MERGER_MAX_TABLE_CNT dimensions) the concrete
+  // pointer lets these devirtualize and inline; otherwise fall back to the interface.
+  OB_INLINE bool merge_heap_empty() const
+  {
+    return OB_NOT_NULL(simple_merge_heap_) ? simple_merge_heap_->empty() : merge_heap_->empty();
+  }
+  OB_INLINE int push_merge_item(const ObSRMergeItem &item)
+  {
+    return OB_NOT_NULL(simple_merge_heap_) ? simple_merge_heap_->push(item) : merge_heap_->push(item);
+  }
 protected:
   ObIAllocator *iter_allocator_;
   ObSparseRetrievalMergeParam *iter_param_;
   ObIArray<ObISRDaaTDimIter *> *dim_iters_;
   ObSRMergeCmp merge_cmp_;
   ObSRMergeHeap *merge_heap_;
+  // Kept in addition to merge_heap_ for the common case of a handful of dimensions: with a
+  // concrete pointer the merger calls (empty / top / pop / push) devirtualize and inline, and
+  // they are executed several times per output row.
+  ObSRSimpleMerger *simple_merge_heap_;
+  // Raw backing arrays of the dimension iterators and of their weights.  They are resolved once
+  // in init() because they are read once per dimension per output row.
+  ObISRDaaTDimIter **dim_iters_arr_;
+  const double *dim_weights_arr_;
+  // Set when every dimension iterator is an ObTextRetrievalDaaTTokenIter, which lets
+  // fill_merge_heap() take the concrete path.
+  bool all_text_token_iters_;
   ObSRDaaTRelevanceCollector *relevance_collector_;
   ObFixedArray<const ObDatum *, ObIAllocator> iter_domain_ids_; // record every dim iter's output domain id, one (ObDatum *) for one dim iter
   ObFixedArray<ObDocIdExt, ObIAllocator> buffered_domain_ids_; // cache for output
   ObFixedArray<double, ObIAllocator> buffered_relevances_;
   ObFixedArray<int64_t, ObIAllocator> next_round_iter_idxes_;
   int64_t next_round_cnt_;
+  // True when the pushed-down filter is exactly BOOL(relevance), i.e. the query
+  // only asks whether a row matched and never looks at the score itself.
+  bool filter_is_bool_of_relevance_;
   void (*set_datum_func_)(ObDatum &, const ObDocIdExt &);
-  // true iff the pushed-down filter is exactly a bool-cast of the relevance
-  // projection column over a double datum, so the per-candidate filter decision
-  // is bit-identical to the inline comparison (relevance != 0.0); see cpp.
-  bool use_fast_filter_;
-  // typed views of merge_heap_ fixed in init_merge_heap(), backing the
-  // qualified heap calls above
-  ObSRSimpleMerger *simple_merger_;
-  ObSRLoserTree *loser_tree_;
-  // snapshot of dim_iters_ pointers taken at init, so the merge loop indexes a
-  // plain array instead of paying the per-access virtual ObIArray::at dispatch
-  ObFixedArray<ObISRDaaTDimIter *, ObIAllocator> dim_iter_ptr_cache_;
-  // true iff rows are projected into the expr datum vectors directly at cache
-  // time (vectorized + value-copyable doc id), replacing the buffered copy plus
-  // the second write in project_results(); see init()/cache_result().
-  bool direct_project_;
 private:
   DISALLOW_COPY_AND_ASSIGN(ObSRDaaTIterImpl);
 };
-
-inline int ObSRDaaTIterImpl::merge_heap_push(const ObSRMergeItem &item)
-{
-  if (nullptr != simple_merger_) {
-    return simple_merger_->ObSRSimpleMerger::push(item);
-  } else if (nullptr != loser_tree_) {
-    return loser_tree_->ObSRLoserTree::push(item);
-  }
-  return common::OB_ERR_UNEXPECTED;
-}
-
-inline int ObSRDaaTIterImpl::merge_heap_pop()
-{
-  if (nullptr != simple_merger_) {
-    return simple_merger_->ObSRSimpleMerger::pop();
-  } else if (nullptr != loser_tree_) {
-    return loser_tree_->ObSRLoserTree::pop();
-  }
-  return common::OB_ERR_UNEXPECTED;
-}
-
-inline int ObSRDaaTIterImpl::merge_heap_top(const ObSRMergeItem *&item)
-{
-  if (nullptr != simple_merger_) {
-    return simple_merger_->ObSRSimpleMerger::top(item);
-  } else if (nullptr != loser_tree_) {
-    return loser_tree_->ObSRLoserTree::top(item);
-  }
-  return common::OB_ERR_UNEXPECTED;
-}
-
-inline bool ObSRDaaTIterImpl::merge_heap_empty() const
-{
-  if (nullptr != simple_merger_) {
-    return simple_merger_->ObSRSimpleMerger::empty();
-  } else if (nullptr != loser_tree_) {
-    return loser_tree_->ObSRLoserTree::empty();
-  }
-  return true;
-}
-
-inline bool ObSRDaaTIterImpl::merge_heap_unique_champion() const
-{
-  if (nullptr != simple_merger_) {
-    return simple_merger_->ObSRSimpleMerger::is_unique_champion();
-  } else if (nullptr != loser_tree_) {
-    return loser_tree_->ObSRLoserTree::is_unique_champion();
-  }
-  return true;
-}
-
-inline int ObSRDaaTIterImpl::merge_heap_rebuild()
-{
-  if (nullptr != simple_merger_) {
-    return simple_merger_->ObSRSimpleMerger::rebuild();
-  } else if (nullptr != loser_tree_) {
-    return loser_tree_->ObSRLoserTree::rebuild();
-  }
-  return common::OB_ERR_UNEXPECTED;
-}
 
 } // namespace storage
 } // namespace oceanbase

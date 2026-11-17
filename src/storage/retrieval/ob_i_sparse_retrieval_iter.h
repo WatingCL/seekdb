@@ -112,11 +112,11 @@ struct ObSparseRetrievalMergeParam
       filter_expr_(nullptr),
       topk_limit_(0),
       field_boost_(1.0),
-      max_batch_size_(1),
-      count_only_(false)
+      max_batch_size_(1)
   {}
   ~ObSparseRetrievalMergeParam() {}
   bool need_project_relevance() const { return relevance_proj_expr_ != nullptr; }
+  bool need_calc_relevance() const { return relevance_expr_ != nullptr; }
   bool need_filter() const { return filter_expr_ != nullptr; }
   bool need_pushdown_topk() const { return topk_limit_ > 0; }
   TO_STRING_KV(KPC_(dim_weights), KPC(limit_param_), KP_(eval_ctx),
@@ -132,7 +132,6 @@ struct ObSparseRetrievalMergeParam
   int64_t topk_limit_;
   double field_boost_;
   int64_t max_batch_size_;
-  bool count_only_; // the caller consumes row counts and reads no projected data
 };
 
 class ObISparseRetrievalMergeIter

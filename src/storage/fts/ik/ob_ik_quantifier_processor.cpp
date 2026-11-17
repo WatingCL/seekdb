@@ -94,10 +94,7 @@ int ObIKQuantifierProcessor::process_CN_count(TokenizeContext &ctx,
     if (ObFTCharUtil::CharType::CHINESE == type) {
       // handle existing
       if (!count_hits_.empty()) {
-        // array storage: after erasing the element at qi the next one slides
-        // into place, so the index must NOT advance past it in that branch
-        for (int64_t qi = 0; OB_SUCC(ret) && qi < count_hits_.size();) {
-          ObDATrieHit &hit = count_hits_.at(qi);
+        for (ObDATrieHit &hit : count_hits_) {
           if (OB_FAIL(ret)) {
             break;
           } else if (OB_FAIL(quan_dict_.match({char_len, ch}, hit))) {
@@ -113,13 +110,11 @@ int ObIKQuantifierProcessor::process_CN_count(TokenizeContext &ctx,
           } else if (hit.is_prefix()) {
             // wait another match
           } else if (hit.is_unmatch()) {
-            count_hits_.erase_at(qi);
-            continue;
+            count_hits_.erase(hit);
           } else {
             ret = OB_UNEXPECT_INTERNAL_ERROR;
             LOG_WARN("Reached an imposible state.");
           }
-          ++qi;
         }
       } else {
         // pass
@@ -145,19 +140,19 @@ int ObIKQuantifierProcessor::process_CN_count(TokenizeContext &ctx,
           if (OB_FAIL(count_hits_.push_back(hit))) {
           }
         } else if (hit.is_unmatch()) {
-          count_hits_.reset();
+          count_hits_.clear();
         } else {
           ret = OB_UNEXPECT_INTERNAL_ERROR;
         }
       }
     } else {
-      count_hits_.reset();
+      count_hits_.clear();
     }
 
     if (OB_FAIL(ret)) {
       // already logged
     } else if (ctx.is_last()) {
-      count_hits_.reset();
+      count_hits_.clear();
     } else {
     }
   } else {

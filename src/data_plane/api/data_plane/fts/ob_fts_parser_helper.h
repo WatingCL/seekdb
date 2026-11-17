@@ -38,7 +38,7 @@ namespace storage
 
 class ObStopWordChecker;
 class ObFTDictHub;
-template <class MapType> class ObAddWordT;
+class ObAddWord;
 
 #define FTS_BUILD_IN_PARSER_LIST                                                                   \
   FT_PARSER_TYPE(FTP_SPACE, space)                                                                 \
@@ -176,15 +176,6 @@ public:
       const int64_t fulltext_len,
       int64_t &doc_length,
       ObFTWordMap &words) const;
-  // Compat overload for the query-side callers (optimizer/das retrieval
-  // iters) that build their own locked map instances. The tokenize hot path
-  // uses the latch-free ObFTWordMap overload above.
-  int segment(
-      const common::ObObjMeta &meta,
-      const char *fulltext,
-      const int64_t fulltext_len,
-      int64_t &doc_length,
-      ObFTWordMapLocked &words) const;
   int check_is_the_same(
       const common::ObString &parser_name,
       const common::ObString &parser_properties,
@@ -213,20 +204,23 @@ public:
 
   void reset();
 
+  /**
+   * Initialize from an already parsed helper.
+   *
+   * Parsing the parser name and its properties (which involves building and
+   * validating a JSON document) only depends on the two strings passed to
+   * init(), so hot paths may cache a parsed helper and reuse its state for
+   * every subsequent call, only rebinding the allocator that is used to hold
+   * the tokens of the current query.
+   *
+   * `allocator` may be NULL when the cached helper is only kept as a template.
+   */
+  int init_with_cached_state(common::ObIAllocator *allocator, const ObFTParseHelper &cached);
+
   TO_STRING_KV(KP_(allocator), K_(parser_name), KP_(parser_desc), K_(is_inited));
 
 private:
-  // Shared implementation of the public segment() overloads; explicitly
-  // instantiated for ObFTWordMap and ObFTWordMapLocked in the .cpp.
-  template <class MapType>
-  int segment_dispatch(
-      const common::ObObjMeta &meta,
-      const char *fulltext,
-      const int64_t fulltext_len,
-      int64_t &doc_length,
-      MapType &words) const;
-  template <class MapType>
-  static int segment_tokens(
+  static int segment(
       const ObFTParserProperty &property,
       const int64_t parser_version,
       const ObIFTParserDesc *parser_desc,
@@ -234,7 +228,7 @@ private:
       const char *fulltext,
       const int64_t fulltext_len,
       common::ObIAllocator &allocator,
-      ObAddWordT<MapType> &add_word);
+      ObAddWord &add_word);
   int set_add_word_flag(const ObIFTParserDesc &ftparser_desc);
 private:
   common::ObIAllocator *allocator_;

@@ -36,23 +36,19 @@ int ObIKArbitrator::process(TokenizeContext &ctx)
 {
   int ret = OB_SUCCESS;
 
-  ObFTSegVec<ObIKToken> &tokens = ctx.token_list().tokens();
+  ObList<ObIKToken, ObIAllocator> &tokens = ctx.token_list().tokens();
   ObIKTokenChain *chain_need_arbitrate = nullptr;
   bool use_smart = ctx.is_smart();
-  if (OB_FAIL(prepare())) {
+  if (OB_FAIL(prepare(ctx))) {
   } else if (OB_ISNULL(chain_need_arbitrate = OB_NEWx(ObIKTokenChain, &alloc_, alloc_))) {
     ret = OB_ALLOCATE_MEMORY_FAILED;
     LOG_WARN("alloc memory failed");
   } else {
-    // consume the sorted token list by index instead of pop_front(): the
-    // array's pop_front shifts every remaining element (O(n) per pop, O(n^2)
-    // per batch of n tokens). The array is read-only inside this loop and is
-    // cleared by reset_resource() before the next batch, so nothing depends
-    // on it being drained here. Iteration order (ascending offset) unchanged.
-    for (int64_t ti = 0; OB_SUCC(ret) && ti < tokens.size(); ++ti) {
-      const ObIKToken &token = tokens.at(ti);
+    while (OB_SUCC(ret) && !tokens.empty()) {
+      ObIKToken token = tokens.get_first();
       bool is_add = false;
-      if (OB_FAIL(chain_need_arbitrate->add_token_if_conflict(token, is_add))) {
+      if (OB_FAIL(tokens.pop_front())) {
+      } else if (OB_FAIL(chain_need_arbitrate->add_token_if_conflict(token, is_add))) {
       } else if (!is_add) {
         ObFTSortList::CellIter iter = chain_need_arbitrate->list().tokens().begin();
         ObIKTokenChain *judge_result = nullptr;
@@ -117,17 +113,20 @@ int ObIKArbitrator::output_result(TokenizeContext &ctx)
 
   int64_t char_len = 0;
   ObIKTokenChain *chain = nullptr;
-  // monotonic lookup cursor into the per-character reuse table recorded by
-  // TokenizeContext::prepare_next_char(); positions that have not been
-  // prepared yet are classified on the fly as before.
-  int64_t char_info_idx = 0;
   for (int64_t current = 0; OB_SUCC(ret) && current < ctx.fulltext_len();) {
     ObFTCharUtil::CharType type;
     // maybe not so good to keep single, check it later
-    if (OB_FAIL(ctx.get_char_info(current, char_info_idx, char_len, type))) {
+    if (OB_FAIL(ObCharset::first_valid_char(ctx.collation(),
+                                            ctx.fulltext() + current,
+                                            ctx.fulltext_len() - current,
+                                            char_len))) {
+    } else if (OB_FAIL(ObFTCharUtil::classify_first_char(ctx.collation(),
+                                                         ctx.fulltext() + current,
+                                                         char_len,
+                                                         type))) {
     } else if (ObFTCharUtil::CharType::USELESS == type) {
       current += char_len; // skip useless char
-    } else if (OB_FAIL(chains_.find(current, chain)) && OB_HASH_NOT_EXIST != ret) {
+    } else if (OB_FAIL(chains_.get_refactored(current, chain)) && OB_HASH_NOT_EXIST != ret) {
     } else if (OB_HASH_NOT_EXIST == ret) {
       ret = OB_SUCCESS;
       if (!keep_single()) {
@@ -158,7 +157,7 @@ int ObIKArbitrator::output_result(TokenizeContext &ctx)
       }
       current += char_len;
     } else {
-      for (ObFTSortList::CellIter iter = chain->list().tokens().begin();
+      for (ObList<ObIKToken, ObIAllocator>::const_iterator iter = chain->list().tokens().begin();
            OB_SUCC(ret) && iter != chain->list().tokens().end();
            iter++) {
         const ObIKToken &token = *iter;
@@ -166,11 +165,11 @@ int ObIKArbitrator::output_result(TokenizeContext &ctx)
           current = token.offset_;
         } else {
           // output single word between two token
-          // note: keep using the outer-loop `type` here (this loop originally
-          // only refreshed char_len via first_valid_char), and fetch char_len
-          // from the reuse table without recomputing the type.
           while (OB_SUCC(ret) && current < token.offset_) {
-            if (OB_FAIL(ctx.get_char_len(current, char_info_idx, char_len))) {
+            if (OB_FAIL(ObCharset::first_valid_char(ctx.collation(),
+                                                    ctx.fulltext() + current,
+                                                    ctx.fulltext_len() - current,
+                                                    char_len))) {
               break;
             } else {
               ObIKToken token;
@@ -224,7 +223,7 @@ int ObIKArbitrator::optimize(TokenizeContext &ctx,
   int ret = OB_SUCCESS;
 
   ObIKTokenChain *option = nullptr;
-  ObFTSegVec<ObFTSortList::CellIter> conflict_stack(alloc_);
+  ObList<ObFTSortList::CellIter, ObIAllocator> conflict_stack(alloc_);
 
   if (OB_ISNULL(option = OB_NEWx(ObIKTokenChain, &alloc_, alloc_))) {
     ret = OB_ALLOCATE_MEMORY_FAILED;
@@ -268,7 +267,7 @@ int ObIKArbitrator::try_add_next_words(ObIKTokenChain *chain,
                                        ObFTSortList::CellIter iter,
                                        ObIKTokenChain *option,
                                        bool need_conflict,
-                                       ObFTSegVec<ObFTSortList::CellIter> &conflict_stack)
+                                       ObList<ObFTSortList::CellIter, ObIAllocator> &conflict_stack)
 {
   int ret = OB_SUCCESS;
   if (OB_ISNULL(chain) || OB_ISNULL(option)) {
@@ -299,20 +298,18 @@ int ObIKArbitrator::remove_conflict(const ObIKToken &token, ObIKTokenChain *opti
   return ret;
 }
 
-int ObIKArbitrator::prepare()
+int ObIKArbitrator::prepare(TokenizeContext &ctx)
 {
   int ret = OB_SUCCESS;
-  if (prepared_) {
-    ret = OB_INIT_TWICE;
-  } else {
-    prepared_ = true;
+
+  int cal_bucket_num = MAX(ctx.fulltext_len() / 100, 10);
+  cal_bucket_num = MIN(cal_bucket_num, 100);
+  if (OB_FAIL(chains_.create(cal_bucket_num, ObMemAttr("IK ARBITRATE")))) {
   }
   return ret;
 }
 
-ObIKArbitrator::ObIKArbitrator()
-  : alloc_(lib::ObMemAttr("IK Arbitrator")), chains_(alloc_), prepared_(false)
-{}
+ObIKArbitrator::ObIKArbitrator() : alloc_(lib::ObMemAttr("IK Arbitrator")) {}
 
 int ObIKArbitrator::add_chain(ObIKTokenChain *chain)
 {
@@ -321,14 +318,14 @@ int ObIKArbitrator::add_chain(ObIKTokenChain *chain)
     ret = OB_INVALID_ARGUMENT;
   } else if (chain->list().is_empty()) {
     // no need to add empty chain
-  } else if (OB_FAIL(chains_.insert(chain->min_offset(), chain))) {
+  } else if (OB_FAIL(chains_.set_refactored(chain->min_offset(), chain))) {
   }
   return ret;
 }
 
 ObIKArbitrator::~ObIKArbitrator()
 {
-  chains_.reset();
+  chains_.destroy();
   alloc_.reset();
 }
 } // namespace storage

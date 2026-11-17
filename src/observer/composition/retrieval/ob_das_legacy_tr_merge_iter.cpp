@@ -105,7 +105,9 @@ int ObDASLegacyTRMergeIter::init_das_iter_scan_params()
 {
   int ret = OB_SUCCESS;
   const int64_t dim_iter_cnt = taat_mode_ ? 1 : query_tokens_.count();
-  if (ir_ctdef_->need_calc_relevance() && !ir_ctdef_->need_estimate_total_doc_cnt() && 0 != dim_iter_cnt) {
+  if (ir_ctdef_->need_calc_relevance()
+      && !ir_ctdef_->need_estimate_total_doc_cnt()
+      && 0 != dim_iter_cnt) {
     void *buf = nullptr;
     if (OB_ISNULL(buf = myself_allocator_.alloc(sizeof(ObTableScanParam)))) {
       ret = OB_ALLOCATE_MEMORY_FAILED;
@@ -382,7 +384,6 @@ int ObDASLegacyTRMergeIter::create_sparse_retrieval_iter()
   sr_iter_param_.relevance_proj_expr_ = ir_ctdef_->relevance_proj_col_;
   sr_iter_param_.filter_expr_ = ir_ctdef_->match_filter_;
   sr_iter_param_.topk_limit_ = topk_limit_;
-  sr_iter_param_.count_only_ = ir_rtdef_->count_only_;
   if (OB_NOT_NULL(ir_ctdef_->field_boost_expr_)) {
     ObDatum *boost_datum = nullptr;
     if (OB_FAIL(ir_ctdef_->field_boost_expr_->eval(*ir_rtdef_->eval_ctx_, boost_datum))) {
@@ -469,14 +470,17 @@ int ObDASLegacyTRMergeIter::create_sparse_retrieval_iter()
 int ObDASLegacyTRMergeIter::init_daat_iter_param(ObTextDaaTParam &iter_param)
 {
   int ret = OB_SUCCESS;
+  const ObDASScanCtDef *doc_agg_ctdef = ir_ctdef_->get_doc_agg_ctdef();
   iter_param.dim_iters_ = &dim_iters_;
   iter_param.base_param_ = &sr_iter_param_;
   iter_param.allocator_ = &myself_allocator_;
   iter_param.mode_flag_ = ir_ctdef_->mode_flag_;
   iter_param.function_lookup_mode_ = function_lookup_mode_;
-  if (ir_ctdef_->need_calc_relevance()) {
+  iter_param.bm25_param_est_ctx_.total_doc_cnt_expr_ = nullptr;
+  if (OB_NOT_NULL(doc_agg_ctdef)
+      && !doc_agg_ctdef->pd_expr_spec_.pd_storage_aggregate_output_.empty()) {
     iter_param.bm25_param_est_ctx_.total_doc_cnt_expr_
-        = ir_ctdef_->get_doc_agg_ctdef()->pd_expr_spec_.pd_storage_aggregate_output_.at(0);
+        = doc_agg_ctdef->pd_expr_spec_.pd_storage_aggregate_output_.at(0);
   }
   iter_param.bm25_param_est_ctx_.estimated_total_doc_cnt_ = ir_ctdef_->estimated_total_doc_cnt_;
   iter_param.bm25_param_est_ctx_.need_est_avg_doc_token_cnt_ = ir_ctdef_->need_avg_doc_len_est();
@@ -522,14 +526,17 @@ int ObDASLegacyTRMergeIter::init_daat_iter_param(ObTextDaaTParam &iter_param)
 int ObDASLegacyTRMergeIter::init_taat_iter_param(ObTextTaaTParam &iter_param)
 {
   int ret = OB_SUCCESS;
+  const ObDASScanCtDef *doc_agg_ctdef = ir_ctdef_->get_doc_agg_ctdef();
   iter_param.query_tokens_ = &query_tokens_;
   iter_param.base_param_ = &sr_iter_param_;
   iter_param.allocator_ = &myself_allocator_;
   iter_param.mode_flag_ = ir_ctdef_->mode_flag_;
   iter_param.function_lookup_mode_ = function_lookup_mode_;
-  if (ir_ctdef_->need_calc_relevance()) {
+  iter_param.bm25_param_est_ctx_.total_doc_cnt_expr_ = nullptr;
+  if (OB_NOT_NULL(doc_agg_ctdef)
+      && !doc_agg_ctdef->pd_expr_spec_.pd_storage_aggregate_output_.empty()) {
     iter_param.bm25_param_est_ctx_.total_doc_cnt_expr_
-        = ir_ctdef_->get_doc_agg_ctdef()->pd_expr_spec_.pd_storage_aggregate_output_.at(0);
+        = doc_agg_ctdef->pd_expr_spec_.pd_storage_aggregate_output_.at(0);
   }
   iter_param.bm25_param_est_ctx_.estimated_total_doc_cnt_ = ir_ctdef_->estimated_total_doc_cnt_;
   iter_param.bm25_param_est_ctx_.need_est_avg_doc_token_cnt_ = ir_ctdef_->need_avg_doc_len_est();
@@ -538,6 +545,8 @@ int ObDASLegacyTRMergeIter::init_taat_iter_param(ObTextTaaTParam &iter_param)
   iter_param.bm25_param_est_ctx_.doc_length_est_param_ = &doc_length_est_param_;
   if (OB_ISNULL(iter_param.dim_iter_ = dim_iter_)) {
     ret = OB_ERR_UNEXPECTED;
+  } else if (!ir_ctdef_->need_calc_relevance()) {
+    // Only boolean matching is needed, no BM25 parameter estimation.
   } else if (OB_ISNULL(iter_param.bm25_param_est_ctx_.total_doc_cnt_expr_)) {
     ret = OB_ERR_UNEXPECTED;
   } else if (OB_FAIL(init_doc_length_est_param())) {
@@ -1116,7 +1125,7 @@ int ObDASLegacyTRMergeIter::build_query_tokens(const ObDASIRScanCtDef *ir_ctdef,
     int64_t doc_length = 0;
     storage::ObFTParseHelper tokenize_helper;
     common::ObSEArray<ObFTWord, 16> tokens;
-    hash::ObHashMap<ObFTWord, int64_t> token_map;
+    storage::ObFTWordMap token_map;
     const int64_t ft_word_bkt_cnt = MAX(search_text_string.length() / 10, 2);
     if (OB_FAIL(tokenize_helper.init(&alloc, parser_name, parser_properties))) {
     } else if (OB_FAIL(token_map.create(ft_word_bkt_cnt, common::ObMemAttr("FTWordMap")))) {
@@ -1127,7 +1136,7 @@ int ObDASLegacyTRMergeIter::build_query_tokens(const ObDASIRScanCtDef *ir_ctdef,
                            doc_length,
                            token_map))) {
     } else {
-      for (hash::ObHashMap<ObFTWord, int64_t>::const_iterator iter = token_map.begin();
+      for (storage::ObFTWordMap::const_iterator iter = token_map.begin();
           OB_SUCC(ret) && iter != token_map.end();
           ++iter) {
         const ObFTWord &token = iter->first;

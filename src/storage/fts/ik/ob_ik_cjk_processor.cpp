@@ -37,12 +37,52 @@ int ObIKCJKProcessor::do_process(TokenizeContext &ctx,
   int ret = OB_SUCCESS;
 
   if (ObFTCharUtil::CharType::USELESS != type) {
-    // handle previous hits_ first and then check from this char.
-    // array storage: after erasing the element at hi the next one slides into
-    // place, so the index must NOT advance past it in that branch.
-    for (int64_t hi = 0; OB_SUCC(ret) && hi < hits_.size();) {
-      ObDATrieHit &hit = hits_.at(hi);
-      if (OB_FAIL(dict_main_.match_with_hit({char_len, ch}, hit, hit))) {
+    const ObString ft_char(char_len, ch);
+    // Every pending hit is advanced over the very same character, so the
+    // character code only needs to be resolved once per dictionary instead of
+    // once per hit. ObFTWordCode is int32_t (see ob_ft_dict_def.h).
+    const ObIFTDict *code_dict = nullptr;
+    int32_t ft_code = 0;
+    bool code_valid = false;
+    // handle previous hits_ first and then check from this char
+    for (ObList<ObDATrieHit, ObIAllocator>::iterator iter = hits_.begin();
+         OB_SUCC(ret) && iter != hits_.end();
+         iter++) {
+      ObDATrieHit &hit = *iter;
+      bool used_code = false;
+      int code_ret = OB_SUCCESS;
+      if (hit.dict_ == code_dict) {
+        used_code = true;
+        code_ret = (code_valid ? OB_SUCCESS : OB_ENTRY_NOT_EXIST);
+      } else if (OB_ISNULL(hit.dict_)) {
+        used_code = false;
+      } else {
+        code_ret = hit.dict_->get_word_code(ft_char, ft_code);
+        if (OB_SUCCESS == code_ret) {
+          code_dict = hit.dict_;
+          code_valid = true;
+          used_code = true;
+        } else if (OB_ENTRY_NOT_EXIST == code_ret) {
+          code_dict = hit.dict_;
+          code_valid = false;
+          used_code = true;
+        } else {
+          // dict cannot resolve codes (or a transient error): fall back
+          code_dict = nullptr;
+          used_code = false;
+        }
+      }
+      if (used_code) {
+        if (OB_SUCCESS == code_ret) {
+          ret = hit.dict_->match_with_hit(ft_char, ft_code, hit, hit);
+        } else {
+          // the character is not in this dictionary at all: the hit is dead
+          hit.set_unmatch();
+        }
+      } else {
+        ret = dict_main_.match_with_hit(ft_char, hit, hit);
+      }
+      if (OB_FAIL(ret)) {
       } else if (hit.is_match()) {
         if (OB_FAIL(ctx.add_token(ctx.fulltext(),
                                   hit.start_pos_,
@@ -55,12 +95,10 @@ int ObIKCJKProcessor::do_process(TokenizeContext &ctx,
       } else if (hit.is_prefix()) {
         // nothing
       } else if (hit.is_unmatch()) {
-        hits_.erase_at(hi);
-        continue;
+        hits_.erase(hit);
       } else {
         ret = OB_UNEXPECT_INTERNAL_ERROR;
       }
-      ++hi;
     }
     if (OB_SUCC(ret)) {
       // Start from this char
@@ -83,15 +121,15 @@ int ObIKCJKProcessor::do_process(TokenizeContext &ctx,
     }
   } else {
     // stop previous match
-    hits_.reset();
+    hits_.clear();
   }
 
   if (OB_SUCC(ret)) {
     if (ctx.is_last()) {
-      hits_.reset();
+      hits_.clear();
     }
   } else {
-    hits_.reset();
+    hits_.clear();
   }
 
   return ret;
