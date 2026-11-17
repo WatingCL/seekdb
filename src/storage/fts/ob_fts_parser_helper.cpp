@@ -484,13 +484,13 @@ int ObFTParseHelper::check_is_the_same(
   int ret = OB_SUCCESS;
   is_same = false;
   if (is_inited_) {
-    storage::ObFTParser parser_name;
-    ObFTParserProperty parser_property;
-    if (OB_UNLIKELY(parser_name_str.empty())) {
-      ret = OB_INVALID_ARGUMENT;
-    } else if (OB_FAIL(parser_name.parse_from_str(parser_name_str.ptr(), parser_name_str.length()))) {
-    } else if (OB_FAIL(parser_property.parse_for_parser_helper(parser_name, parser_properties))) {
-    } else if (parser_name == parser_name_ && parser_property.is_equal(parser_property_)) {
+    // Use the same setup cache as init(): DML rewind checks this for every
+    // document/index switch, even when the parser configuration is unchanged.
+    // A fresh helper preserves comparison against default property state.
+    ObFTParseHelper candidate;
+    if (OB_FAIL(candidate.init(allocator_, parser_name_str, parser_properties))) {
+    } else if (candidate.parser_name_ == parser_name_
+               && candidate.parser_property_.is_equal(parser_property_)) {
       is_same = true;
     }
   }

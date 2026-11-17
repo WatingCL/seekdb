@@ -125,8 +125,63 @@ seconds with this change (96.2% less setup time). This isolates initialization;
 it does not measure full segmentation, SQL execution or index construction.
 It establishes neither a 50% overall improvement nor a competition score.
 
-The official nine-metric benchmark has not been run for this change. The local
-checkout lacks the task's `.github/workflows/vldb.yml`, and no MySQL command-line
-client or running test instance was available during validation. Benchmark data,
-SQL, timing, scoring and baseline files are unchanged. Official full-score
-validation remains outstanding.
+The initial local validation did not run the nine-metric benchmark. A subsequent
+validation located the bundled `deps/3rd/u01/obclient/bin/obclient`, completed a
+full server build, and ran the unmodified benchmark on a disposable instance;
+see the follow-up below. Benchmark data, SQL, timing, scoring and baseline files
+are unchanged. Official evaluator validation remains outstanding.
+
+### DML parser comparison follow-up
+
+`ObFTDMLIterator::rewind()` and mode switching also compare parser configuration
+through `check_is_the_same()`. Previously this comparison independently reparsed
+JSON, bypassing the initialization cache. It now initializes a fresh candidate
+through the shared setup path and compares the same parsed parser version and
+property fields. It retains the current helper's property state, including
+reset/reinitialization behavior. Tests compare every pair of builtin-parser
+configurations against the original direct parse algorithm, including changed
+versions, semantically equivalent JSON and invalid options.
+
+### Full local validation (2026-11-17 follow-up)
+
+`cmake --build build_release --target seekdb -j 6` completed successfully.
+The configuration regression suite passed with all five builtin parsers,
+changed versions, equivalent JSON, invalid inputs and concurrent workers.
+
+A disposable instance used CPU count 4, memory budget 2 GiB and log disk size
+2 GiB. The unmodified benchmark ran with ROWS=20000, BATCH=500, ROUNDS=3000,
+QUERY_ROUNDS=200, SAMPLES=3, WARMUP=30 and SKIP_LOAD=0, using the bundled
+obclient and GNU Bash/date. No build or regression compilation ran concurrently
+with this benchmark.
+
+| Scored metric | Local result |
+| --- | ---: |
+| build_ik_all_sec | 4.072 |
+| build_ik_content_sec | 3.063 |
+| build_beng_en_sec | 1.751 |
+| tokenize_ik_avg_ms | 0.0662 |
+| tokenize_beng_avg_ms | 0.0441 |
+| query_cn_avg_ms | 0.6308 |
+| query_beng_avg_ms | 0.9081 |
+| query_mixed_avg_ms | 0.7133 |
+| query_limit_avg_ms | 0.1582 |
+
+Against the repository's fixed July CI baseline, the unchanged scoring script
+reports 100/100, mean improvement 91.97% (build 88.60%, tokenize 90.45%, query
+96.86%). This is a cross-environment comparison, not a same-machine speedup
+against `c3c9eb37b`, and cannot establish an official 45-to-50 point increase.
+The evaluator's 45-point report and failure log were not available for this run.
+
+`run_fts_sql_comparison.py --execution-regressions --assert-fast-plans`
+completed on the same disposable instance: 169 result sets executed, benchmark
+hit assertions passed at 8001 / 11000 / 7332 / 20, and the fast-plan assertions
+passed. This run captured the TOKENIZE/score/LIMIT/boolean-mode results; it did
+not compare the complete captured corpus with a running `c3c9eb37b` server.
+The C++ configuration tests independently compare parsed configuration semantics
+with the original direct-parse algorithm.
+
+Full report, score, SQL capture, server log, binary hash and source patch are in
+`/tmp/fts-validation-20261117/`. The build's embedded revision/version text is
+stale from the existing CMake configuration; the separately recorded binary hash
+and source patch identify the tested build. The binary SHA-256 is
+`bddc8f6ad8dd7e57aaa22536a74477b82ea20f11ad5619ceeb43e5d3deac87df`.

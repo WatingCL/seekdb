@@ -264,7 +264,10 @@ void check_parser_setup_cache()
     {"beng.1", ""}, {"space.1", ""}, {"ngram.1", ""}, {"ngram2.1", ""},
     {"ik.1", "{\"ik_mode\":\"smart\"}"}, {"ik.1", "{\"ik_mode\":\"max_word\"}"},
     {"beng.1", "{\"min_token_size\":3,\"max_token_size\":10}"},
-    {"ngram.1", "{\"ngram_token_size\":3}"}
+    {"ngram.1", "{\"ngram_token_size\":3}"},
+    {"ngram.1", "{ \"ngram_token_size\" : 3 }"},
+    {"ik.1", "{\"ik_mode\":\"SMART\"}"},
+    {"beng.2", ""}
   };
   auto run = [&]() {
     for (const auto &config : configs) {
@@ -283,6 +286,28 @@ void check_parser_setup_cache()
             ObString(config.first.size(), config.first.data()),
             ObString(config.second.size(), config.second.data()), same));
         CHECK(same);
+        // Independently parse both configurations using the original comparison
+        // algorithm; include different parsers and semantically changed options.
+        ObFTParser expected_parser;
+        ObFTParserProperty expected_property;
+        CHECK(OB_SUCCESS == expected_parser.parse_from_str(config.first.data(), config.first.size()));
+        CHECK(OB_SUCCESS == expected_property.parse_for_parser_helper(expected_parser,
+            ObString(config.second.size(), config.second.data())));
+        for (const auto &other : configs) {
+          ObFTParser other_parser;
+          ObFTParserProperty other_property;
+          CHECK(OB_SUCCESS == other_parser.parse_from_str(other.first.data(), other.first.size()));
+          CHECK(OB_SUCCESS == other_property.parse_for_parser_helper(other_parser,
+              ObString(other.second.size(), other.second.data())));
+          same = true;
+          CHECK(OB_SUCCESS == helper.check_is_the_same(
+              ObString(other.first.size(), other.first.data()),
+              ObString(other.second.size(), other.second.data()), same));
+          CHECK(same == (expected_parser == other_parser && expected_property.is_equal(other_property)));
+        }
+        CHECK(OB_SUCCESS != helper.check_is_the_same(ObString::make_string("ik.1"),
+              ObString::make_string("{\"ik_mode\":\"invalid\"}"), same));
+        CHECK(OB_SUCCESS != helper.check_is_the_same(ObString(), ObString(), same));
         CHECK(OB_INIT_TWICE == helper.init(&allocator, ObString::make_string("beng.1"), ObString()));
         ObFTWordMap words;
         CHECK(OB_SUCCESS == words.create(2, "FTSTest"));
@@ -331,6 +356,18 @@ void benchmark_parser_setup()
   }
   std::printf("parser_setup_100000_calls_sec: %.6f\n",
       std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+  ObFTParseHelper helper;
+  CHECK(OB_SUCCESS == helper.init(&arena, ObString::make_string("ik.1"),
+                                 ObString::make_string("{\"ik_mode\":\"smart\"}")));
+  const auto compare_start = std::chrono::steady_clock::now();
+  for (int i = 0; i < 100000; ++i) {
+    bool same = false;
+    CHECK(OB_SUCCESS == helper.check_is_the_same(ObString::make_string("ik.1"),
+          ObString::make_string("{\"ik_mode\":\"smart\"}"), same));
+    CHECK(same);
+  }
+  std::printf("parser_compare_100000_calls_sec: %.6f\n",
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - compare_start).count());
 }
 
 void benchmark_normalization()
