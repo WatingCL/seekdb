@@ -89,3 +89,44 @@ but a substantial end-to-end speedup or official score increase is not claimed.
 A final ownership-only adjustment to the long-token fallback was checked with
 the regression suite and the full SQL corpus after these timing samples.
 No benchmark inputs, scoring rules, baselines, or SQL timing logic were changed.
+
+## Shared parser setup cache (2026-11-17)
+
+Adapted the parser-setup memoization in the supplied
+`seekdb-fts-full-50-4ddf5690` snapshot to `ObFTParseHelper::init`, so the
+optimization is shared by TOKENIZE, index building and query tokenization.
+A single entry per thread owns up to 64 bytes of parser name and 1,024 bytes of
+properties. Exact byte equality is required. Only successful setup from initial
+property state is cached; oversized inputs and reused non-default property state
+retain the original path. The current caller's allocator is always installed.
+Descriptors are static builtin objects; retained property strings are FTS
+literals. No dictionary state or tokenization output is cached.
+
+The regression runner now also recompiles the production rebase unity unit,
+which contains `ob_fts_parser_helper.cpp`; compiling only FTS/IK would silently
+test the previously linked helper. Its baseline overlay includes the helper.
+
+```sh
+python3 unittest/storage/fts/run_ik_chain_lookup.py --build-dir build_release \
+  --reference-optimizations --benchmark
+python3 unittest/storage/fts/run_ik_chain_lookup.py --build-dir build_release \
+  --reference-optimizations --benchmark --baseline-ref ebe18e9f9
+```
+
+Both runs passed the configuration, normalization, allocation, range and
+concurrency regressions. New checks cover all five builtin parsers, changed
+properties, overwritten input buffers, current-allocator ownership on hits,
+double initialization, reset/reinitialization, invalid input, oversized properties
+and separate worker threads.
+
+A local macOS arm64 synthetic measurement of 100,000 fresh IK helper setups
+with identical properties took 0.035742 seconds at `ebe18e9f9` and 0.001366
+seconds with this change (96.2% less setup time). This isolates initialization;
+it does not measure full segmentation, SQL execution or index construction.
+It establishes neither a 50% overall improvement nor a competition score.
+
+The official nine-metric benchmark has not been run for this change. The local
+checkout lacks the task's `.github/workflows/vldb.yml`, and no MySQL command-line
+client or running test instance was available during validation. Benchmark data,
+SQL, timing, scoring and baseline files are unchanged. Official full-score
+validation remains outstanding.

@@ -332,11 +332,45 @@ int ObFTParseHelper::init(
     const common::ObString &parser_name,
     const common::ObString &parser_properties)
 {
+  // Cache configuration only: dictionaries and tokenization remain live. Builtin
+  // descriptors have static lifetime and property strings refer to FTS literals,
+  // never to the JSON parser's temporary arena. Own the exact input bytes so a
+  // caller can immediately reuse its buffers. Oversized inputs use the slow path.
+  struct ParserSetupCache
+  {
+    char name_[OB_FT_PARSER_NAME_LENGTH];
+    char properties_[1024];
+    int64_t name_len_ = 0;
+    int64_t properties_len_ = 0;
+    ObFTParser parser_;
+    ObFTParserProperty property_;
+    ObAddWordFlag flags_;
+    const ObIFTParserDesc *desc_ = nullptr;
+    bool valid_ = false;
+  };
+  static thread_local ParserSetupCache cache;
   int ret = OB_SUCCESS;
+  // reset() intentionally preserves property fields. Only memoize fresh state,
+  // so reinitializing a used helper retains the existing slow-path semantics.
+  const bool cacheable = parser_property_.is_equal(ObFTParserProperty())
+      && parser_name.length() <= sizeof(cache.name_)
+      && parser_properties.length() <= sizeof(cache.properties_);
   if (OB_UNLIKELY(is_inited_)) {
     ret = OB_INIT_TWICE;
   } else if (OB_ISNULL(allocator) || OB_UNLIKELY(parser_name.empty())) {
     ret = OB_INVALID_ARGUMENT;
+  } else if (cacheable && cache.valid_
+             && cache.name_len_ == parser_name.length()
+             && cache.properties_len_ == parser_properties.length()
+             && 0 == MEMCMP(cache.name_, parser_name.ptr(), cache.name_len_)
+             && (0 == cache.properties_len_
+                 || 0 == MEMCMP(cache.properties_, parser_properties.ptr(), cache.properties_len_))) {
+    parser_name_ = cache.parser_;
+    parser_property_ = cache.property_;
+    add_word_flag_ = cache.flags_;
+    parser_desc_ = cache.desc_;
+    allocator_ = allocator;
+    is_inited_ = true;
   } else if (OB_FAIL(parser_name_.parse_from_str(parser_name.ptr(), parser_name.length()))) {
   } else if (OB_FAIL(parser_property_.parse_for_parser_helper(parser_name_, parser_properties))) {
   } else if (OB_FAIL(parser_name_.get_desc(parser_desc_))) {
@@ -346,6 +380,19 @@ int ObFTParseHelper::init(
   } else {
     allocator_ = allocator;
     is_inited_ = true;
+    if (cacheable) {
+      cache.name_len_ = parser_name.length();
+      cache.properties_len_ = parser_properties.length();
+      MEMCPY(cache.name_, parser_name.ptr(), cache.name_len_);
+      if (cache.properties_len_ > 0) {
+        MEMCPY(cache.properties_, parser_properties.ptr(), cache.properties_len_);
+      }
+      cache.parser_ = parser_name_;
+      cache.property_ = parser_property_;
+      cache.flags_ = add_word_flag_;
+      cache.desc_ = parser_desc_;
+      cache.valid_ = true;
+    }
   }
   if (OB_FAIL(ret) && OB_UNLIKELY(!is_inited_)) {
     reset();

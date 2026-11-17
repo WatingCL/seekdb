@@ -14,6 +14,7 @@
 #include "storage/fts/ob_ik_ft_parser.h"
 #include "storage/fts/ob_beng_ft_parser.h"
 #include "storage/fts/ob_fts_parser_property.h"
+#include "storage/fts/ob_fts_parser_helper.h"
 #include "storage/fts/dict/ob_ft_cache_container.h"
 #include "storage/fts/dict/ob_ft_dict.h"
 #include "storage/fts/dict/ob_ft_dict_def.h"
@@ -257,6 +258,81 @@ void check_bounded_parser_scratch()
 #endif
 }
 
+void check_parser_setup_cache()
+{
+  const std::vector<std::pair<std::string, std::string>> configs = {
+    {"beng.1", ""}, {"space.1", ""}, {"ngram.1", ""}, {"ngram2.1", ""},
+    {"ik.1", "{\"ik_mode\":\"smart\"}"}, {"ik.1", "{\"ik_mode\":\"max_word\"}"},
+    {"beng.1", "{\"min_token_size\":3,\"max_token_size\":10}"},
+    {"ngram.1", "{\"ngram_token_size\":3}"}
+  };
+  auto run = [&]() {
+    for (const auto &config : configs) {
+      for (int repeat = 0; repeat < 3; ++repeat) {
+        ObArenaAllocator arena;
+        CountingAllocator allocator(arena);
+        ObFTParseHelper helper;
+        // The cache must own the key, even after the original caller dies.
+        std::string name = config.first, props = config.second;
+        CHECK(OB_SUCCESS == helper.init(&allocator, ObString(name.size(), name.data()),
+                                       ObString(props.size(), props.data())));
+        name.assign(name.size(), '!');
+        props.assign(props.size(), '!');
+        bool same = false;
+        CHECK(OB_SUCCESS == helper.check_is_the_same(
+            ObString(config.first.size(), config.first.data()),
+            ObString(config.second.size(), config.second.data()), same));
+        CHECK(same);
+        CHECK(OB_INIT_TWICE == helper.init(&allocator, ObString::make_string("beng.1"), ObString()));
+        ObFTWordMap words;
+        CHECK(OB_SUCCESS == words.create(2, "FTSTest"));
+        ObIJsonBase *json = nullptr;
+        const auto before = allocator.calls_;
+        CHECK(OB_SUCCESS == helper.make_detail_json(words, 0, json));
+        CHECK(json != nullptr && allocator.calls_ > before); // current allocator, including on hits
+        helper.reset();
+        CHECK(OB_SUCCESS == helper.init(&allocator,
+            ObString(config.first.size(), config.first.data()),
+            ObString(config.second.size(), config.second.data())));
+      }
+    }
+    ObArenaAllocator arena;
+    ObFTParseHelper helper;
+    CHECK(OB_INVALID_ARGUMENT == helper.init(nullptr, ObString::make_string("beng.1"), ObString()));
+    CHECK(OB_INVALID_ARGUMENT == helper.init(&arena, ObString(), ObString()));
+    CHECK(OB_SUCCESS != helper.init(&arena, ObString::make_string("ik.1"),
+                                   ObString::make_string("{\"ik_mode\":\"invalid\"}")));
+    CHECK(OB_SUCCESS == helper.init(&arena, ObString::make_string("beng.1"), ObString()));
+    helper.reset();
+    ObFTParseHelper large_helper;
+    const std::string large = std::string(2048, ' ') + "{\"ngram_token_size\":4}";
+    CHECK(OB_SUCCESS == large_helper.init(&arena, ObString::make_string("ngram.1"),
+                                   ObString(large.size(), large.data())));
+    bool same = false;
+    CHECK(OB_SUCCESS == large_helper.check_is_the_same(ObString::make_string("ngram.1"),
+          ObString::make_string("{\"ngram_token_size\":4}"), same));
+    CHECK(same);
+  };
+  run();
+  std::thread first(run), second(run);
+  first.join();
+  second.join();
+  std::puts("Parser setup cache regression checks passed");
+}
+
+void benchmark_parser_setup()
+{
+  ObArenaAllocator arena;
+  const auto start = std::chrono::steady_clock::now();
+  for (int i = 0; i < 100000; ++i) {
+    ObFTParseHelper helper;
+    CHECK(OB_SUCCESS == helper.init(&arena, ObString::make_string("ik.1"),
+                                   ObString::make_string("{\"ik_mode\":\"smart\"}")));
+  }
+  std::printf("parser_setup_100000_calls_sec: %.6f\n",
+      std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count());
+}
+
 void benchmark_normalization()
 {
   for (bool repeated : {false, true}) {
@@ -293,7 +369,11 @@ int main(int argc, char **argv)
       check_normalization<ObFTWordMapLocked>(coll, casedown);
     }
   }
-  if (argc > 1 && std::strcmp(argv[1], "--benchmark") == 0) benchmark_normalization();
+  if (argc > 1 && std::strcmp(argv[1], "--benchmark") == 0) {
+    benchmark_normalization();
+    benchmark_parser_setup();
+  }
+  check_parser_setup_cache();
   check_allocation_and_failure();
   check_bounded_parser_scratch();
   check_prepare_map_operation();

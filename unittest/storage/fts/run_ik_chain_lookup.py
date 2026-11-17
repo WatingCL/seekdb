@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Run FTS regression checks with an existing CMake unity build's runtime.
 
+Recompile FTS, IK and the rebase unit containing the shared parser helper.
+
 Optional --baseline-ref compares arbitration with a Git revision without changing
 sources, the server executable, or build artifacts. --benchmark times 600000
 synthetic 64-chain documents; this is not the competition scoring workload.
@@ -24,7 +26,7 @@ def main():
     build = args.build_dir.resolve()
     commands = json.loads((build / 'compile_commands.json').read_text())
     entries = []
-    for stem in ('fts', 'ik'):
+    for stem in ('fts', 'ik', 'rebase'):
         entries.append(next(item for item in commands
                             if f'unity_ob_storage_ob_storage_{stem}_0_' in item['file']))
     with tempfile.TemporaryDirectory(prefix='fts-regression-') as directory:
@@ -36,7 +38,8 @@ def main():
                          'utils/unicode_utils.cpp', 'utils/unicode_utils.h',
                          'dict/ob_ft_range_dict.cpp', 'dict/ob_ft_range_dict.h',
                          'ob_fts_stop_word.cpp', 'ob_fts_stop_word.h',
-                         'ob_ik_ft_parser.cpp', 'ob_beng_ft_parser.cpp'):
+                         'ob_ik_ft_parser.cpp', 'ob_beng_ft_parser.cpp',
+                         'ob_fts_parser_helper.cpp'):
                 relative = 'src/storage/fts/' + name
                 target = overlay / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
