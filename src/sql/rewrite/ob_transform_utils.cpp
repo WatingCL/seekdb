@@ -8708,6 +8708,9 @@ int ObTransformUtils::check_select_item_need_remove(const ObSelectStmt *stmt,
   } else if (!stmt->is_set_stmt()) {
     if (stmt->is_scala_group_by() && expr->has_flag(CNT_AGG)) {
       need_remove = false;
+    } else if (expr->has_flag(CNT_MATCH_EXPR)) {
+      // a MATCH expression is also registered on the statement and drives the text index scan
+      need_remove = false;
     }
   } else if (OB_ISNULL(expr = ObSelectStmt::get_pure_set_expr(expr))
              || OB_UNLIKELY(!expr->is_set_op_expr())) {

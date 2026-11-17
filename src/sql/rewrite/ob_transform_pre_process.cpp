@@ -179,7 +179,7 @@ int ObTransformPreProcess::transform_one_stmt(common::ObIArray<ObParentDMLStmt> 
     }
     if (OB_SUCC(ret)) {
       if (stmt->get_match_exprs().count() > 0 &&
-          OB_FAIL(preserve_order_for_fulltext_search(stmt, is_happened))) {
+          OB_FAIL(preserve_order_for_fulltext_search(parent_stmts, stmt, is_happened))) {
       } else {
         trans_happened |= is_happened;
       }
@@ -3788,14 +3788,64 @@ int ObTransformPreProcess::do_flatten_conditions(ObDMLStmt *stmt, ObIArray<ObRaw
   return ret;
 }
 
-// full-text index queries on a single base table are processed with order preservation. 
+// A parent that references none of the columns of a view only observes how many rows the view
+// returns, e.g. SELECT COUNT(*) FROM (SELECT ... WHERE MATCH(...) AGAINST(...) LIMIT n) t.
+// Which rows the view keeps and their order cannot change the parent result then.
+int ObTransformPreProcess::check_view_rows_unobserved(const ObIArray<ObParentDMLStmt> &parent_stmts,
+                                                      const ObDMLStmt *stmt,
+                                                      bool &unobserved)
+{
+  int ret = OB_SUCCESS;
+  unobserved = false;
+  const ObDMLStmt *parent = NULL;
+  const TableItem *view = NULL;
+  int64_t ref_cnt = 0;
+  bool has_assign = false;
+  if (OB_ISNULL(stmt)) {
+    ret = OB_ERR_UNEXPECTED;
+  } else if (parent_stmts.empty() || !stmt->is_select_stmt()
+             || OB_ISNULL(parent = parent_stmts.at(parent_stmts.count() - 1).stmt_)
+             || !parent->is_select_stmt()) {
+    // a top-level statement, or a view below a DML statement
+  } else if (OB_FAIL(ObTransformUtils::check_has_assignment(*static_cast<const ObSelectStmt *>(stmt),
+                                                            has_assign))) {
+  } else if (has_assign) {
+    // user variable assignments observe every row in order
+  } else {
+    for (int64_t i = 0; OB_SUCC(ret) && i < parent->get_table_size(); ++i) {
+      const TableItem *table = parent->get_table_item(i);
+      if (OB_ISNULL(table)) {
+        ret = OB_ERR_UNEXPECTED;
+      } else if (table->is_generated_table() && table->ref_query_ == stmt) {
+        view = table;
+        ++ref_cnt;
+      }
+    }
+    if (OB_SUCC(ret) && 1 == ref_cnt) {
+      // subquery expressions (IN, EXISTS, scalar) never appear as table items, only views do
+      unobserved = true;
+      const ObIArray<ColumnItem> &columns = parent->get_column_items();
+      for (int64_t i = 0; unobserved && i < columns.count(); ++i) {
+        if (columns.at(i).table_id_ == view->table_id_) {
+          unobserved = false;
+        }
+      }
+    }
+  }
+  return ret;
+}
+
+// full-text index queries on a single base table are processed with order preservation.
 // (Order is not preserved in multi-table join scenarios.)
-int ObTransformPreProcess::preserve_order_for_fulltext_search(ObDMLStmt *stmt, bool& trans_happened)
+int ObTransformPreProcess::preserve_order_for_fulltext_search(const ObIArray<ObParentDMLStmt> &parent_stmts,
+                                                              ObDMLStmt *stmt,
+                                                              bool& trans_happened)
 {
   int ret = OB_SUCCESS;
   trans_happened = false;
   TableItem *table_item = NULL;
   ObRawExpr *match_expr = nullptr;
+  bool rows_unobserved = false;
   if (OB_ISNULL(stmt)) {
     ret = OB_ERR_UNEXPECTED;
   } else if (stmt->get_table_items().count() != 1 || stmt->get_order_item_size() != 0) {
@@ -3936,7 +3986,11 @@ int ObTransformPreProcess::preserve_order_for_fulltext_search(ObDMLStmt *stmt, b
       }
     }
   }
-  if (OB_SUCC(ret) && nullptr != match_expr && !static_cast<ObMatchFunRawExpr*>(match_expr)->is_es_match()) {
+  if (OB_FAIL(ret) || nullptr == match_expr || static_cast<ObMatchFunRawExpr*>(match_expr)->is_es_match()) {
+  } else if (OB_FAIL(check_view_rows_unobserved(parent_stmts, stmt, rows_unobserved))) {
+  } else if (rows_unobserved) {
+    // only the row count reaches the parent, so a relevance ranking would be discarded
+  } else {
     OrderItem item(match_expr, default_desc_direction());
     if (OB_FAIL(stmt->add_order_item(item))) {
     } else {
