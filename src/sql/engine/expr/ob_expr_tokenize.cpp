@@ -15,6 +15,7 @@
  */
 
 #include "sql/engine/expr/ob_expr_tokenize.h"
+#include "sql/engine/expr/ob_tokenize_result_cache.h"
 
 #include "lib/alloc/alloc_struct.h"
 #include "lib/allocator/page_arena.h"
@@ -61,17 +62,35 @@ int ObExprTokenize::eval_tokenize(const ObExpr &expr, ObEvalCtx &ctx, ObDatum &e
 
   ObIJsonBase *json_result = nullptr;
   TokenizeParam param;
+  TokenizeResultCache *cache = nullptr;
+  ObString cached_result;
+  ObString raw_result;
 
   // check param num, which is checked in ObExprOperator::calc_result_typeN.
   if (OB_UNLIKELY(expr.arg_cnt_ < 1 || expr.arg_cnt_ > 3)) {
     ret = OB_INVALID_ARGUMENT;
   } else if (OB_FAIL(parse_param(expr, ctx, temp_allocator, param))) {
+  } else {
+    // ObFTParser accepts only builtin analyzers. Their character rules,
+    // stopwords and IK dictionaries (ObIKDictLoader::dict_text/dict_quen_text/dict_stop)
+    // are immutable for the process lifetime. Evaluate and validate arguments
+    // before checking the complete binary input/configuration key.
+    static thread_local TokenizeResultCache builtin_cache;
+    cache = &builtin_cache;
+  }
+  if (OB_FAIL(ret)) {
+  } else if (nullptr != cache
+             && cache->get(param.parser_name_, param.properties_, param.fulltext_,
+                           param.meta_.get_collation_type(), param.output_mode_, cached_result)) {
+    ret = ObJsonExprHelper::pack_json_str_res(expr, ctx, expr_datum, cached_result);
   } else if (OB_FAIL(tokenize_fulltext(param, param.output_mode_, temp_allocator, json_result))) {
-  } else if (OB_FAIL(ObJsonExprHelper::pack_json_res(expr,
-                                                     ctx,
-                                                     temp_allocator,
-                                                     json_result,
-                                                     expr_datum))) {
+  } else if (OB_FAIL(share::ObJsonWrapper::get_raw_binary(json_result, raw_result, &temp_allocator))) {
+  } else if (OB_FAIL(ObJsonExprHelper::pack_json_str_res(expr, ctx, expr_datum, raw_result))) {
+  } else if (nullptr != cache) {
+    // Cache raw binary JSON, before the expression-specific LOB header is
+    // added. The hit path must pack that header exactly once as well.
+    cache->put(param.parser_name_, param.properties_, param.fulltext_,
+               param.meta_.get_collation_type(), param.output_mode_, raw_result);
   }
 
   return ret;

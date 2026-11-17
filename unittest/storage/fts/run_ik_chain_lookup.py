@@ -19,6 +19,7 @@ def main():
     parser.add_argument('--baseline-ref')
     parser.add_argument('--benchmark', action='store_true')
     parser.add_argument('--reference-optimizations', action='store_true')
+    parser.add_argument('--tokenize-result-cache', action='store_true')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[3]
     build = args.build_dir.resolve()
@@ -43,7 +44,9 @@ def main():
                 target.write_bytes(subprocess.check_output(
                     ['git', 'show', args.baseline_ref + ':' + relative], cwd=repo))
                 replacements[str(repo / relative)] = str(target)
-        test = 'test_fts_reference_optimizations.cpp' if args.reference_optimizations else 'test_ik_chain_lookup.cpp'
+        test = ('test_tokenize_result_cache.cpp' if args.tokenize_result_cache else
+                'test_fts_reference_optimizations.cpp' if args.reference_optimizations else
+                'test_ik_chain_lookup.cpp')
         sources = [repo / 'unittest/storage/fts' / test]
         for index, entry in enumerate(entries):
             source = temp / f'unity_{index}.cpp'

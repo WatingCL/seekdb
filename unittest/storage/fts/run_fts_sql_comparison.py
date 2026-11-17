@@ -31,7 +31,11 @@ def main():
     parser.add_argument('--compare', type=Path)
     parser.add_argument('--execution-regressions', action='store_true')
     parser.add_argument('--assert-fast-plans', action='store_true')
+    parser.add_argument('--repeat', type=int, default=1, help='repeat each SQL to exercise exact-result cache hits')
+    parser.add_argument('--cache-boundaries', action='store_true')
     args = parser.parse_args()
+    if args.repeat < 1:
+        parser.error('--repeat must be positive')
     connection = pymysql.connect(host=args.host, port=args.port, user=args.user,
                                  database=args.database, charset='utf8mb4', autocommit=True)
     outputs = []
@@ -50,33 +54,64 @@ def main():
     ]
     try:
         with connection.cursor() as cursor:
+            def execute(*parameters):
+                previous = None
+                for index in range(args.repeat):
+                    cursor.execute(*parameters)
+                    if index + 1 < args.repeat:
+                        rows = cursor.fetchall()
+                        if previous is not None:
+                            assert rows == previous, 'repeated SQL results differ'
+                        previous = rows
+                # Leave the final result for the normal capture/comparison.
+
             for ft_parser in ['ik', 'beng', 'space', 'ngram']:
                 for text in texts:
                     for properties in ['[]', '[{"output":"all"}]']:
-                        cursor.execute('SELECT tokenize(%s,%s,%s) AS result', (text, ft_parser, properties))
+                        execute('SELECT tokenize(%s,%s,%s) AS result', (text, ft_parser, properties))
                         outputs.append(cursor.fetchall())
             query_results = []
             for query in queries:
-                cursor.execute(query)
+                execute(query)
                 query_results.append(cursor.fetchall())
             assert [rows[0][0] for rows in query_results[:4]] == [8001, 11000, 7332, 20]
             outputs.extend(query_results)
             if args.execution_regressions:
                 for query in execution_queries():
-                    cursor.execute(query)
+                    execute(query)
                     outputs.append(cursor.fetchall())
             if args.assert_fast_plans:
-                cursor.execute("EXPLAIN SELECT COUNT(*) FROM docs WHERE MATCH(title,content) AGAINST('全文索引 分词器')")
+                execute("EXPLAIN SELECT COUNT(*) FROM docs WHERE MATCH(title,content) AGAINST('全文索引 分词器')")
                 plan = '\n'.join(row[0] for row in cursor.fetchall())
                 assert 'calc_relevance=false' in plan, plan
-                cursor.execute("EXPLAIN SELECT COUNT(*) FROM (SELECT id FROM docs WHERE MATCH(content) AGAINST('倒排索引 tokenizer') LIMIT 20) v")
+                execute("EXPLAIN SELECT COUNT(*) FROM (SELECT id FROM docs WHERE MATCH(content) AGAINST('倒排索引 tokenizer') LIMIT 20) v")
                 plan = '\n'.join(row[0] for row in cursor.fetchall())
                 assert 'calc_relevance=false' in plan and 'sort_keys(' not in plan and 'is_index_back=false' in plan, plan
             regression = Path(__file__).resolve().parents[3] / 'tools/deploy/mysql_test/test_suite/fts_index/t/fts_lastwins_regression.test'
             for line in regression.read_text().splitlines():
                 if line.lower().startswith('select '):
-                    cursor.execute(line)
+                    execute(line)
                     outputs.append(cursor.fetchall())
+            if args.cache_boundaries:
+                for ft_parser in ['ik', 'beng', 'space', 'ngram', 'ngram2']:
+                    for collation in ['utf8mb4_bin', 'utf8mb4_general_ci']:
+                        for text in [None, '', 'Café CAFÉ 😀 😁', 'a' * 4096, 'a' * 4097]:
+                            for properties in ['[]', '[{"output":"all"}]']:
+                                execute(f'SELECT tokenize(CONVERT(%s USING utf8mb4) COLLATE {collation},%s,%s)',
+                                        (text, ft_parser, properties))
+                                outputs.append(cursor.fetchall())
+                # A warm entry must not suppress parameter validation errors.
+                for sql in ["SELECT tokenize('Alpha','beng','[{\"output\":\"invalid\"}]')",
+                            "SELECT tokenize('Alpha','missing_parser')",
+                            "SELECT tokenize('Alpha','beng','{}')"]:
+                    execute("SELECT tokenize('Alpha','beng')")
+                    cursor.fetchall()
+                    try:
+                        execute(sql)
+                    except pymysql.MySQLError as error:
+                        outputs.append({'error': list(error.args)})
+                    else:
+                        raise AssertionError('invalid TOKENIZE arguments succeeded')
     finally:
         connection.close()
     captured = {'outputs': outputs}
